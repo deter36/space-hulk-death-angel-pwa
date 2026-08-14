@@ -8,12 +8,14 @@ import {
   loadEngineSession,
   newEngineSession,
   serializeEngineSession,
+  stateHash,
   submitSessionDecision,
   undo,
   type EngineSession,
   type PendingDecision,
 } from "@/src/engine";
 import type { GenestealerIcon, Side, TeamColor } from "@/src/data/types";
+import { EngineSessionStallError, settleEngineSession } from "@/src/ui-adapter/session-settler";
 
 type Definition = { id: string; name: string };
 type MarineDefinition = Definition & { team: TeamColor; attackRange: number; namedActionAbility: string | null };
@@ -48,6 +50,33 @@ const ICON_GLYPHS: Record<GenestealerIcon, string> = { HEAD: "◉", TAIL: "⌁",
 const ICON_LABELS: Record<GenestealerIcon, string> = { HEAD: "Head", TAIL: "Tail", CLAW: "Claw", TONGUE: "Tongue" };
 const SAVED_GAME_KEY = "death-angel.engine-session.v1";
 const HOLD_DURATION_MS = 420;
+
+function prepareUiSession(session: EngineSession): { session: EngineSession; error: string | null } {
+  try {
+    return { session: settleEngineSession(session), error: null };
+  } catch (caught) {
+    if (caught instanceof EngineSessionStallError) return { session: caught.session, error: caught.message };
+    throw caught;
+  }
+}
+
+function diagnosticText(session: EngineSession): string {
+  const serializedSession = serializeEngineSession(session);
+  return JSON.stringify({
+    reportVersion: "1",
+    capturedAt: new Date().toISOString(),
+    buildVersion: __BUILD_VERSION__,
+    pageUrl: globalThis.location?.href ?? null,
+    userAgent: globalThis.navigator?.userAgent ?? null,
+    stateHash: stateHash(session.state),
+    phase: session.state.phase,
+    status: session.state.status,
+    transitionSeq: session.state.transitionSeq,
+    pendingDecision: session.state.pendingDecision,
+    recentTransitions: session.transitions.slice(-25),
+    session: JSON.parse(serializedSession) as unknown,
+  }, null, 2);
+}
 
 function formatPhase(phase: string): string {
   return phase.replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
@@ -165,13 +194,18 @@ export default function GameClient() {
   const [session, setSession] = useState<EngineSession | null>(null);
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [diagnosticNotice, setDiagnosticNotice] = useState<string | null>(null);
   const [restoreComplete, setRestoreComplete] = useState(false);
 
   useEffect(() => {
     const restoreTimer = globalThis.setTimeout(() => {
       try {
         const saved = globalThis.localStorage?.getItem(SAVED_GAME_KEY);
-        if (saved) setSession(loadEngineSession(saved));
+        if (saved) {
+          const prepared = prepareUiSession(loadEngineSession(saved));
+          setSession(prepared.session);
+          setError(prepared.error);
+        }
       } catch {
         globalThis.localStorage?.removeItem(SAVED_GAME_KEY);
         setError("The previous local game could not be restored, so setup was reset.");
@@ -198,9 +232,11 @@ export default function GameClient() {
     try {
       const gameId = globalThis.crypto?.randomUUID?.() ?? `game-${Date.now()}`;
       const seed = `${gameId}:${selectedTeams.join("-")}`;
-      setSession(newEngineSession({ gameId, seed, teamColors: selectedTeams as [TeamColor, TeamColor, TeamColor] }, "PLAYER"));
+      const prepared = prepareUiSession(newEngineSession({ gameId, seed, teamColors: selectedTeams as [TeamColor, TeamColor, TeamColor] }, "PLAYER"));
+      setSession(prepared.session);
       setInspection(null);
-      setError(null);
+      setError(prepared.error);
+      setDiagnosticNotice(null);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "The mission could not be started.");
     }
@@ -210,9 +246,11 @@ export default function GameClient() {
     const decision = session?.state.pendingDecision;
     if (!session || !decision) return;
     try {
-      setSession(submitSessionDecision(session, decision.id, optionId));
+      const prepared = prepareUiSession(submitSessionDecision(session, decision.id, optionId));
+      setSession(prepared.session);
       setInspection(null);
-      setError(null);
+      setError(prepared.error);
+      setDiagnosticNotice(null);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "That choice could not be resolved.");
     }
@@ -220,8 +258,40 @@ export default function GameClient() {
 
   const undoOne = () => {
     if (!session || !canUndo(session)) return;
-    setSession(undo(session));
+    const prepared = prepareUiSession(undo(session));
+    setSession(prepared.session);
+    setError(prepared.error);
     setInspection(null);
+    setDiagnosticNotice(null);
+  };
+
+  const copyDiagnostics = async () => {
+    if (!session) return;
+    try {
+      if (!globalThis.navigator?.clipboard) throw new Error("Clipboard access is unavailable in this browser.");
+      await globalThis.navigator.clipboard.writeText(diagnosticText(session));
+      setDiagnosticNotice("Diagnostic report copied.");
+    } catch (caught) {
+      setDiagnosticNotice(caught instanceof Error ? caught.message : "The diagnostic report could not be copied.");
+    }
+  };
+
+  const downloadSave = () => {
+    if (!session) return;
+    try {
+      const blob = new Blob([diagnosticText(session)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `death-angel-${session.state.gameId}-diagnostics.json`;
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      globalThis.setTimeout(() => URL.revokeObjectURL(url), 0);
+      setDiagnosticNotice("Diagnostic save downloaded.");
+    } catch (caught) {
+      setDiagnosticNotice(caught instanceof Error ? caught.message : "The diagnostic save could not be downloaded.");
+    }
   };
 
   const startNewMission = () => {
@@ -230,6 +300,7 @@ export default function GameClient() {
     setInspection(null);
     setSelectedTeams([]);
     setError(null);
+    setDiagnosticNotice(null);
   };
 
   if (!restoreComplete) return <main className="restore-shell"><span>Restoring mission state…</span></main>;
@@ -258,21 +329,24 @@ export default function GameClient() {
     );
   }
 
-  return <MissionBoard session={session} inspection={inspection} error={error} onInspect={setInspection} onChooseOption={resolveDecision} onUndo={undoOne} onDismissInspection={() => setInspection(null)} onNewMission={startNewMission} />;
+  return <MissionBoard session={session} inspection={inspection} error={error} diagnosticNotice={diagnosticNotice} onInspect={setInspection} onChooseOption={resolveDecision} onUndo={undoOne} onCopyDiagnostics={copyDiagnostics} onDownloadSave={downloadSave} onDismissInspection={() => setInspection(null)} onNewMission={startNewMission} />;
 }
 
 type MissionBoardProps = {
   session: EngineSession;
   inspection: Inspection | null;
   error: string | null;
+  diagnosticNotice: string | null;
   onInspect: (inspection: Inspection) => void;
   onChooseOption: (optionId: string) => void;
   onUndo: () => void;
+  onCopyDiagnostics: () => void;
+  onDownloadSave: () => void;
   onDismissInspection: () => void;
   onNewMission: () => void;
 };
 
-function MissionBoard({ session, inspection, error, onInspect, onChooseOption, onUndo, onDismissInspection, onNewMission }: MissionBoardProps) {
+function MissionBoard({ session, inspection, error, diagnosticNotice, onInspect, onChooseOption, onUndo, onCopyDiagnostics, onDownloadSave, onDismissInspection, onNewMission }: MissionBoardProps) {
   const { state } = session;
   const decision = state.pendingDecision;
   const targetIds = useMemo(() => pendingTargetIds(decision), [decision]);
@@ -345,10 +419,17 @@ function MissionBoard({ session, inspection, error, onInspect, onChooseOption, o
             <p>{decision.legalOptions.some((option) => isDirectInputOption(decision, option)) ? "Tap a highlighted card or board target. Hold any object briefly to read its rules." : "Choose an option below. The formation remains visible while you decide."}</p>
             {dockOptions.length > 0 && <div className="dock-options">{dockOptions.map((option) => <button key={option.id} type="button" onClick={() => onChooseOption(option.id)}><strong>{option.label}</strong>{option.canonicalEffectPreview && <small>{option.canonicalEffectPreview}</small>}</button>)}</div>}
           </div>
+        ) : state.status === "IN_PROGRESS" ? (
+          <div className="mission-result engine-paused"><strong>Engine paused</strong><span>Download the save or copy diagnostics before ending this mission.</span></div>
         ) : (
-          <div className="mission-result"><strong>{state.status === "VICTORY" ? "Mission accomplished" : state.status === "DEFEAT" ? "Squad eliminated" : "Resolving…"}</strong><button type="button" onClick={onNewMission}>Start new mission</button></div>
+          <div className="mission-result"><strong>{state.status === "VICTORY" ? "Mission accomplished" : "Squad eliminated"}</strong><button type="button" onClick={onNewMission}>Start new mission</button></div>
         )}
         {error && <p className="error-message" role="alert">{error}</p>}
+        <div className="diagnostic-tools">
+          <button type="button" onClick={onCopyDiagnostics}>Copy diagnostics</button>
+          <button type="button" onClick={onDownloadSave}>Download save</button>
+          {diagnosticNotice && <span role="status">{diagnosticNotice}</span>}
+        </div>
       </section>
 
       <section className="history-bar">

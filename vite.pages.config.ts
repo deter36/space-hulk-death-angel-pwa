@@ -6,6 +6,9 @@ export default defineConfig({
   base: "/space-hulk-death-angel-pwa/",
   root: "pages",
   publicDir: "../public",
+  define: {
+    __BUILD_VERSION__: JSON.stringify(process.env.GITHUB_SHA ?? "development"),
+  },
   plugins: [react()],
   resolve: {
     alias: {
