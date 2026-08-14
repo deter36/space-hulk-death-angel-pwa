@@ -1,11 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ButtonHTMLAttributes } from "react";
 import dataJson from "@/src/data/generated/base-game.json";
 import {
   canUndo,
   getUndoStatus,
+  loadEngineSession,
   newEngineSession,
+  serializeEngineSession,
   submitSessionDecision,
   undo,
   type EngineSession,
@@ -44,6 +46,8 @@ const data = dataJson as unknown as GameDatabase;
 const TEAM_COLORS: TeamColor[] = ["GREEN", "YELLOW", "BLUE", "RED", "PURPLE", "GREY"];
 const ICON_GLYPHS: Record<GenestealerIcon, string> = { HEAD: "◉", TAIL: "⌁", CLAW: "ϟ", TONGUE: "⌇" };
 const ICON_LABELS: Record<GenestealerIcon, string> = { HEAD: "Head", TAIL: "Tail", CLAW: "Claw", TONGUE: "Tongue" };
+const SAVED_GAME_KEY = "death-angel.engine-session.v1";
+const HOLD_DURATION_MS = 420;
 
 function formatPhase(phase: string): string {
   return phase.replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
@@ -97,12 +101,91 @@ function pendingTargetIds(decision: PendingDecision | null): Set<string> {
   return targets;
 }
 
+type DecisionOption = PendingDecision["legalOptions"][number];
+
+function uniquePayloadOption(decision: PendingDecision | null, key: string, value: string | number, side?: Side): DecisionOption | null {
+  if (!decision) return null;
+  const matches = decision.legalOptions.filter((option) => option.payload[key] === value && (side === undefined || option.payload.side === side));
+  return matches.length === 1 ? matches[0] : null;
+}
+
+function isDirectInputOption(decision: PendingDecision, option: DecisionOption): boolean {
+  for (const key of ["actionId", "terrainId", "cardId", "swarmId", "marineId"] as const) {
+    const value = option.payload[key];
+    if ((typeof value === "string" || typeof value === "number") && uniquePayloadOption(decision, key, value)?.id === option.id) return true;
+  }
+  for (const key of ["positionIndex", "to"] as const) {
+    const value = option.payload[key];
+    const side = option.payload.side === "LEFT" || option.payload.side === "RIGHT" ? option.payload.side : undefined;
+    if (typeof value === "number" && uniquePayloadOption(decision, key, value, side)?.id === option.id) return true;
+  }
+  return false;
+}
+
+type TacticalButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "onClick"> & {
+  onTap?: () => void;
+  onHold?: () => void;
+  stopPropagation?: boolean;
+};
+
+function TacticalButton({ onTap, onHold, stopPropagation, onPointerDown, onPointerUp, onPointerCancel, onPointerLeave, onContextMenu, ...props }: TacticalButtonProps) {
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const held = useRef(false);
+  const cancelTimer = () => {
+    if (timer.current !== null) globalThis.clearTimeout(timer.current);
+    timer.current = null;
+  };
+  return (
+    <button
+      {...props}
+      onPointerDown={(event) => {
+        held.current = false;
+        if (onHold) timer.current = globalThis.setTimeout(() => { held.current = true; onHold(); }, HOLD_DURATION_MS);
+        onPointerDown?.(event);
+      }}
+      onPointerUp={(event) => { cancelTimer(); onPointerUp?.(event); }}
+      onPointerCancel={(event) => { cancelTimer(); onPointerCancel?.(event); }}
+      onPointerLeave={(event) => { cancelTimer(); onPointerLeave?.(event); }}
+      onContextMenu={(event) => { event.preventDefault(); onContextMenu?.(event); }}
+      onClick={(event) => {
+        if (stopPropagation) event.stopPropagation();
+        if (held.current) {
+          held.current = false;
+          event.preventDefault();
+          return;
+        }
+        onTap?.();
+      }}
+    />
+  );
+}
+
 export default function GameClient() {
   const [selectedTeams, setSelectedTeams] = useState<TeamColor[]>([]);
   const [session, setSession] = useState<EngineSession | null>(null);
   const [inspection, setInspection] = useState<Inspection | null>(null);
-  const [stagedOptionId, setStagedOptionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [restoreComplete, setRestoreComplete] = useState(false);
+
+  useEffect(() => {
+    const restoreTimer = globalThis.setTimeout(() => {
+      try {
+        const saved = globalThis.localStorage?.getItem(SAVED_GAME_KEY);
+        if (saved) setSession(loadEngineSession(saved));
+      } catch {
+        globalThis.localStorage?.removeItem(SAVED_GAME_KEY);
+        setError("The previous local game could not be restored, so setup was reset.");
+      } finally {
+        setRestoreComplete(true);
+      }
+    }, 0);
+    return () => globalThis.clearTimeout(restoreTimer);
+  }, []);
+
+  useEffect(() => {
+    if (!restoreComplete || !session) return;
+    globalThis.localStorage?.setItem(SAVED_GAME_KEY, serializeEngineSession(session));
+  }, [restoreComplete, session]);
 
   const toggleTeam = (team: TeamColor) => {
     setSelectedTeams((current) => current.includes(team)
@@ -117,19 +200,17 @@ export default function GameClient() {
       const seed = `${gameId}:${selectedTeams.join("-")}`;
       setSession(newEngineSession({ gameId, seed, teamColors: selectedTeams as [TeamColor, TeamColor, TeamColor] }, "PLAYER"));
       setInspection(null);
-      setStagedOptionId(null);
       setError(null);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "The mission could not be started.");
     }
   };
 
-  const confirmDecision = () => {
+  const resolveDecision = (optionId: string) => {
     const decision = session?.state.pendingDecision;
-    if (!session || !decision || !stagedOptionId) return;
+    if (!session || !decision) return;
     try {
-      setSession(submitSessionDecision(session, decision.id, stagedOptionId));
-      setStagedOptionId(null);
+      setSession(submitSessionDecision(session, decision.id, optionId));
       setInspection(null);
       setError(null);
     } catch (caught) {
@@ -140,9 +221,18 @@ export default function GameClient() {
   const undoOne = () => {
     if (!session || !canUndo(session)) return;
     setSession(undo(session));
-    setStagedOptionId(null);
     setInspection(null);
   };
+
+  const startNewMission = () => {
+    globalThis.localStorage?.removeItem(SAVED_GAME_KEY);
+    setSession(null);
+    setInspection(null);
+    setSelectedTeams([]);
+    setError(null);
+  };
+
+  if (!restoreComplete) return <main className="restore-shell"><span>Restoring mission state…</span></main>;
 
   if (!session) {
     return (
@@ -168,23 +258,21 @@ export default function GameClient() {
     );
   }
 
-  return <MissionBoard session={session} inspection={inspection} stagedOptionId={stagedOptionId} error={error} onInspect={setInspection} onStage={setStagedOptionId} onConfirm={confirmDecision} onUndo={undoOne} onDismissInspection={() => setInspection(null)} onNewMission={() => setSession(null)} />;
+  return <MissionBoard session={session} inspection={inspection} error={error} onInspect={setInspection} onChooseOption={resolveDecision} onUndo={undoOne} onDismissInspection={() => setInspection(null)} onNewMission={startNewMission} />;
 }
 
 type MissionBoardProps = {
   session: EngineSession;
   inspection: Inspection | null;
-  stagedOptionId: string | null;
   error: string | null;
   onInspect: (inspection: Inspection) => void;
-  onStage: (optionId: string) => void;
-  onConfirm: () => void;
+  onChooseOption: (optionId: string) => void;
   onUndo: () => void;
   onDismissInspection: () => void;
   onNewMission: () => void;
 };
 
-function MissionBoard({ session, inspection, stagedOptionId, error, onInspect, onStage, onConfirm, onUndo, onDismissInspection, onNewMission }: MissionBoardProps) {
+function MissionBoard({ session, inspection, error, onInspect, onChooseOption, onUndo, onDismissInspection, onNewMission }: MissionBoardProps) {
   const { state } = session;
   const decision = state.pendingDecision;
   const targetIds = useMemo(() => pendingTargetIds(decision), [decision]);
@@ -197,7 +285,7 @@ function MissionBoard({ session, inspection, stagedOptionId, error, onInspect, o
   const lastEventId = state.eventRuntime?.eventCardId ?? state.orderedSources["event.discard"]?.at(-1) ?? null;
   const lastEvent = lastEventId ? findEvent(lastEventId) : null;
   const recentTransitions = session.transitions.slice(-3).reverse();
-  const stagedOption = decision?.legalOptions.find((option) => option.id === stagedOptionId) ?? null;
+  const dockOptions = decision?.legalOptions.filter((option) => !isDirectInputOption(decision, option)) ?? [];
 
   return (
     <main className="mission-shell">
@@ -212,65 +300,63 @@ function MissionBoard({ session, inspection, stagedOptionId, error, onInspect, o
       </header>
 
       <section className="location-strip">
-        <button type="button" className="inspectable location-button" onClick={() => onInspect(locationInspection)}>
+        <TacticalButton type="button" className="inspectable location-button" onHold={() => onInspect(locationInspection)}>
           <span><small>{currentLocation ? `Location · ${currentLocation.tier}` : "Setup location"}</small><strong>{currentLocation?.name ?? setupLocationName(componentDefinitionId(session, state.currentLocationInstanceId))}</strong></span>
-          <span className="tap-hint">Tap for rules&nbsp; ⓘ</span>
-        </button>
+          <span className="tap-hint">Hold for rules&nbsp; ⓘ</span>
+        </TacticalButton>
         <div className="blip-readout"><span>Port <strong>{leftBlips}</strong></span><i aria-hidden="true"><b style={{ width: `${Math.min(leftBlips * 8, 100)}%` }} /></i><span>Starboard <strong>{rightBlips}</strong></span><i aria-hidden="true"><b style={{ width: `${Math.min(rightBlips * 8, 100)}%` }} /></i></div>
       </section>
 
       {lastEvent && lastEventId && (
-        <button type="button" className="event-ribbon inspectable" onClick={() => onInspect(sourceInspection(session, lastEventId)!)}>
-          <span className="event-kicker">{state.phase === "EVENT" ? "Event resolving" : "Last event"}</span><strong>{lastEvent.name}</strong><span>{lastEvent.movementIcon ? `${ICON_GLYPHS[lastEvent.movementIcon]} ${ICON_LABELS[lastEvent.movementIcon]}` : "View card text"} &nbsp;›</span>
-        </button>
+        <TacticalButton type="button" className="event-ribbon inspectable" onHold={() => onInspect(sourceInspection(session, lastEventId)!)}>
+          <span className="event-kicker">{state.phase === "EVENT" ? "Event resolving" : "Last event"}</span><strong>{lastEvent.name}</strong><span>{lastEvent.movementIcon ? `${ICON_GLYPHS[lastEvent.movementIcon]} ${ICON_LABELS[lastEvent.movementIcon]}` : "Hold for card text"} &nbsp;ⓘ</span>
+        </TacticalButton>
       )}
 
-      <section className="board-and-command">
-        <div className="formation-board">
-          <div className="column-labels"><span>Port threat</span><span>Formation</span><span>Starboard threat</span></div>
-          {state.formation.map((slot, positionIndex) => (
-            <FormationRow key={slot.marineInstanceId} session={session} positionIndex={positionIndex} targetIds={targetIds} onInspect={onInspect} />
-          ))}
+      <section className="formation-board">
+        <div className="column-labels"><span>Port threat</span><span>Formation</span><span>Starboard threat</span></div>
+        {state.formation.map((slot, positionIndex) => (
+          <FormationRow key={slot.marineInstanceId} session={session} positionIndex={positionIndex} targetIds={targetIds} onInspect={onInspect} onChooseOption={onChooseOption} />
+        ))}
+      </section>
+
+      <section className="action-reference">
+        <div className="panel-label">Combat team cards <span>Tap highlighted card · hold any card for rules</span></div>
+        <div className="action-reference-grid">
+          {state.activeTeams.flatMap((team) => state.teams[team].actionInstanceIds).map((actionId) => {
+            const action = data.definitions.actions.find((item) => item.id === componentDefinitionId(session, actionId));
+            if (!action) return null;
+            const option = uniquePayloadOption(decision, "actionId", actionId);
+            const chosen = state.teams[action.team].chosenActionInstanceId === actionId;
+            return (
+              <TacticalButton key={actionId} type="button" className={`reference-card team-${action.team.toLowerCase()} ${option ? "legal-target" : ""} ${chosen ? "is-chosen" : ""}`} onTap={option ? () => onChooseOption(option.id) : undefined} onHold={() => onInspect(sourceInspection(session, actionId)!)}>
+                <span>{action.team}</span><strong>{action.name}</strong><small>Initiative {action.initiative}</small>
+              </TacticalButton>
+            );
+          })}
         </div>
+      </section>
 
-        <aside className="decision-column">
-          {state.activeDie && <DiePanel value={state.activeDie.modifiedValue} skull={state.activeDie.skull} purpose={state.activeDie.purpose} rerolls={state.activeDie.rerolls.length} />}
-          <section className="decision-panel" aria-live="polite">
-            <div className="decision-heading"><span>Pending decision</span><strong>{decision ? formatPhase(decision.type) : state.status}</strong></div>
-            {decision ? (
-              <>
-                <p className="decision-prompt">{decision.promptKey.replaceAll(".", " · ").replaceAll("_", " ")}</p>
-                <div className="option-list">
-                  {decision.legalOptions.map((option) => (
-                    <button key={option.id} type="button" className="decision-option" aria-pressed={stagedOptionId === option.id} onClick={() => onStage(option.id)}>
-                      <span><strong>{option.label}</strong>{option.canonicalEffectPreview && <small>{option.canonicalEffectPreview}</small>}</span><i aria-hidden="true">{stagedOptionId === option.id ? "✓" : "›"}</i>
-                    </button>
-                  ))}
-                </div>
-                <button type="button" className="confirm-command" disabled={!stagedOption} onClick={onConfirm}>Confirm choice</button>
-              </>
-            ) : (
-              <div className="mission-result"><strong>{state.status === "VICTORY" ? "Mission accomplished" : state.status === "DEFEAT" ? "Squad eliminated" : "Resolving…"}</strong><button type="button" onClick={onNewMission}>Start new mission</button></div>
-            )}
-            {error && <p className="error-message" role="alert">{error}</p>}
-          </section>
-
-          <section className="action-reference">
-            <div className="panel-label">Combat team cards · tap to inspect</div>
-            <div className="action-reference-grid">
-              {state.activeTeams.flatMap((team) => state.teams[team].actionInstanceIds).map((actionId) => {
-                const action = data.definitions.actions.find((item) => item.id === componentDefinitionId(session, actionId));
-                if (!action) return null;
-                return <button key={actionId} type="button" className={`reference-card team-${action.team.toLowerCase()}`} onClick={() => onInspect(sourceInspection(session, actionId)!)}><span>{action.team}</span><strong>{action.name}</strong><small>Initiative {action.initiative}</small></button>;
-              })}
-            </div>
-          </section>
-        </aside>
+      <section className="command-dock" aria-live="polite">
+        {state.activeDie && <DiePanel value={state.activeDie.modifiedValue} skull={state.activeDie.skull} purpose={state.activeDie.purpose} rerolls={state.activeDie.rerolls.length} />}
+        {decision ? (
+          <div className="dock-decision">
+            <div className="decision-heading"><span>{formatPhase(decision.type)}</span><strong>{decision.promptKey.replaceAll(".", " · ").replaceAll("_", " ")}</strong></div>
+            <p>{decision.legalOptions.some((option) => isDirectInputOption(decision, option)) ? "Tap a highlighted card or board target. Hold any object briefly to read its rules." : "Choose an option below. The formation remains visible while you decide."}</p>
+            {dockOptions.length > 0 && <div className="dock-options">{dockOptions.map((option) => <button key={option.id} type="button" onClick={() => onChooseOption(option.id)}><strong>{option.label}</strong>{option.canonicalEffectPreview && <small>{option.canonicalEffectPreview}</small>}</button>)}</div>}
+          </div>
+        ) : (
+          <div className="mission-result"><strong>{state.status === "VICTORY" ? "Mission accomplished" : state.status === "DEFEAT" ? "Squad eliminated" : "Resolving…"}</strong><button type="button" onClick={onNewMission}>Start new mission</button></div>
+        )}
+        {error && <p className="error-message" role="alert">{error}</p>}
       </section>
 
       <section className="history-bar">
         <div className="history-feed">{recentTransitions.map((transition) => <span key={transition.seq}><b>{String(transition.seq).padStart(3, "0")}</b>{formatTransition(transition.type)}</span>)}</div>
-        <button type="button" className="undo-command" disabled={!undoStatus.allowed} onClick={onUndo}><span>↶</span><strong>Undo</strong><small>{undoStatus.allowed ? `${undoStatus.availableSteps} step${undoStatus.availableSteps === 1 ? "" : "s"} available` : undoStatus.unavailableReason === "RANDOMNESS_BARRIER" ? "Locked by random result" : undoStatus.unavailableReason === "HIDDEN_INFORMATION_BARRIER" ? "Locked by card reveal" : "No reversible step"}</small></button>
+        <div className="history-controls">
+          <button type="button" className="new-mission-command" onClick={() => { if (globalThis.confirm("End this mission and return to team selection?")) onNewMission(); }}>New mission</button>
+          <button type="button" className="undo-command" disabled={!undoStatus.allowed} onClick={onUndo}><span>↶</span><strong>Undo</strong><small>{undoStatus.allowed ? `${undoStatus.availableSteps} step${undoStatus.availableSteps === 1 ? "" : "s"} available` : undoStatus.unavailableReason === "RANDOMNESS_BARRIER" ? "Locked by random result" : undoStatus.unavailableReason === "HIDDEN_INFORMATION_BARRIER" ? "Locked by card reveal" : "No reversible step"}</small></button>
+        </div>
       </section>
 
       {inspection && <InspectionDrawer inspection={inspection} onClose={onDismissInspection} />}
@@ -278,37 +364,44 @@ function MissionBoard({ session, inspection, stagedOptionId, error, onInspect, o
   );
 }
 
-function FormationRow({ session, positionIndex, targetIds, onInspect }: { session: EngineSession; positionIndex: number; targetIds: Set<string>; onInspect: (inspection: Inspection) => void }) {
+function FormationRow({ session, positionIndex, targetIds, onInspect, onChooseOption }: { session: EngineSession; positionIndex: number; targetIds: Set<string>; onInspect: (inspection: Inspection) => void; onChooseOption: (optionId: string) => void }) {
   const { state } = session;
+  const decision = state.pendingDecision;
   const slot = state.formation[positionIndex];
   const marine = state.marines[slot.marineInstanceId];
   const marineDefinition = data.definitions.marines.find((item) => item.id === componentDefinitionId(session, slot.marineInstanceId))!;
-  const legalMarine = targetIds.has(slot.marineInstanceId);
+  const marineOption = uniquePayloadOption(decision, "marineId", slot.marineInstanceId);
+  const rowOption = uniquePayloadOption(decision, "to", positionIndex) ?? uniquePayloadOption(decision, "positionIndex", positionIndex);
+  const tapOption = marineOption ?? rowOption;
   return (
     <div className={`formation-row ${targetIds.has(`position:${positionIndex}`) ? "legal-row" : ""}`}>
-      <Flank session={session} positionIndex={positionIndex} side="LEFT" targetIds={targetIds} onInspect={onInspect} />
-      <button type="button" className={`marine-card inspectable team-${marineDefinition.team.toLowerCase()} ${legalMarine ? "legal-target" : ""}`} onClick={() => onInspect(sourceInspection(session, slot.marineInstanceId)!)}>
+      <Flank session={session} positionIndex={positionIndex} side="LEFT" onInspect={onInspect} onChooseOption={onChooseOption} />
+      <TacticalButton type="button" className={`marine-card inspectable team-${marineDefinition.team.toLowerCase()} ${tapOption ? "legal-target" : ""}`} onTap={tapOption ? () => onChooseOption(tapOption.id) : undefined} onHold={() => onInspect(sourceInspection(session, slot.marineInstanceId)!)}>
         <span className="marine-facing" aria-label={`Facing ${marine.facing}`}>{marine.facing === "LEFT" ? "◀" : "▶"}</span>
         <span className="marine-team">{marineDefinition.team} team</span>
         <strong>{marineDefinition.name}</strong>
         <span className="marine-stats"><b>◎ Range {marineDefinition.attackRange}</b><i>{marine.support ? `${"●".repeat(marine.support)} support` : "No support"}</i></span>
-      </button>
-      <Flank session={session} positionIndex={positionIndex} side="RIGHT" targetIds={targetIds} onInspect={onInspect} />
+      </TacticalButton>
+      <Flank session={session} positionIndex={positionIndex} side="RIGHT" onInspect={onInspect} onChooseOption={onChooseOption} />
     </div>
   );
 }
 
-function Flank({ session, positionIndex, side, targetIds, onInspect }: { session: EngineSession; positionIndex: number; side: Side; targetIds: Set<string>; onInspect: (inspection: Inspection) => void }) {
+function Flank({ session, positionIndex, side, onInspect, onChooseOption }: { session: EngineSession; positionIndex: number; side: Side; onInspect: (inspection: Inspection) => void; onChooseOption: (optionId: string) => void }) {
   const slot = session.state.formation[positionIndex];
+  const decision = session.state.pendingDecision;
   const terrainIds = slot.terrainInstanceIds[side];
   const swarmIds = slot.swarmIds[side];
+  const positionOption = uniquePayloadOption(decision, "positionIndex", positionIndex, side) ?? uniquePayloadOption(decision, "to", positionIndex);
   return (
-    <div className="flank-cell">
+    <div className={`flank-cell ${positionOption ? "legal-target" : ""}`}>
+      {positionOption && <button type="button" className="flank-position-input" aria-label={`Choose formation position ${positionIndex + 1}, ${side.toLowerCase()} side`} onClick={() => onChooseOption(positionOption.id)} />}
       <div className="terrain-stack">
         {terrainIds.map((terrainId) => {
           const terrain = data.definitions.terrain.find((item) => item.id === componentDefinitionId(session, terrainId));
           if (!terrain) return null;
-          return <button key={terrainId} type="button" className={`terrain-chip inspectable ${targetIds.has(terrainId) ? "legal-target" : ""}`} onClick={() => onInspect(sourceInspection(session, terrainId)!)}><span>{terrain.name}</span><i>ⓘ</i>{session.state.terrain[terrainId]?.support > 0 && <b>{"●".repeat(session.state.terrain[terrainId].support)}</b>}</button>;
+          const option = uniquePayloadOption(decision, "terrainId", terrainId);
+          return <TacticalButton key={terrainId} type="button" className={`terrain-chip inspectable ${option ? "legal-target" : ""}`} onTap={option ? () => onChooseOption(option.id) : undefined} onHold={() => onInspect(sourceInspection(session, terrainId)!)} stopPropagation><span>{terrain.name}</span><i>ⓘ</i>{session.state.terrain[terrainId]?.support > 0 && <b>{"●".repeat(session.state.terrain[terrainId].support)}</b>}</TacticalButton>;
         })}
       </div>
       <div className="swarm-stack">
@@ -317,11 +410,14 @@ function Flank({ session, positionIndex, side, targetIds, onInspect }: { session
           if (!swarm) return [];
           return swarm.cardIds.map((cardId) => {
             const icon = session.state.genestealers[cardId].icon;
-            const legal = targetIds.has(swarmId) || targetIds.has(cardId);
-            return <button key={cardId} type="button" className={`genestealer-icon ${legal ? "legal-target" : ""}`} aria-label={`${ICON_LABELS[icon]} Genestealer. Tap to inspect.`} onClick={() => onInspect({ eyebrow: `Genestealer · ${side.toLowerCase()} swarm`, title: ICON_LABELS[icon], body: `A ${ICON_LABELS[icon].toLowerCase()} Genestealer in a swarm of ${swarm.cardIds.length + swarm.broodLordIds.length}.`, meta: `Formation position ${positionIndex + 1}${session.state.genestealers[cardId].movedOrFlankedThisEvent ? " · moved this event" : ""}` })}><span>{ICON_GLYPHS[icon]}</span><small>{ICON_LABELS[icon]}</small></button>;
+            const option = uniquePayloadOption(decision, "cardId", cardId) ?? uniquePayloadOption(decision, "swarmId", swarmId);
+            return <TacticalButton key={cardId} type="button" className={`genestealer-icon ${option ? "legal-target" : ""}`} aria-label={`${ICON_LABELS[icon]} Genestealer. Hold to inspect.`} onTap={option ? () => onChooseOption(option.id) : undefined} onHold={() => onInspect({ eyebrow: `Genestealer · ${side.toLowerCase()} swarm`, title: ICON_LABELS[icon], body: `A ${ICON_LABELS[icon].toLowerCase()} Genestealer in a swarm of ${swarm.cardIds.length + swarm.broodLordIds.length}.`, meta: `Formation position ${positionIndex + 1}${session.state.genestealers[cardId].movedOrFlankedThisEvent ? " · moved this event" : ""}` })} stopPropagation><span>{ICON_GLYPHS[icon]}</span><small>{ICON_LABELS[icon]}</small></TacticalButton>;
           });
         })}
-        {swarmIds.flatMap((swarmId) => session.state.swarms[swarmId]?.broodLordIds ?? []).map((broodLordId) => <button key={broodLordId} type="button" className={`genestealer-icon brood-lord ${targetIds.has(broodLordId) ? "legal-target" : ""}`} onClick={() => onInspect({ eyebrow: "Brood Lord", title: "Brood Lord", body: "A Brood Lord counts as multiple Genestealers when attacking and follows its current movement icons.", meta: `Formation position ${positionIndex + 1}` })}><span>♛</span><small>Lord</small></button>)}
+        {swarmIds.flatMap((swarmId) => session.state.swarms[swarmId]?.broodLordIds.map((broodLordId) => ({ broodLordId, swarmId })) ?? []).map(({ broodLordId, swarmId }) => {
+          const option = uniquePayloadOption(decision, "cardId", broodLordId) ?? uniquePayloadOption(decision, "swarmId", swarmId);
+          return <TacticalButton key={broodLordId} type="button" className={`genestealer-icon brood-lord ${option ? "legal-target" : ""}`} onTap={option ? () => onChooseOption(option.id) : undefined} onHold={() => onInspect({ eyebrow: "Brood Lord", title: "Brood Lord", body: "A Brood Lord counts as multiple Genestealers when attacking and follows its current movement icons.", meta: `Formation position ${positionIndex + 1}` })} stopPropagation><span>♛</span><small>Lord</small></TacticalButton>;
+        })}
       </div>
       {!terrainIds.length && !swarmIds.length && <span className="clear-lane">Clear</span>}
     </div>
