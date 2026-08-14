@@ -1,0 +1,3390 @@
+{
+  "schemaVersion": "1.0.0",
+  "dataVersion": "base-game-v2",
+  "generatedFrom": "Death_Angel_Base_Game_Gameplay_Database.xlsx",
+  "definitions": {
+    "actions": [
+      {
+        "id": "action.green.block",
+        "team": "GREEN",
+        "name": "Block",
+        "initiative": 1,
+        "type": "SUPPORT",
+        "sourceText": "Each time Sergeant Gideon rolls a skull while defending, the attack misses.",
+        "target": "Sergeant Gideon",
+        "timing": "Defense trigger",
+        "handlerId": "action.block",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Actions",
+          "row": 2
+        }
+      },
+      {
+        "id": "action.yellow.defensive-stance",
+        "team": "YELLOW",
+        "name": "Defensive Stance",
+        "initiative": 2,
+        "type": "SUPPORT",
+        "sourceText": "Each time 1 of your defending Space Marines spends a Support Token to reroll a die, the attack misses unless the new roll is a 0.",
+        "target": "Any Yellow Marine",
+        "timing": "Defense reroll trigger",
+        "handlerId": "action.defensive-stance",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Actions",
+          "row": 3
+        }
+      },
+      {
+        "id": "action.blue.counter-attack",
+        "team": "BLUE",
+        "name": "Counter Attack",
+        "initiative": 3,
+        "type": "SUPPORT",
+        "sourceText": "Each time Sergeant Lorenzo rolls a skull while defending, the attack misses and slay 1 of the attacking Genestealers. If the swarm still contains a Genestealer, it attacks again.",
+        "target": "Sergeant Lorenzo",
+        "timing": "Defense trigger",
+        "handlerId": "action.counter-attack",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Actions",
+          "row": 4
+        }
+      },
+      {
+        "id": "action.red.overwatch",
+        "team": "RED",
+        "name": "Overwatch",
+        "initiative": 4,
+        "type": "SUPPORT",
+        "sourceText": "At the end of the Event Phase, each of your Space Marines may spend 1 Support Token to make 1 attack.",
+        "target": "Both Red Marines",
+        "timing": "End of Event Phase",
+        "handlerId": "action.overwatch",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Actions",
+          "row": 5
+        }
+      },
+      {
+        "id": "action.purple.strategize",
+        "team": "PURPLE",
+        "name": "Strategize",
+        "initiative": 5,
+        "type": "SUPPORT",
+        "sourceText": "After resolving this card's action, you may move 1 swarm to an adjacent position and/or move it to the other side of the formation.",
+        "target": "Player-chosen swarm",
+        "timing": "After base Support action",
+        "handlerId": "action.strategize",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Actions",
+          "row": 6
+        }
+      },
+      {
+        "id": "action.grey.power-field",
+        "team": "GREY",
+        "name": "Power Field",
+        "initiative": 6,
+        "type": "SUPPORT",
+        "sourceText": "After resolving this card's action, you may choose any swarm. Genestealers in the chosen swarm may not attack or be slain this round.",
+        "target": "Player-chosen swarm",
+        "timing": "After base Support action",
+        "handlerId": "action.power-field",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Actions",
+          "row": 7
+        }
+      },
+      {
+        "id": "action.red.onward-brothers",
+        "team": "RED",
+        "name": "Onward Brothers!",
+        "initiative": 7,
+        "type": "MOVE_ACTIVATE",
+        "sourceText": "Each time 1 of your Space Marines activates a Door, you may place 1 additional Support Token on the Terrain card.",
+        "target": "Both Red Marines / Door",
+        "timing": "Terrain activation trigger",
+        "handlerId": "action.onward-brothers",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Actions",
+          "row": 8
+        }
+      },
+      {
+        "id": "action.grey.stealth-tactics",
+        "team": "GREY",
+        "name": "Stealth Tactics",
+        "initiative": 8,
+        "type": "MOVE_ACTIVATE",
+        "sourceText": "After resolving this card's action, you may discard 1 card from either blip pile. You may then spend 1 Support Token to discard 1 card from the other blip pile.",
+        "target": "Blip piles",
+        "timing": "After base Move + Activate",
+        "handlerId": "action.stealth-tactics",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Actions",
+          "row": 9
+        }
+      },
+      {
+        "id": "action.yellow.reorganize",
+        "team": "YELLOW",
+        "name": "Reorganize",
+        "initiative": 9,
+        "type": "MOVE_ACTIVATE",
+        "sourceText": "Your Space Marines may move to any position in the formation (instead of just to adjacent positions).",
+        "target": "Both Yellow Marines",
+        "timing": "Modifies movement step",
+        "handlerId": "action.reorganize",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Actions",
+          "row": 10
+        }
+      },
+      {
+        "id": "action.purple.forward-scouting",
+        "team": "PURPLE",
+        "name": "Forward Scouting",
+        "initiative": 10,
+        "type": "MOVE_ACTIVATE",
+        "sourceText": "After resolving this card's action, you may look at the top card of the Event deck. Then place it on the top or bottom of the deck.",
+        "target": "Event deck",
+        "timing": "After base Move + Activate",
+        "handlerId": "action.forward-scouting",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Actions",
+          "row": 11
+        }
+      },
+      {
+        "id": "action.blue.intimidation",
+        "team": "BLUE",
+        "name": "Intimidation",
+        "initiative": 11,
+        "type": "MOVE_ACTIVATE",
+        "sourceText": "After resolving this card's action, you may roll a die. Shuffle that many Genestealer cards (of your choice) engaged with your Space Marines into the smallest blip pile.",
+        "target": "Genestealers engaged with Blue Marines",
+        "timing": "After base Move + Activate",
+        "handlerId": "action.intimidation",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Actions",
+          "row": 12
+        }
+      },
+      {
+        "id": "action.green.run-and-gun",
+        "team": "GREEN",
+        "name": "Run and Gun",
+        "initiative": 12,
+        "type": "MOVE_ACTIVATE",
+        "sourceText": "After resolving this card's action, each of your Space Marines may spend 1 Support Token to make 1 attack.",
+        "target": "Both Green Marines",
+        "timing": "After base Move + Activate",
+        "handlerId": "action.run-and-gun",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Actions",
+          "row": 13
+        }
+      },
+      {
+        "id": "action.blue.lead-by-example",
+        "team": "BLUE",
+        "name": "Lead By Example",
+        "initiative": 13,
+        "type": "ATTACK",
+        "sourceText": "When 1 of your Space Marines slays a Genestealer, you may place 1 Support Token on any Space Marine (limit once per round).",
+        "target": "Any Space Marine receives token",
+        "timing": "On Blue kill; once/round",
+        "handlerId": "action.lead-by-example",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Actions",
+          "row": 14
+        }
+      },
+      {
+        "id": "action.purple.flamer-attack",
+        "team": "PURPLE",
+        "name": "Flamer Attack",
+        "initiative": 14,
+        "type": "ATTACK",
+        "sourceText": "When Brother Zael attacks, ignore all skulls rolled. Instead, slay a number of Genestealers in the swarm equal to the number rolled.",
+        "target": "Brother Zael",
+        "timing": "Replaces normal Zael attack result",
+        "handlerId": "action.flamer-attack",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Actions",
+          "row": 15
+        }
+      },
+      {
+        "id": "action.grey.psionic-attack",
+        "team": "GREY",
+        "name": "Psionic Attack",
+        "initiative": 15,
+        "type": "ATTACK",
+        "sourceText": "Each time Lexicanium Calistarius rolls a skull while attacking, he may immediately make 1 additional attack.",
+        "target": "Lexicanium Calistarius",
+        "timing": "Attack trigger",
+        "handlerId": "action.psionic-attack",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Actions",
+          "row": 16
+        }
+      },
+      {
+        "id": "action.green.dead-aim",
+        "team": "GREEN",
+        "name": "Dead Aim",
+        "initiative": 16,
+        "type": "ATTACK",
+        "sourceText": "Each time 1 of your attacking Space Marines rolls a 4, slay up to 3 Genestealers from the defending swarm.",
+        "target": "Both Green Marines",
+        "timing": "Attack result trigger",
+        "handlerId": "action.dead-aim",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Actions",
+          "row": 17
+        }
+      },
+      {
+        "id": "action.red.full-auto",
+        "team": "RED",
+        "name": "Full Auto",
+        "initiative": 17,
+        "type": "ATTACK",
+        "sourceText": "Brother Leon may attack up to 3 times (instead of just once).",
+        "target": "Brother Leon",
+        "timing": "Modifies Leon's Attack action",
+        "handlerId": "action.full-auto",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Actions",
+          "row": 18
+        }
+      },
+      {
+        "id": "action.yellow.heroic-charge",
+        "team": "YELLOW",
+        "name": "Heroic Charge",
+        "initiative": 18,
+        "type": "ATTACK",
+        "sourceText": "Instead of attacking with Brother Claudio, you may slay up to 3 Genestealers within 1 range of him (ignoring facing). Then roll a die. If you roll a 0, Brother Claudio is slain.",
+        "target": "Brother Claudio",
+        "timing": "Optional replacement for Claudio attack",
+        "handlerId": "action.heroic-charge",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Actions",
+          "row": 19
+        }
+      }
+    ],
+    "marines": [
+      {
+        "id": "marine.green.sergeant-gideon",
+        "team": "GREEN",
+        "name": "Sergeant Gideon",
+        "attackRange": 0,
+        "namedActionAbility": "Block",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Marines",
+          "row": 2
+        }
+      },
+      {
+        "id": "marine.green.brother-noctis",
+        "team": "GREEN",
+        "name": "Brother Noctis",
+        "attackRange": 2,
+        "namedActionAbility": null,
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Marines",
+          "row": 3
+        }
+      },
+      {
+        "id": "marine.yellow.brother-claudio",
+        "team": "YELLOW",
+        "name": "Brother Claudio",
+        "attackRange": 0,
+        "namedActionAbility": "Heroic Charge",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Marines",
+          "row": 4
+        }
+      },
+      {
+        "id": "marine.yellow.brother-goriel",
+        "team": "YELLOW",
+        "name": "Brother Goriel",
+        "attackRange": 2,
+        "namedActionAbility": null,
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Marines",
+          "row": 5
+        }
+      },
+      {
+        "id": "marine.red.brother-leon",
+        "team": "RED",
+        "name": "Brother Leon",
+        "attackRange": 3,
+        "namedActionAbility": "Full Auto",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Marines",
+          "row": 6
+        }
+      },
+      {
+        "id": "marine.red.brother-valencio",
+        "team": "RED",
+        "name": "Brother Valencio",
+        "attackRange": 2,
+        "namedActionAbility": null,
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Marines",
+          "row": 7
+        }
+      },
+      {
+        "id": "marine.blue.sergeant-lorenzo",
+        "team": "BLUE",
+        "name": "Sergeant Lorenzo",
+        "attackRange": 2,
+        "namedActionAbility": "Counter Attack",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Marines",
+          "row": 8
+        }
+      },
+      {
+        "id": "marine.blue.brother-deino",
+        "team": "BLUE",
+        "name": "Brother Deino",
+        "attackRange": 2,
+        "namedActionAbility": null,
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Marines",
+          "row": 9
+        }
+      },
+      {
+        "id": "marine.grey.lexicanium-calistarius",
+        "team": "GREY",
+        "name": "Lexicanium Calistarius",
+        "attackRange": 2,
+        "namedActionAbility": "Psionic Attack",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Marines",
+          "row": 10
+        }
+      },
+      {
+        "id": "marine.grey.brother-scipio",
+        "team": "GREY",
+        "name": "Brother Scipio",
+        "attackRange": 2,
+        "namedActionAbility": null,
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Marines",
+          "row": 11
+        }
+      },
+      {
+        "id": "marine.purple.brother-zael",
+        "team": "PURPLE",
+        "name": "Brother Zael",
+        "attackRange": 1,
+        "namedActionAbility": "Flamer Attack",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Marines",
+          "row": 12
+        }
+      },
+      {
+        "id": "marine.purple.brother-omnio",
+        "team": "PURPLE",
+        "name": "Brother Omnio",
+        "attackRange": 2,
+        "namedActionAbility": null,
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Marines",
+          "row": 13
+        }
+      }
+    ],
+    "events": [
+      {
+        "id": "event.surrounded",
+        "name": "Surrounded",
+        "copyIndex": null,
+        "quantity": 1,
+        "instinct": true,
+        "sourceText": "Choose a Space Marine. Move all Genestealers (from every position) to the chosen Space Marine's position (do not change their side).",
+        "activations": [
+          {
+            "severity": "MINOR",
+            "terrainColor": "RED"
+          },
+          {
+            "severity": "MINOR",
+            "terrainColor": "ORANGE"
+          }
+        ],
+        "movement": null,
+        "movementIcon": null,
+        "handlerId": "event.surrounded",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Events",
+          "row": 2
+        }
+      },
+      {
+        "id": "event.flanking-manoeuvre",
+        "name": "Flanking Manoeuvre",
+        "copyIndex": null,
+        "quantity": 1,
+        "instinct": false,
+        "sourceText": "Move all swarms so that they are behind their engaged Space Marine.",
+        "activations": [
+          {
+            "severity": "MINOR",
+            "terrainColor": "RED"
+          },
+          {
+            "severity": "MINOR",
+            "terrainColor": "ORANGE"
+          }
+        ],
+        "movement": null,
+        "movementIcon": null,
+        "handlerId": "event.flanking-manoeuvre",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Events",
+          "row": 3
+        }
+      },
+      {
+        "id": "event.out-of-thin-air.copy-1",
+        "name": "Out of Thin Air",
+        "copyIndex": 1,
+        "quantity": 1,
+        "instinct": true,
+        "sourceText": "Choose a Space Marine. Spawn 2 Genestealers behind him.",
+        "activations": [
+          {
+            "severity": "MINOR",
+            "terrainColor": "ORANGE"
+          },
+          {
+            "severity": "MINOR",
+            "terrainColor": "RED"
+          }
+        ],
+        "movement": "FLANK",
+        "movementIcon": "HEAD",
+        "handlerId": "event.out-of-thin-air",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Events",
+          "row": 4
+        }
+      },
+      {
+        "id": "event.out-of-thin-air.copy-2",
+        "name": "Out of Thin Air",
+        "copyIndex": 2,
+        "quantity": 1,
+        "instinct": true,
+        "sourceText": "Choose a Space Marine. Spawn 2 Genestealers behind him.",
+        "activations": [
+          {
+            "severity": "MINOR",
+            "terrainColor": "ORANGE"
+          },
+          {
+            "severity": "MINOR",
+            "terrainColor": "RED"
+          }
+        ],
+        "movement": "FLANK",
+        "movementIcon": "CLAW",
+        "handlerId": "event.out-of-thin-air",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Events",
+          "row": 5
+        }
+      },
+      {
+        "id": "event.the-swarm.copy-1",
+        "name": "The Swarm",
+        "copyIndex": 1,
+        "quantity": 1,
+        "instinct": false,
+        "sourceText": "Place 2 Genestealer cards into each blip pile (from the Genestealer deck).",
+        "activations": [
+          {
+            "severity": "MINOR",
+            "terrainColor": "YELLOW"
+          },
+          {
+            "severity": "MINOR",
+            "terrainColor": "ORANGE"
+          }
+        ],
+        "movement": "FLANK",
+        "movementIcon": "TAIL",
+        "handlerId": "event.the-swarm",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Events",
+          "row": 6
+        }
+      },
+      {
+        "id": "event.the-swarm.copy-2",
+        "name": "The Swarm",
+        "copyIndex": 2,
+        "quantity": 1,
+        "instinct": false,
+        "sourceText": "Place 2 Genestealer cards into each blip pile (from the Genestealer deck).",
+        "activations": [
+          {
+            "severity": "MINOR",
+            "terrainColor": "YELLOW"
+          },
+          {
+            "severity": "MINOR",
+            "terrainColor": "ORANGE"
+          }
+        ],
+        "movement": "FLANK",
+        "movementIcon": "TONGUE",
+        "handlerId": "event.the-swarm",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Events",
+          "row": 7
+        }
+      },
+      {
+        "id": "event.psychic-assault",
+        "name": "Psychic Assault",
+        "copyIndex": null,
+        "quantity": 1,
+        "instinct": true,
+        "sourceText": "Choose a Space Marine and roll a die. If you roll a 0 or 1, the Space Marine is slain.",
+        "activations": [
+          {
+            "severity": "MINOR",
+            "terrainColor": "RED"
+          },
+          {
+            "severity": "MINOR",
+            "terrainColor": "ORANGE"
+          }
+        ],
+        "movement": "FLANK",
+        "movementIcon": "TONGUE",
+        "handlerId": "event.psychic-assault",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Events",
+          "row": 8
+        }
+      },
+      {
+        "id": "event.theyre-everywhere",
+        "name": "They're Everywhere!",
+        "copyIndex": null,
+        "quantity": 1,
+        "instinct": false,
+        "sourceText": "Spawn 1 Genestealer in front of each Space Marine that is not engaged with a swarm.",
+        "activations": [
+          {
+            "severity": "MINOR",
+            "terrainColor": "ORANGE"
+          },
+          {
+            "severity": "MINOR",
+            "terrainColor": "RED"
+          }
+        ],
+        "movement": "FLANK",
+        "movementIcon": "TAIL",
+        "handlerId": "event.theyre-everywhere",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Events",
+          "row": 9
+        }
+      },
+      {
+        "id": "event.evasion",
+        "name": "Evasion",
+        "copyIndex": null,
+        "quantity": 1,
+        "instinct": false,
+        "sourceText": "When a player resolves an Attack Action card next round, he may only attack with 1 Space Marine of that Combat Team (instead of both).",
+        "activations": [
+          {
+            "severity": "MINOR",
+            "terrainColor": "YELLOW"
+          },
+          {
+            "severity": "MINOR",
+            "terrainColor": "RED"
+          }
+        ],
+        "movement": "FLANK",
+        "movementIcon": "HEAD",
+        "handlerId": "event.evasion",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Events",
+          "row": 10
+        }
+      },
+      {
+        "id": "event.outnumbered",
+        "name": "Outnumbered",
+        "copyIndex": null,
+        "quantity": 1,
+        "instinct": false,
+        "sourceText": "Discard all Support Tokens from each Space Marine that is engaged with at least 1 swarm.",
+        "activations": [
+          {
+            "severity": "MINOR",
+            "terrainColor": "ORANGE"
+          },
+          {
+            "severity": "MINOR",
+            "terrainColor": "RED"
+          }
+        ],
+        "movement": "FLANK",
+        "movementIcon": "CLAW",
+        "handlerId": "event.outnumbered",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Events",
+          "row": 11
+        }
+      },
+      {
+        "id": "event.chaos-of-battle",
+        "name": "Chaos of Battle",
+        "copyIndex": null,
+        "quantity": 2,
+        "instinct": false,
+        "sourceText": "Change every Space Marine's facing.",
+        "activations": [
+          {
+            "severity": "MINOR",
+            "terrainColor": "RED"
+          },
+          {
+            "severity": "MINOR",
+            "terrainColor": "YELLOW"
+          }
+        ],
+        "movement": "ADJACENT",
+        "movementIcon": "HEAD",
+        "handlerId": "event.chaos-of-battle",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Events",
+          "row": 12
+        }
+      },
+      {
+        "id": "event.stalking-from-the-shadows",
+        "name": "Stalking from the Shadows",
+        "copyIndex": null,
+        "quantity": 2,
+        "instinct": true,
+        "sourceText": "Choose a Space Marine with at least 1 Support Token. Discard all his Support Tokens.",
+        "activations": [
+          {
+            "severity": "MAJOR",
+            "terrainColor": "RED"
+          },
+          {
+            "severity": "MINOR",
+            "terrainColor": "GREEN"
+          }
+        ],
+        "movement": "ADJACENT",
+        "movementIcon": "HEAD",
+        "handlerId": "event.stalking-from-the-shadows",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Events",
+          "row": 13
+        }
+      },
+      {
+        "id": "event.resupply",
+        "name": "Resupply",
+        "copyIndex": null,
+        "quantity": 1,
+        "instinct": true,
+        "sourceText": "Choose a Space Marine. Move all Support Tokens to him from all other Space Marines.",
+        "activations": [
+          {
+            "severity": "MAJOR",
+            "terrainColor": "RED"
+          },
+          {
+            "severity": "MINOR",
+            "terrainColor": "YELLOW"
+          }
+        ],
+        "movement": "ADJACENT",
+        "movementIcon": "HEAD",
+        "handlerId": "event.resupply",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Events",
+          "row": 14
+        }
+      },
+      {
+        "id": "event.gun-jam",
+        "name": "Gun Jam",
+        "copyIndex": null,
+        "quantity": 2,
+        "instinct": true,
+        "sourceText": "Choose a Combat Team that did not reveal an Attack Action this round. Next round, that Combat Team may not play an Attack Action card.",
+        "activations": [
+          {
+            "severity": "MAJOR",
+            "terrainColor": "YELLOW"
+          },
+          {
+            "severity": "MINOR",
+            "terrainColor": "RED"
+          }
+        ],
+        "movement": "ADJACENT",
+        "movementIcon": "TAIL",
+        "handlerId": "event.gun-jam",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Events",
+          "row": 15
+        }
+      },
+      {
+        "id": "event.for-my-battle-brothers",
+        "name": "For My Battle Brothers!",
+        "copyIndex": null,
+        "quantity": 2,
+        "instinct": true,
+        "sourceText": "Choose a Space Marine that has at least 1 Support Token (if able). Discard 1 Support Token from him and 1 Genestealer engaged with him (of your choice).",
+        "activations": [
+          {
+            "severity": "MAJOR",
+            "terrainColor": "RED"
+          },
+          {
+            "severity": "MINOR",
+            "terrainColor": "ORANGE"
+          }
+        ],
+        "movement": "ADJACENT",
+        "movementIcon": "TAIL",
+        "handlerId": "event.for-my-battle-brothers",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Events",
+          "row": 16
+        }
+      },
+      {
+        "id": "event.rewarded-faith",
+        "name": "Rewarded Faith",
+        "copyIndex": null,
+        "quantity": 1,
+        "instinct": true,
+        "sourceText": "Choose a Space Marine. You may discard any number of Support Tokens from him to slay an equal number of Genestealers engaged with him.",
+        "activations": [
+          {
+            "severity": "MAJOR",
+            "terrainColor": "GREEN"
+          },
+          {
+            "severity": "MINOR",
+            "terrainColor": "RED"
+          }
+        ],
+        "movement": "ADJACENT",
+        "movementIcon": "TAIL",
+        "handlerId": "event.rewarded-faith",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Events",
+          "row": 17
+        }
+      },
+      {
+        "id": "event.full-scan",
+        "name": "Full Scan",
+        "copyIndex": null,
+        "quantity": 2,
+        "instinct": true,
+        "sourceText": "Choose a blip pile. Discard the top card of the chosen pile.",
+        "activations": [
+          {
+            "severity": "MAJOR",
+            "terrainColor": "RED"
+          },
+          {
+            "severity": "MAJOR",
+            "terrainColor": "YELLOW"
+          }
+        ],
+        "movement": "ADJACENT",
+        "movementIcon": "TONGUE",
+        "handlerId": "event.full-scan",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Events",
+          "row": 18
+        }
+      },
+      {
+        "id": "event.cleansing-flames",
+        "name": "Cleansing Flames",
+        "copyIndex": null,
+        "quantity": 1,
+        "instinct": true,
+        "sourceText": "Choose a Space Marine and roll a die. If you roll a skull, slay 2 Genestealers engaged with him (of your choice).",
+        "activations": [
+          {
+            "severity": "MAJOR",
+            "terrainColor": "ORANGE"
+          },
+          {
+            "severity": "MAJOR",
+            "terrainColor": "GREEN"
+          }
+        ],
+        "movement": "ADJACENT",
+        "movementIcon": "TONGUE",
+        "handlerId": "event.cleansing-flames",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Events",
+          "row": 19
+        }
+      },
+      {
+        "id": "event.second-wind",
+        "name": "Second Wind",
+        "copyIndex": null,
+        "quantity": 1,
+        "instinct": true,
+        "sourceText": "Choose a Space Marine. Each time he rolls a 0 while defending next round, the attack misses.",
+        "activations": [
+          {
+            "severity": "MAJOR",
+            "terrainColor": "YELLOW"
+          },
+          {
+            "severity": "MAJOR",
+            "terrainColor": "RED"
+          }
+        ],
+        "movement": "ADJACENT",
+        "movementIcon": "TONGUE",
+        "handlerId": "event.second-wind",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Events",
+          "row": 20
+        }
+      },
+      {
+        "id": "event.quick-instincts",
+        "name": "Quick Instincts",
+        "copyIndex": null,
+        "quantity": 1,
+        "instinct": true,
+        "sourceText": "Choose a Space Marine. He may immediately make 1 attack.",
+        "activations": [
+          {
+            "severity": "MAJOR",
+            "terrainColor": "RED"
+          },
+          {
+            "severity": "MAJOR",
+            "terrainColor": "ORANGE"
+          }
+        ],
+        "movement": "ADJACENT",
+        "movementIcon": "TONGUE",
+        "handlerId": "event.quick-instincts",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Events",
+          "row": 21
+        }
+      },
+      {
+        "id": "event.secret-route",
+        "name": "Secret Route",
+        "copyIndex": null,
+        "quantity": 2,
+        "instinct": false,
+        "sourceText": "If there is a Door Terrain card in the formation, place 2 Support Tokens on it.",
+        "activations": [
+          {
+            "severity": "MAJOR",
+            "terrainColor": "ORANGE"
+          },
+          {
+            "severity": "MAJOR",
+            "terrainColor": "GREEN"
+          }
+        ],
+        "movement": "ADJACENT",
+        "movementIcon": "CLAW",
+        "handlerId": "event.secret-route",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Events",
+          "row": 22
+        }
+      },
+      {
+        "id": "event.enter-formation",
+        "name": "Enter Formation",
+        "copyIndex": null,
+        "quantity": 1,
+        "instinct": false,
+        "sourceText": "Each time a player resolves a Move + Activate Action card next round, he may first place 1 Support Token on any Space Marine.",
+        "activations": [
+          {
+            "severity": "MAJOR",
+            "terrainColor": "ORANGE"
+          },
+          {
+            "severity": "MAJOR",
+            "terrainColor": "YELLOW"
+          }
+        ],
+        "movement": "ADJACENT",
+        "movementIcon": "CLAW",
+        "handlerId": "event.enter-formation",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Events",
+          "row": 23
+        }
+      },
+      {
+        "id": "event.temporary-sanctuary",
+        "name": "Temporary Sanctuary",
+        "copyIndex": null,
+        "quantity": 1,
+        "instinct": true,
+        "sourceText": "Choose a swarm of Genestealers. Shuffle all cards from the chosen swarm into the smallest blip pile.",
+        "activations": [
+          {
+            "severity": "MAJOR",
+            "terrainColor": "RED"
+          },
+          {
+            "severity": "MAJOR",
+            "terrainColor": "ORANGE"
+          }
+        ],
+        "movement": "ADJACENT",
+        "movementIcon": "CLAW",
+        "handlerId": "event.temporary-sanctuary",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Events",
+          "row": 24
+        }
+      },
+      {
+        "id": "event.rescue-space-marine",
+        "name": "Rescue Space Marine",
+        "copyIndex": null,
+        "quantity": 1,
+        "instinct": true,
+        "sourceText": "Choose a Space Marine that has been slain belonging to a non-eliminated Combat Team. Place the Space Marine card at the bottom of the formation facing the right.",
+        "activations": [
+          {
+            "severity": "MAJOR",
+            "terrainColor": "ORANGE"
+          },
+          {
+            "severity": "MAJOR",
+            "terrainColor": "RED"
+          }
+        ],
+        "movement": "ADJACENT",
+        "movementIcon": "CLAW",
+        "handlerId": "event.rescue-space-marine",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Events",
+          "row": 25
+        }
+      }
+    ],
+    "terrain": [
+      {
+        "id": "terrain.corridor",
+        "name": "Corridor",
+        "spawnColor": "GREEN",
+        "activatable": false,
+        "sourceText": "No ability.",
+        "handlerId": "terrain.passive",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Terrain",
+          "row": 2
+        }
+      },
+      {
+        "id": "terrain.artefact",
+        "name": "Artefact",
+        "spawnColor": "GREEN",
+        "activatable": true,
+        "sourceText": "Place this card in your hand. You may discard this card after 1 of your Space Marines rolls the die while defending to make the attack miss.",
+        "handlerId": "terrain.artefact",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Terrain",
+          "row": 3
+        }
+      },
+      {
+        "id": "terrain.control-panel",
+        "name": "Control Panel",
+        "spawnColor": "YELLOW",
+        "activatable": true,
+        "sourceText": "Use the current Location card's 'Activate Control Panel' ability.",
+        "handlerId": "terrain.control-panel",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Terrain",
+          "row": 4
+        }
+      },
+      {
+        "id": "terrain.door",
+        "name": "Door",
+        "spawnColor": "YELLOW",
+        "activatable": true,
+        "sourceText": "Place 1 Support token on this card. When travelling, the current player may first slay 1 Genestealer in the formation for each Support token on this card.",
+        "handlerId": "terrain.door",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Terrain",
+          "row": 5
+        }
+      },
+      {
+        "id": "terrain.promethium-tank",
+        "name": "Promethium Tank",
+        "spawnColor": "ORANGE",
+        "activatable": true,
+        "sourceText": "Discard this Terrain card and slay all Genestealers on this position. Then roll a die. If you roll a 0, slay this Space Marine.",
+        "handlerId": "terrain.promethium-tank",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Terrain",
+          "row": 6
+        }
+      },
+      {
+        "id": "terrain.dark-corner",
+        "name": "Dark Corner",
+        "spawnColor": "ORANGE",
+        "activatable": false,
+        "sourceText": "No ability.",
+        "handlerId": "terrain.passive",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Terrain",
+          "row": 7
+        }
+      },
+      {
+        "id": "terrain.spore-chimney",
+        "name": "Spore Chimney",
+        "spawnColor": "RED",
+        "activatable": true,
+        "sourceText": "Roll a die. If you roll a skull, discard this Terrain card.",
+        "handlerId": "terrain.spore-chimney",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Terrain",
+          "row": 8
+        }
+      },
+      {
+        "id": "terrain.ventilation-duct",
+        "name": "Ventilation Duct",
+        "spawnColor": "RED",
+        "activatable": false,
+        "sourceText": "No ability.",
+        "handlerId": "terrain.passive",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Terrain",
+          "row": 9
+        }
+      }
+    ],
+    "locations": [
+      {
+        "id": "location.main-corridor",
+        "name": "Main Corridor",
+        "tier": "1A",
+        "leftBlips": 7,
+        "rightBlips": 8,
+        "abilityTiming": "Upon Entering",
+        "sourceText": "Spawn 2 Genestealers on the 'Corridor' Terrain card.",
+        "handlerId": "location.main-corridor",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Locations",
+          "row": 2
+        }
+      },
+      {
+        "id": "location.maintenance-tunnels",
+        "name": "Maintenance Tunnels",
+        "tier": "1A",
+        "leftBlips": 8,
+        "rightBlips": 8,
+        "abilityTiming": "Activate Control Panel",
+        "sourceText": "Discard the 'Control Panel' Terrain card, and replace it with a 'Corridor' Terrain card.",
+        "handlerId": "location.maintenance-tunnels",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Locations",
+          "row": 3
+        }
+      },
+      {
+        "id": "location.service-shaft",
+        "name": "Service Shaft",
+        "tier": "1A",
+        "leftBlips": 7,
+        "rightBlips": 7,
+        "abilityTiming": "Upon Entering",
+        "sourceText": "Make each Space Marine face the right side of the formation.",
+        "handlerId": "location.service-shaft",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Locations",
+          "row": 4
+        }
+      },
+      {
+        "id": "location.lower-accessway",
+        "name": "Lower Accessway",
+        "tier": "1B",
+        "leftBlips": 7,
+        "rightBlips": 7,
+        "abilityTiming": "Upon Entering",
+        "sourceText": "Spawn 2 Genestealers behind the Space Marine at the top of the formation.",
+        "handlerId": "location.lower-accessway",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Locations",
+          "row": 5
+        }
+      },
+      {
+        "id": "location.hibernation-cluster",
+        "name": "Hibernation Cluster",
+        "tier": "3",
+        "leftBlips": 0,
+        "rightBlips": 0,
+        "abilityTiming": "Upon Entering",
+        "sourceText": "For each Space Marine in the formation, place 1 Genestealer card into each blip pile from the Genestealer deck.",
+        "handlerId": "location.hibernation-cluster",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Locations",
+          "row": 6
+        }
+      },
+      {
+        "id": "location.munitorium",
+        "name": "Munitorium",
+        "tier": "1C",
+        "leftBlips": 6,
+        "rightBlips": 7,
+        "abilityTiming": "Upon Entering",
+        "sourceText": "The current player places 1 Support Token each on any 2 Space Marines.",
+        "handlerId": "location.munitorium",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Locations",
+          "row": 7
+        }
+      },
+      {
+        "id": "location.cryo-control",
+        "name": "Cryo Control",
+        "tier": "1B",
+        "leftBlips": 7,
+        "rightBlips": 7,
+        "abilityTiming": "Activate Control Panel",
+        "sourceText": "Discard 1 card from the blip pile of your choice.",
+        "handlerId": "location.cryo-control",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Locations",
+          "row": 8
+        }
+      },
+      {
+        "id": "location.wrath-of-baal-chapel",
+        "name": "Wrath of Baal Chapel",
+        "tier": "3",
+        "leftBlips": 5,
+        "rightBlips": 6,
+        "abilityTiming": "Upon Entering",
+        "sourceText": "The current player places the 'Artefact' Terrain card on any position and side of the formation.",
+        "handlerId": "location.wrath-of-baal-chapel",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Locations",
+          "row": 9
+        }
+      },
+      {
+        "id": "location.apothecarion",
+        "name": "Apothecarion",
+        "tier": "1C",
+        "leftBlips": 7,
+        "rightBlips": 6,
+        "abilityTiming": "Activate Control Panel",
+        "sourceText": "Place 1 Support Token on any Space Marine. You may then change that Space Marine's facing.",
+        "handlerId": "location.apothecarion",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Locations",
+          "row": 10
+        }
+      },
+      {
+        "id": "location.dark-catacombs",
+        "name": "Dark Catacombs",
+        "tier": "2",
+        "leftBlips": 6,
+        "rightBlips": 6,
+        "abilityTiming": "Upon Entering",
+        "sourceText": "The current player must choose a Space Marine with 0 Support Tokens (if able). Spawn 1 Genestealer behind a chosen Space Marine.",
+        "handlerId": "location.dark-catacombs",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Locations",
+          "row": 11
+        }
+      },
+      {
+        "id": "location.teleportarium",
+        "name": "Teleportarium",
+        "tier": "2",
+        "leftBlips": 7,
+        "rightBlips": 5,
+        "abilityTiming": "Activate Control Panel",
+        "sourceText": "Each Space Marine must discard 1 Support Token or roll a die. On a 0, the Space Marine is slain. Then, regardless of the die rolls, discard all cards from both blip piles.",
+        "handlerId": "location.teleportarium",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Locations",
+          "row": 12
+        }
+      },
+      {
+        "id": "location.black-holds",
+        "name": "Black Holds",
+        "tier": "2",
+        "leftBlips": 5,
+        "rightBlips": 6,
+        "abilityTiming": "Upon Entering",
+        "sourceText": "The current player chooses a swarm (if able), and spawns 2 Genestealers on it. If 0 swarms are in the formation, this has no effect.",
+        "handlerId": "location.black-holds",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Locations",
+          "row": 13
+        }
+      },
+      {
+        "id": "location.wreckage-labyrinth",
+        "name": "Wreckage Labyrinth",
+        "tier": "1B",
+        "leftBlips": 7,
+        "rightBlips": 6,
+        "abilityTiming": "Upon Entering",
+        "sourceText": "Change the facing of each Space Marine who is facing a Terrain card in his position.",
+        "handlerId": "location.wreckage-labyrinth",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Locations",
+          "row": 14
+        }
+      },
+      {
+        "id": "location.core-cogitator",
+        "name": "Core Cogitator",
+        "tier": "1C",
+        "leftBlips": 7,
+        "rightBlips": 5,
+        "abilityTiming": "Activate Control Panel",
+        "sourceText": "Choose a Terrain card. A maximum of 1 Genestealer may spawn on that Terrain card during the next Event Phase.",
+        "handlerId": "location.core-cogitator",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Locations",
+          "row": 15
+        }
+      },
+      {
+        "id": "location.genetorium",
+        "name": "Genetorium",
+        "tier": "3",
+        "leftBlips": 5,
+        "rightBlips": 5,
+        "abilityTiming": "Activate Control Panel",
+        "sourceText": "Roll a die. If you roll a skull, slay up to 4 Genestealers of your choice (in any positions), otherwise slay this Space Marine.",
+        "handlerId": "location.genetorium",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Locations",
+          "row": 16
+        }
+      },
+      {
+        "id": "location.genestealer-lair",
+        "name": "Genestealer Lair",
+        "tier": "4",
+        "leftBlips": 6,
+        "rightBlips": 5,
+        "abilityTiming": "Upon Entering / Victory",
+        "sourceText": "Move all swarms to the red Terrain card on their side of the formation. Then spawn 1 Brood Lord on each red Terrain card. If both Brood Lords are slain, Space Marines win.",
+        "handlerId": "location.genestealer-lair",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Locations",
+          "row": 17
+        }
+      },
+      {
+        "id": "location.launch-control-room",
+        "name": "Launch Control Room",
+        "tier": "4",
+        "leftBlips": 6,
+        "rightBlips": 6,
+        "abilityTiming": "Activate Control Panel / Victory",
+        "sourceText": "Place a Support Token on this card or roll a die. If the roll is equal to or less than the number of Support Tokens on this card, Space Marines win. Otherwise there is no effect.",
+        "handlerId": "location.launch-control-room",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Locations",
+          "row": 18
+        }
+      },
+      {
+        "id": "location.toxin-pumping-station",
+        "name": "Toxin Pumping Station",
+        "tier": "4",
+        "leftBlips": 7,
+        "rightBlips": 7,
+        "abilityTiming": "Activate Control Panel / Victory",
+        "sourceText": "Roll a die and discard that many cards from the blip pile of your choice. Space Marines may only win when there are 0 cards in both blip piles and 0 Genestealer cards in the formation.",
+        "handlerId": "location.toxin-pumping-station",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Locations",
+          "row": 19
+        }
+      }
+    ],
+    "setupLocations": [
+      {
+        "id": "setup-location.void-lock-1-player",
+        "name": "Void Lock - 1 player",
+        "playerCounts": [
+          1
+        ],
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Setup & Rules",
+          "row": 2
+        }
+      },
+      {
+        "id": "setup-location.void-lock-2-or-4-players",
+        "name": "Void Lock - 2 or 4 players",
+        "playerCounts": [
+          2,
+          4
+        ],
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Setup & Rules",
+          "row": 3
+        }
+      },
+      {
+        "id": "setup-location.void-lock-5-players",
+        "name": "Void Lock - 5 players",
+        "playerCounts": [
+          5
+        ],
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Setup & Rules",
+          "row": 6
+        }
+      },
+      {
+        "id": "setup-location.void-lock-3-or-6-players",
+        "name": "Void Lock - 3 or 6 players",
+        "playerCounts": [
+          3,
+          6
+        ],
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Setup & Rules",
+          "row": 4
+        }
+      }
+    ],
+    "locationTerrain": [
+      {
+        "locationId": "location.main-corridor",
+        "side": "LEFT",
+        "markerOrder": 1,
+        "terrainId": "terrain.ventilation-duct",
+        "distance": 2,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 2
+        }
+      },
+      {
+        "locationId": "location.main-corridor",
+        "side": "LEFT",
+        "markerOrder": 2,
+        "terrainId": "terrain.door",
+        "distance": 5,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 3
+        }
+      },
+      {
+        "locationId": "location.main-corridor",
+        "side": "RIGHT",
+        "markerOrder": 1,
+        "terrainId": "terrain.corridor",
+        "distance": 7,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 4
+        }
+      },
+      {
+        "locationId": "location.main-corridor",
+        "side": "RIGHT",
+        "markerOrder": 2,
+        "terrainId": "terrain.dark-corner",
+        "distance": 3,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 5
+        }
+      },
+      {
+        "locationId": "location.maintenance-tunnels",
+        "side": "LEFT",
+        "markerOrder": 1,
+        "terrainId": "terrain.dark-corner",
+        "distance": 3,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 6
+        }
+      },
+      {
+        "locationId": "location.maintenance-tunnels",
+        "side": "LEFT",
+        "markerOrder": 2,
+        "terrainId": "terrain.control-panel",
+        "distance": 7,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 7
+        }
+      },
+      {
+        "locationId": "location.maintenance-tunnels",
+        "side": "RIGHT",
+        "markerOrder": 1,
+        "terrainId": "terrain.door",
+        "distance": 5,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 8
+        }
+      },
+      {
+        "locationId": "location.maintenance-tunnels",
+        "side": "RIGHT",
+        "markerOrder": 2,
+        "terrainId": "terrain.ventilation-duct",
+        "distance": 3,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 9
+        }
+      },
+      {
+        "locationId": "location.lower-accessway",
+        "side": "LEFT",
+        "markerOrder": 1,
+        "terrainId": "terrain.ventilation-duct",
+        "distance": 3,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 10
+        }
+      },
+      {
+        "locationId": "location.lower-accessway",
+        "side": "LEFT",
+        "markerOrder": 2,
+        "terrainId": "terrain.corridor",
+        "distance": 4,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 11
+        }
+      },
+      {
+        "locationId": "location.lower-accessway",
+        "side": "RIGHT",
+        "markerOrder": 1,
+        "terrainId": "terrain.dark-corner",
+        "distance": 5,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 12
+        }
+      },
+      {
+        "locationId": "location.lower-accessway",
+        "side": "RIGHT",
+        "markerOrder": 2,
+        "terrainId": "terrain.door",
+        "distance": 3,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 13
+        }
+      },
+      {
+        "locationId": "location.hibernation-cluster",
+        "side": "LEFT",
+        "markerOrder": 1,
+        "terrainId": "terrain.ventilation-duct",
+        "distance": 3,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 14
+        }
+      },
+      {
+        "locationId": "location.hibernation-cluster",
+        "side": "LEFT",
+        "markerOrder": 2,
+        "terrainId": "terrain.door",
+        "distance": 4,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 15
+        }
+      },
+      {
+        "locationId": "location.hibernation-cluster",
+        "side": "RIGHT",
+        "markerOrder": 1,
+        "terrainId": "terrain.spore-chimney",
+        "distance": 2,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 16
+        }
+      },
+      {
+        "locationId": "location.hibernation-cluster",
+        "side": "RIGHT",
+        "markerOrder": 2,
+        "terrainId": "terrain.dark-corner",
+        "distance": 1,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 17
+        }
+      },
+      {
+        "locationId": "location.munitorium",
+        "side": "LEFT",
+        "markerOrder": 1,
+        "terrainId": "terrain.promethium-tank",
+        "distance": 3,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 18
+        }
+      },
+      {
+        "locationId": "location.munitorium",
+        "side": "LEFT",
+        "markerOrder": 2,
+        "terrainId": "terrain.door",
+        "distance": 5,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 19
+        }
+      },
+      {
+        "locationId": "location.munitorium",
+        "side": "RIGHT",
+        "markerOrder": 1,
+        "terrainId": "terrain.dark-corner",
+        "distance": 4,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 20
+        }
+      },
+      {
+        "locationId": "location.munitorium",
+        "side": "RIGHT",
+        "markerOrder": 2,
+        "terrainId": "terrain.ventilation-duct",
+        "distance": 2,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 21
+        }
+      },
+      {
+        "locationId": "location.wreckage-labyrinth",
+        "side": "LEFT",
+        "markerOrder": 1,
+        "terrainId": "terrain.ventilation-duct",
+        "distance": 1,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 22
+        }
+      },
+      {
+        "locationId": "location.wreckage-labyrinth",
+        "side": "LEFT",
+        "markerOrder": 2,
+        "terrainId": "terrain.corridor",
+        "distance": 5,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 23
+        }
+      },
+      {
+        "locationId": "location.wreckage-labyrinth",
+        "side": "RIGHT",
+        "markerOrder": 1,
+        "terrainId": "terrain.promethium-tank",
+        "distance": 5,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 24
+        }
+      },
+      {
+        "locationId": "location.wreckage-labyrinth",
+        "side": "RIGHT",
+        "markerOrder": 2,
+        "terrainId": "terrain.door",
+        "distance": 3,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 25
+        }
+      },
+      {
+        "locationId": "location.service-shaft",
+        "side": "LEFT",
+        "markerOrder": 1,
+        "terrainId": "terrain.promethium-tank",
+        "distance": 2,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 26
+        }
+      },
+      {
+        "locationId": "location.service-shaft",
+        "side": "LEFT",
+        "markerOrder": 2,
+        "terrainId": "terrain.ventilation-duct",
+        "distance": 6,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 27
+        }
+      },
+      {
+        "locationId": "location.service-shaft",
+        "side": "RIGHT",
+        "markerOrder": 1,
+        "terrainId": "terrain.corridor",
+        "distance": 6,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 28
+        }
+      },
+      {
+        "locationId": "location.service-shaft",
+        "side": "RIGHT",
+        "markerOrder": 2,
+        "terrainId": "terrain.door",
+        "distance": 3,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 29
+        }
+      },
+      {
+        "locationId": "location.core-cogitator",
+        "side": "LEFT",
+        "markerOrder": 1,
+        "terrainId": "terrain.corridor",
+        "distance": 1,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 30
+        }
+      },
+      {
+        "locationId": "location.core-cogitator",
+        "side": "LEFT",
+        "markerOrder": 2,
+        "terrainId": "terrain.ventilation-duct",
+        "distance": 4,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 31
+        }
+      },
+      {
+        "locationId": "location.core-cogitator",
+        "side": "RIGHT",
+        "markerOrder": 1,
+        "terrainId": "terrain.dark-corner",
+        "distance": 3,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 32
+        }
+      },
+      {
+        "locationId": "location.core-cogitator",
+        "side": "RIGHT",
+        "markerOrder": 2,
+        "terrainId": "terrain.control-panel",
+        "distance": 1,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 33
+        }
+      },
+      {
+        "locationId": "location.cryo-control",
+        "side": "LEFT",
+        "markerOrder": 1,
+        "terrainId": "terrain.control-panel",
+        "distance": 1,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 34
+        }
+      },
+      {
+        "locationId": "location.cryo-control",
+        "side": "LEFT",
+        "markerOrder": 2,
+        "terrainId": "terrain.ventilation-duct",
+        "distance": 4,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 35
+        }
+      },
+      {
+        "locationId": "location.cryo-control",
+        "side": "RIGHT",
+        "markerOrder": 1,
+        "terrainId": "terrain.dark-corner",
+        "distance": 5,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 36
+        }
+      },
+      {
+        "locationId": "location.cryo-control",
+        "side": "RIGHT",
+        "markerOrder": 2,
+        "terrainId": "terrain.corridor",
+        "distance": 2,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 37
+        }
+      },
+      {
+        "locationId": "location.wrath-of-baal-chapel",
+        "side": "LEFT",
+        "markerOrder": 1,
+        "terrainId": "terrain.ventilation-duct",
+        "distance": 1,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 38
+        }
+      },
+      {
+        "locationId": "location.wrath-of-baal-chapel",
+        "side": "LEFT",
+        "markerOrder": 2,
+        "terrainId": "terrain.corridor",
+        "distance": 3,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 39
+        }
+      },
+      {
+        "locationId": "location.wrath-of-baal-chapel",
+        "side": "RIGHT",
+        "markerOrder": 1,
+        "terrainId": "terrain.door",
+        "distance": 4,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 40
+        }
+      },
+      {
+        "locationId": "location.wrath-of-baal-chapel",
+        "side": "RIGHT",
+        "markerOrder": 2,
+        "terrainId": "terrain.dark-corner",
+        "distance": 1,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 41
+        }
+      },
+      {
+        "locationId": "location.apothecarion",
+        "side": "LEFT",
+        "markerOrder": 1,
+        "terrainId": "terrain.control-panel",
+        "distance": 2,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 42
+        }
+      },
+      {
+        "locationId": "location.apothecarion",
+        "side": "LEFT",
+        "markerOrder": 2,
+        "terrainId": "terrain.ventilation-duct",
+        "distance": 3,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 43
+        }
+      },
+      {
+        "locationId": "location.apothecarion",
+        "side": "RIGHT",
+        "markerOrder": 1,
+        "terrainId": "terrain.corridor",
+        "distance": 5,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 44
+        }
+      },
+      {
+        "locationId": "location.apothecarion",
+        "side": "RIGHT",
+        "markerOrder": 2,
+        "terrainId": "terrain.dark-corner",
+        "distance": 2,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 45
+        }
+      },
+      {
+        "locationId": "location.dark-catacombs",
+        "side": "LEFT",
+        "markerOrder": 1,
+        "terrainId": "terrain.dark-corner",
+        "distance": 1,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 46
+        }
+      },
+      {
+        "locationId": "location.dark-catacombs",
+        "side": "LEFT",
+        "markerOrder": 2,
+        "terrainId": "terrain.door",
+        "distance": 3,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 47
+        }
+      },
+      {
+        "locationId": "location.dark-catacombs",
+        "side": "RIGHT",
+        "markerOrder": 1,
+        "terrainId": "terrain.ventilation-duct",
+        "distance": 5,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 48
+        }
+      },
+      {
+        "locationId": "location.dark-catacombs",
+        "side": "RIGHT",
+        "markerOrder": 2,
+        "terrainId": "terrain.corridor",
+        "distance": 4,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 49
+        }
+      },
+      {
+        "locationId": "location.teleportarium",
+        "side": "LEFT",
+        "markerOrder": 1,
+        "terrainId": "terrain.ventilation-duct",
+        "distance": 2,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 50
+        }
+      },
+      {
+        "locationId": "location.teleportarium",
+        "side": "LEFT",
+        "markerOrder": 2,
+        "terrainId": "terrain.dark-corner",
+        "distance": 4,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 51
+        }
+      },
+      {
+        "locationId": "location.teleportarium",
+        "side": "RIGHT",
+        "markerOrder": 1,
+        "terrainId": "terrain.control-panel",
+        "distance": 4,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 52
+        }
+      },
+      {
+        "locationId": "location.teleportarium",
+        "side": "RIGHT",
+        "markerOrder": 2,
+        "terrainId": "terrain.corridor",
+        "distance": 1,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 53
+        }
+      },
+      {
+        "locationId": "location.black-holds",
+        "side": "LEFT",
+        "markerOrder": 1,
+        "terrainId": "terrain.corridor",
+        "distance": 2,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 54
+        }
+      },
+      {
+        "locationId": "location.black-holds",
+        "side": "LEFT",
+        "markerOrder": 2,
+        "terrainId": "terrain.door",
+        "distance": 4,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 55
+        }
+      },
+      {
+        "locationId": "location.black-holds",
+        "side": "RIGHT",
+        "markerOrder": 1,
+        "terrainId": "terrain.ventilation-duct",
+        "distance": 3,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 56
+        }
+      },
+      {
+        "locationId": "location.black-holds",
+        "side": "RIGHT",
+        "markerOrder": 2,
+        "terrainId": "terrain.promethium-tank",
+        "distance": 2,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 57
+        }
+      },
+      {
+        "locationId": "location.genetorium",
+        "side": "LEFT",
+        "markerOrder": 1,
+        "terrainId": "terrain.corridor",
+        "distance": 1,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 58
+        }
+      },
+      {
+        "locationId": "location.genetorium",
+        "side": "LEFT",
+        "markerOrder": 2,
+        "terrainId": "terrain.dark-corner",
+        "distance": 3,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 59
+        }
+      },
+      {
+        "locationId": "location.genetorium",
+        "side": "RIGHT",
+        "markerOrder": 1,
+        "terrainId": "terrain.control-panel",
+        "distance": 4,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 60
+        }
+      },
+      {
+        "locationId": "location.genetorium",
+        "side": "RIGHT",
+        "markerOrder": 2,
+        "terrainId": "terrain.ventilation-duct",
+        "distance": 3,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 61
+        }
+      },
+      {
+        "locationId": "location.genestealer-lair",
+        "side": "LEFT",
+        "markerOrder": 1,
+        "terrainId": "terrain.dark-corner",
+        "distance": 1,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 62
+        }
+      },
+      {
+        "locationId": "location.genestealer-lair",
+        "side": "LEFT",
+        "markerOrder": 2,
+        "terrainId": "terrain.ventilation-duct",
+        "distance": 2,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 63
+        }
+      },
+      {
+        "locationId": "location.genestealer-lair",
+        "side": "RIGHT",
+        "markerOrder": 1,
+        "terrainId": "terrain.corridor",
+        "distance": 2,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 64
+        }
+      },
+      {
+        "locationId": "location.genestealer-lair",
+        "side": "RIGHT",
+        "markerOrder": 2,
+        "terrainId": "terrain.spore-chimney",
+        "distance": 1,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 65
+        }
+      },
+      {
+        "locationId": "location.launch-control-room",
+        "side": "LEFT",
+        "markerOrder": 1,
+        "terrainId": "terrain.dark-corner",
+        "distance": 1,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 66
+        }
+      },
+      {
+        "locationId": "location.launch-control-room",
+        "side": "LEFT",
+        "markerOrder": 2,
+        "terrainId": "terrain.control-panel",
+        "distance": 3,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 67
+        }
+      },
+      {
+        "locationId": "location.launch-control-room",
+        "side": "RIGHT",
+        "markerOrder": 1,
+        "terrainId": "terrain.ventilation-duct",
+        "distance": 2,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 68
+        }
+      },
+      {
+        "locationId": "location.launch-control-room",
+        "side": "RIGHT",
+        "markerOrder": 2,
+        "terrainId": "terrain.corridor",
+        "distance": 1,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 69
+        }
+      },
+      {
+        "locationId": "location.toxin-pumping-station",
+        "side": "LEFT",
+        "markerOrder": 1,
+        "terrainId": "terrain.corridor",
+        "distance": 1,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 70
+        }
+      },
+      {
+        "locationId": "location.toxin-pumping-station",
+        "side": "LEFT",
+        "markerOrder": 2,
+        "terrainId": "terrain.dark-corner",
+        "distance": 2,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 71
+        }
+      },
+      {
+        "locationId": "location.toxin-pumping-station",
+        "side": "RIGHT",
+        "markerOrder": 1,
+        "terrainId": "terrain.control-panel",
+        "distance": 2,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 72
+        }
+      },
+      {
+        "locationId": "location.toxin-pumping-station",
+        "side": "RIGHT",
+        "markerOrder": 2,
+        "terrainId": "terrain.ventilation-duct",
+        "distance": 1,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Location Terrain",
+          "row": 73
+        }
+      }
+    ],
+    "genestealerTypes": [
+      {
+        "id": "genestealer.claw",
+        "icon": "CLAW",
+        "quantity": 9,
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Genestealers",
+          "row": 2
+        }
+      },
+      {
+        "id": "genestealer.tongue",
+        "icon": "TONGUE",
+        "quantity": 9,
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Genestealers",
+          "row": 3
+        }
+      },
+      {
+        "id": "genestealer.tail",
+        "icon": "TAIL",
+        "quantity": 9,
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Genestealers",
+          "row": 4
+        }
+      },
+      {
+        "id": "genestealer.head",
+        "icon": "HEAD",
+        "quantity": 9,
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Genestealers",
+          "row": 5
+        }
+      }
+    ],
+    "broodLords": [
+      {
+        "id": "brood-lord.a",
+        "name": "Brood Lord A",
+        "quantity": 1,
+        "movementIcons": [
+          "HEAD",
+          "TAIL"
+        ],
+        "sourceText": "Never shuffled into Genestealer deck/blips; only spawned by Location. Swarm moves when either icon activates. Cannot be slain while a normal Genestealer would remain in its swarm. Subtract 1 from swarm's defense die roll when it attacks.",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Brood Lords",
+          "row": 2
+        }
+      },
+      {
+        "id": "brood-lord.b",
+        "name": "Brood Lord B",
+        "quantity": 1,
+        "movementIcons": [
+          "CLAW",
+          "TONGUE"
+        ],
+        "sourceText": "Never shuffled into Genestealer deck/blips; only spawned by Location. Swarm moves when either icon activates. Cannot be slain while a normal Genestealer would remain in its swarm. Subtract 1 from swarm's defense die roll when it attacks.",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Brood Lords",
+          "row": 3
+        }
+      }
+    ]
+  },
+  "setup": {
+    "playerSetups": [
+      {
+        "players": 1,
+        "formationSize": 6,
+        "combatTeams": "3 Combat Teams",
+        "locationDeckSetup": [
+          "2",
+          "3",
+          "4"
+        ],
+        "majorSpawn": 2,
+        "minorSpawn": 1,
+        "startLeftBlips": 6,
+        "startRightBlips": 6,
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Setup & Rules",
+          "row": 2
+        },
+        "setupLocationId": "setup-location.void-lock-1-player"
+      },
+      {
+        "players": 2,
+        "formationSize": 8,
+        "combatTeams": "2 Combat Teams/player",
+        "locationDeckSetup": [
+          "1C",
+          "2",
+          "3",
+          "4"
+        ],
+        "majorSpawn": 3,
+        "minorSpawn": 1,
+        "startLeftBlips": 7,
+        "startRightBlips": 7,
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Setup & Rules",
+          "row": 3
+        },
+        "setupLocationId": "setup-location.void-lock-2-or-4-players"
+      },
+      {
+        "players": 3,
+        "formationSize": 12,
+        "combatTeams": "2 Combat Teams/player",
+        "locationDeckSetup": [
+          "1A",
+          "2",
+          "3",
+          "4"
+        ],
+        "majorSpawn": 5,
+        "minorSpawn": 3,
+        "startLeftBlips": 9,
+        "startRightBlips": 9,
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Setup & Rules",
+          "row": 4
+        },
+        "setupLocationId": "setup-location.void-lock-3-or-6-players"
+      },
+      {
+        "players": 4,
+        "formationSize": 8,
+        "combatTeams": "1 Combat Team/player",
+        "locationDeckSetup": [
+          "1C",
+          "2",
+          "3",
+          "4"
+        ],
+        "majorSpawn": 3,
+        "minorSpawn": 1,
+        "startLeftBlips": 7,
+        "startRightBlips": 7,
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Setup & Rules",
+          "row": 5
+        },
+        "setupLocationId": "setup-location.void-lock-2-or-4-players"
+      },
+      {
+        "players": 5,
+        "formationSize": 10,
+        "combatTeams": "1 Combat Team/player",
+        "locationDeckSetup": [
+          "1B",
+          "2",
+          "3",
+          "4"
+        ],
+        "majorSpawn": 4,
+        "minorSpawn": 2,
+        "startLeftBlips": 8,
+        "startRightBlips": 8,
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Setup & Rules",
+          "row": 6
+        },
+        "setupLocationId": "setup-location.void-lock-5-players"
+      },
+      {
+        "players": 6,
+        "formationSize": 12,
+        "combatTeams": "1 Combat Team/player",
+        "locationDeckSetup": [
+          "1A",
+          "2",
+          "3",
+          "4"
+        ],
+        "majorSpawn": 5,
+        "minorSpawn": 3,
+        "startLeftBlips": 9,
+        "startRightBlips": 9,
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Setup & Rules",
+          "row": 7
+        },
+        "setupLocationId": "setup-location.void-lock-3-or-6-players"
+      }
+    ],
+    "setupTerrain": [
+      {
+        "setup": "Void Lock - 1 player",
+        "side": "LEFT",
+        "markerOrder": 1,
+        "terrainId": "terrain.door",
+        "distance": 1,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Setup & Rules",
+          "row": 17
+        }
+      },
+      {
+        "setup": "Void Lock - 1 player",
+        "side": "LEFT",
+        "markerOrder": 2,
+        "terrainId": "terrain.dark-corner",
+        "distance": 3,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Setup & Rules",
+          "row": 18
+        }
+      },
+      {
+        "setup": "Void Lock - 1 player",
+        "side": "RIGHT",
+        "markerOrder": 1,
+        "terrainId": "terrain.ventilation-duct",
+        "distance": 3,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Setup & Rules",
+          "row": 19
+        }
+      },
+      {
+        "setup": "Void Lock - 1 player",
+        "side": "RIGHT",
+        "markerOrder": 2,
+        "terrainId": "terrain.corridor",
+        "distance": 2,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Setup & Rules",
+          "row": 20
+        }
+      },
+      {
+        "setup": "Void Lock - 2 or 4 players",
+        "side": "LEFT",
+        "markerOrder": 1,
+        "terrainId": "terrain.door",
+        "distance": 1,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Setup & Rules",
+          "row": 21
+        }
+      },
+      {
+        "setup": "Void Lock - 2 or 4 players",
+        "side": "LEFT",
+        "markerOrder": 2,
+        "terrainId": "terrain.dark-corner",
+        "distance": 3,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Setup & Rules",
+          "row": 22
+        }
+      },
+      {
+        "setup": "Void Lock - 2 or 4 players",
+        "side": "RIGHT",
+        "markerOrder": 1,
+        "terrainId": "terrain.ventilation-duct",
+        "distance": 4,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Setup & Rules",
+          "row": 23
+        }
+      },
+      {
+        "setup": "Void Lock - 2 or 4 players",
+        "side": "RIGHT",
+        "markerOrder": 2,
+        "terrainId": "terrain.corridor",
+        "distance": 2,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Setup & Rules",
+          "row": 24
+        }
+      },
+      {
+        "setup": "Void Lock - 5 players",
+        "side": "LEFT",
+        "markerOrder": 1,
+        "terrainId": "terrain.door",
+        "distance": 2,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Setup & Rules",
+          "row": 25
+        }
+      },
+      {
+        "setup": "Void Lock - 5 players",
+        "side": "LEFT",
+        "markerOrder": 2,
+        "terrainId": "terrain.dark-corner",
+        "distance": 4,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Setup & Rules",
+          "row": 26
+        }
+      },
+      {
+        "setup": "Void Lock - 5 players",
+        "side": "RIGHT",
+        "markerOrder": 1,
+        "terrainId": "terrain.ventilation-duct",
+        "distance": 5,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Setup & Rules",
+          "row": 27
+        }
+      },
+      {
+        "setup": "Void Lock - 5 players",
+        "side": "RIGHT",
+        "markerOrder": 2,
+        "terrainId": "terrain.corridor",
+        "distance": 3,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Setup & Rules",
+          "row": 28
+        }
+      },
+      {
+        "setup": "Void Lock - 3 or 6 players",
+        "side": "LEFT",
+        "markerOrder": 1,
+        "terrainId": "terrain.door",
+        "distance": 2,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Setup & Rules",
+          "row": 29
+        }
+      },
+      {
+        "setup": "Void Lock - 3 or 6 players",
+        "side": "LEFT",
+        "markerOrder": 2,
+        "terrainId": "terrain.dark-corner",
+        "distance": 5,
+        "countFrom": "TOP",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Setup & Rules",
+          "row": 30
+        }
+      },
+      {
+        "setup": "Void Lock - 3 or 6 players",
+        "side": "RIGHT",
+        "markerOrder": 1,
+        "terrainId": "terrain.ventilation-duct",
+        "distance": 6,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Setup & Rules",
+          "row": 31
+        }
+      },
+      {
+        "setup": "Void Lock - 3 or 6 players",
+        "side": "RIGHT",
+        "markerOrder": 2,
+        "terrainId": "terrain.corridor",
+        "distance": 3,
+        "countFrom": "BOTTOM",
+        "source": {
+          "workbook": "base-game-v2",
+          "sheet": "Setup & Rules",
+          "row": 32
+        }
+      }
+    ],
+    "componentConstants": {
+      "support-token-supply": 12,
+      "action-cards": 18,
+      "space-marines": 12,
+      "event-cards": 30,
+      "normal-genestealers": 36,
+      "brood-lords": 2,
+      "locations": 22,
+      "terrain-cards": 8
+    }
+  },
+  "instances": {
+    "actions": [
+      {
+        "id": "action.green.block",
+        "definitionId": "action.green.block"
+      },
+      {
+        "id": "action.yellow.defensive-stance",
+        "definitionId": "action.yellow.defensive-stance"
+      },
+      {
+        "id": "action.blue.counter-attack",
+        "definitionId": "action.blue.counter-attack"
+      },
+      {
+        "id": "action.red.overwatch",
+        "definitionId": "action.red.overwatch"
+      },
+      {
+        "id": "action.purple.strategize",
+        "definitionId": "action.purple.strategize"
+      },
+      {
+        "id": "action.grey.power-field",
+        "definitionId": "action.grey.power-field"
+      },
+      {
+        "id": "action.red.onward-brothers",
+        "definitionId": "action.red.onward-brothers"
+      },
+      {
+        "id": "action.grey.stealth-tactics",
+        "definitionId": "action.grey.stealth-tactics"
+      },
+      {
+        "id": "action.yellow.reorganize",
+        "definitionId": "action.yellow.reorganize"
+      },
+      {
+        "id": "action.purple.forward-scouting",
+        "definitionId": "action.purple.forward-scouting"
+      },
+      {
+        "id": "action.blue.intimidation",
+        "definitionId": "action.blue.intimidation"
+      },
+      {
+        "id": "action.green.run-and-gun",
+        "definitionId": "action.green.run-and-gun"
+      },
+      {
+        "id": "action.blue.lead-by-example",
+        "definitionId": "action.blue.lead-by-example"
+      },
+      {
+        "id": "action.purple.flamer-attack",
+        "definitionId": "action.purple.flamer-attack"
+      },
+      {
+        "id": "action.grey.psionic-attack",
+        "definitionId": "action.grey.psionic-attack"
+      },
+      {
+        "id": "action.green.dead-aim",
+        "definitionId": "action.green.dead-aim"
+      },
+      {
+        "id": "action.red.full-auto",
+        "definitionId": "action.red.full-auto"
+      },
+      {
+        "id": "action.yellow.heroic-charge",
+        "definitionId": "action.yellow.heroic-charge"
+      }
+    ],
+    "marines": [
+      {
+        "id": "marine.green.sergeant-gideon",
+        "definitionId": "marine.green.sergeant-gideon"
+      },
+      {
+        "id": "marine.green.brother-noctis",
+        "definitionId": "marine.green.brother-noctis"
+      },
+      {
+        "id": "marine.yellow.brother-claudio",
+        "definitionId": "marine.yellow.brother-claudio"
+      },
+      {
+        "id": "marine.yellow.brother-goriel",
+        "definitionId": "marine.yellow.brother-goriel"
+      },
+      {
+        "id": "marine.red.brother-leon",
+        "definitionId": "marine.red.brother-leon"
+      },
+      {
+        "id": "marine.red.brother-valencio",
+        "definitionId": "marine.red.brother-valencio"
+      },
+      {
+        "id": "marine.blue.sergeant-lorenzo",
+        "definitionId": "marine.blue.sergeant-lorenzo"
+      },
+      {
+        "id": "marine.blue.brother-deino",
+        "definitionId": "marine.blue.brother-deino"
+      },
+      {
+        "id": "marine.grey.lexicanium-calistarius",
+        "definitionId": "marine.grey.lexicanium-calistarius"
+      },
+      {
+        "id": "marine.grey.brother-scipio",
+        "definitionId": "marine.grey.brother-scipio"
+      },
+      {
+        "id": "marine.purple.brother-zael",
+        "definitionId": "marine.purple.brother-zael"
+      },
+      {
+        "id": "marine.purple.brother-omnio",
+        "definitionId": "marine.purple.brother-omnio"
+      }
+    ],
+    "events": [
+      {
+        "id": "event.surrounded.01",
+        "definitionId": "event.surrounded"
+      },
+      {
+        "id": "event.flanking-manoeuvre.01",
+        "definitionId": "event.flanking-manoeuvre"
+      },
+      {
+        "id": "event.out-of-thin-air.copy-1.01",
+        "definitionId": "event.out-of-thin-air.copy-1"
+      },
+      {
+        "id": "event.out-of-thin-air.copy-2.01",
+        "definitionId": "event.out-of-thin-air.copy-2"
+      },
+      {
+        "id": "event.the-swarm.copy-1.01",
+        "definitionId": "event.the-swarm.copy-1"
+      },
+      {
+        "id": "event.the-swarm.copy-2.01",
+        "definitionId": "event.the-swarm.copy-2"
+      },
+      {
+        "id": "event.psychic-assault.01",
+        "definitionId": "event.psychic-assault"
+      },
+      {
+        "id": "event.theyre-everywhere.01",
+        "definitionId": "event.theyre-everywhere"
+      },
+      {
+        "id": "event.evasion.01",
+        "definitionId": "event.evasion"
+      },
+      {
+        "id": "event.outnumbered.01",
+        "definitionId": "event.outnumbered"
+      },
+      {
+        "id": "event.chaos-of-battle.01",
+        "definitionId": "event.chaos-of-battle"
+      },
+      {
+        "id": "event.chaos-of-battle.02",
+        "definitionId": "event.chaos-of-battle"
+      },
+      {
+        "id": "event.stalking-from-the-shadows.01",
+        "definitionId": "event.stalking-from-the-shadows"
+      },
+      {
+        "id": "event.stalking-from-the-shadows.02",
+        "definitionId": "event.stalking-from-the-shadows"
+      },
+      {
+        "id": "event.resupply.01",
+        "definitionId": "event.resupply"
+      },
+      {
+        "id": "event.gun-jam.01",
+        "definitionId": "event.gun-jam"
+      },
+      {
+        "id": "event.gun-jam.02",
+        "definitionId": "event.gun-jam"
+      },
+      {
+        "id": "event.for-my-battle-brothers.01",
+        "definitionId": "event.for-my-battle-brothers"
+      },
+      {
+        "id": "event.for-my-battle-brothers.02",
+        "definitionId": "event.for-my-battle-brothers"
+      },
+      {
+        "id": "event.rewarded-faith.01",
+        "definitionId": "event.rewarded-faith"
+      },
+      {
+        "id": "event.full-scan.01",
+        "definitionId": "event.full-scan"
+      },
+      {
+        "id": "event.full-scan.02",
+        "definitionId": "event.full-scan"
+      },
+      {
+        "id": "event.cleansing-flames.01",
+        "definitionId": "event.cleansing-flames"
+      },
+      {
+        "id": "event.second-wind.01",
+        "definitionId": "event.second-wind"
+      },
+      {
+        "id": "event.quick-instincts.01",
+        "definitionId": "event.quick-instincts"
+      },
+      {
+        "id": "event.secret-route.01",
+        "definitionId": "event.secret-route"
+      },
+      {
+        "id": "event.secret-route.02",
+        "definitionId": "event.secret-route"
+      },
+      {
+        "id": "event.enter-formation.01",
+        "definitionId": "event.enter-formation"
+      },
+      {
+        "id": "event.temporary-sanctuary.01",
+        "definitionId": "event.temporary-sanctuary"
+      },
+      {
+        "id": "event.rescue-space-marine.01",
+        "definitionId": "event.rescue-space-marine"
+      }
+    ],
+    "genestealers": [
+      {
+        "id": "genestealer.claw.01",
+        "definitionId": "genestealer.claw"
+      },
+      {
+        "id": "genestealer.claw.02",
+        "definitionId": "genestealer.claw"
+      },
+      {
+        "id": "genestealer.claw.03",
+        "definitionId": "genestealer.claw"
+      },
+      {
+        "id": "genestealer.claw.04",
+        "definitionId": "genestealer.claw"
+      },
+      {
+        "id": "genestealer.claw.05",
+        "definitionId": "genestealer.claw"
+      },
+      {
+        "id": "genestealer.claw.06",
+        "definitionId": "genestealer.claw"
+      },
+      {
+        "id": "genestealer.claw.07",
+        "definitionId": "genestealer.claw"
+      },
+      {
+        "id": "genestealer.claw.08",
+        "definitionId": "genestealer.claw"
+      },
+      {
+        "id": "genestealer.claw.09",
+        "definitionId": "genestealer.claw"
+      },
+      {
+        "id": "genestealer.tongue.01",
+        "definitionId": "genestealer.tongue"
+      },
+      {
+        "id": "genestealer.tongue.02",
+        "definitionId": "genestealer.tongue"
+      },
+      {
+        "id": "genestealer.tongue.03",
+        "definitionId": "genestealer.tongue"
+      },
+      {
+        "id": "genestealer.tongue.04",
+        "definitionId": "genestealer.tongue"
+      },
+      {
+        "id": "genestealer.tongue.05",
+        "definitionId": "genestealer.tongue"
+      },
+      {
+        "id": "genestealer.tongue.06",
+        "definitionId": "genestealer.tongue"
+      },
+      {
+        "id": "genestealer.tongue.07",
+        "definitionId": "genestealer.tongue"
+      },
+      {
+        "id": "genestealer.tongue.08",
+        "definitionId": "genestealer.tongue"
+      },
+      {
+        "id": "genestealer.tongue.09",
+        "definitionId": "genestealer.tongue"
+      },
+      {
+        "id": "genestealer.tail.01",
+        "definitionId": "genestealer.tail"
+      },
+      {
+        "id": "genestealer.tail.02",
+        "definitionId": "genestealer.tail"
+      },
+      {
+        "id": "genestealer.tail.03",
+        "definitionId": "genestealer.tail"
+      },
+      {
+        "id": "genestealer.tail.04",
+        "definitionId": "genestealer.tail"
+      },
+      {
+        "id": "genestealer.tail.05",
+        "definitionId": "genestealer.tail"
+      },
+      {
+        "id": "genestealer.tail.06",
+        "definitionId": "genestealer.tail"
+      },
+      {
+        "id": "genestealer.tail.07",
+        "definitionId": "genestealer.tail"
+      },
+      {
+        "id": "genestealer.tail.08",
+        "definitionId": "genestealer.tail"
+      },
+      {
+        "id": "genestealer.tail.09",
+        "definitionId": "genestealer.tail"
+      },
+      {
+        "id": "genestealer.head.01",
+        "definitionId": "genestealer.head"
+      },
+      {
+        "id": "genestealer.head.02",
+        "definitionId": "genestealer.head"
+      },
+      {
+        "id": "genestealer.head.03",
+        "definitionId": "genestealer.head"
+      },
+      {
+        "id": "genestealer.head.04",
+        "definitionId": "genestealer.head"
+      },
+      {
+        "id": "genestealer.head.05",
+        "definitionId": "genestealer.head"
+      },
+      {
+        "id": "genestealer.head.06",
+        "definitionId": "genestealer.head"
+      },
+      {
+        "id": "genestealer.head.07",
+        "definitionId": "genestealer.head"
+      },
+      {
+        "id": "genestealer.head.08",
+        "definitionId": "genestealer.head"
+      },
+      {
+        "id": "genestealer.head.09",
+        "definitionId": "genestealer.head"
+      }
+    ],
+    "broodLords": [
+      {
+        "id": "brood-lord.a.01",
+        "definitionId": "brood-lord.a"
+      },
+      {
+        "id": "brood-lord.b.01",
+        "definitionId": "brood-lord.b"
+      }
+    ],
+    "terrain": [
+      {
+        "id": "terrain.corridor",
+        "definitionId": "terrain.corridor"
+      },
+      {
+        "id": "terrain.artefact",
+        "definitionId": "terrain.artefact"
+      },
+      {
+        "id": "terrain.control-panel",
+        "definitionId": "terrain.control-panel"
+      },
+      {
+        "id": "terrain.door",
+        "definitionId": "terrain.door"
+      },
+      {
+        "id": "terrain.promethium-tank",
+        "definitionId": "terrain.promethium-tank"
+      },
+      {
+        "id": "terrain.dark-corner",
+        "definitionId": "terrain.dark-corner"
+      },
+      {
+        "id": "terrain.spore-chimney",
+        "definitionId": "terrain.spore-chimney"
+      },
+      {
+        "id": "terrain.ventilation-duct",
+        "definitionId": "terrain.ventilation-duct"
+      }
+    ],
+    "locations": [
+      {
+        "id": "location.main-corridor",
+        "definitionId": "location.main-corridor"
+      },
+      {
+        "id": "location.maintenance-tunnels",
+        "definitionId": "location.maintenance-tunnels"
+      },
+      {
+        "id": "location.service-shaft",
+        "definitionId": "location.service-shaft"
+      },
+      {
+        "id": "location.lower-accessway",
+        "definitionId": "location.lower-accessway"
+      },
+      {
+        "id": "location.hibernation-cluster",
+        "definitionId": "location.hibernation-cluster"
+      },
+      {
+        "id": "location.munitorium",
+        "definitionId": "location.munitorium"
+      },
+      {
+        "id": "location.cryo-control",
+        "definitionId": "location.cryo-control"
+      },
+      {
+        "id": "location.wrath-of-baal-chapel",
+        "definitionId": "location.wrath-of-baal-chapel"
+      },
+      {
+        "id": "location.apothecarion",
+        "definitionId": "location.apothecarion"
+      },
+      {
+        "id": "location.dark-catacombs",
+        "definitionId": "location.dark-catacombs"
+      },
+      {
+        "id": "location.teleportarium",
+        "definitionId": "location.teleportarium"
+      },
+      {
+        "id": "location.black-holds",
+        "definitionId": "location.black-holds"
+      },
+      {
+        "id": "location.wreckage-labyrinth",
+        "definitionId": "location.wreckage-labyrinth"
+      },
+      {
+        "id": "location.core-cogitator",
+        "definitionId": "location.core-cogitator"
+      },
+      {
+        "id": "location.genetorium",
+        "definitionId": "location.genetorium"
+      },
+      {
+        "id": "location.genestealer-lair",
+        "definitionId": "location.genestealer-lair"
+      },
+      {
+        "id": "location.launch-control-room",
+        "definitionId": "location.launch-control-room"
+      },
+      {
+        "id": "location.toxin-pumping-station",
+        "definitionId": "location.toxin-pumping-station"
+      }
+    ],
+    "setupLocations": [
+      {
+        "id": "setup-location.void-lock-1-player",
+        "definitionId": "setup-location.void-lock-1-player"
+      },
+      {
+        "id": "setup-location.void-lock-2-or-4-players",
+        "definitionId": "setup-location.void-lock-2-or-4-players"
+      },
+      {
+        "id": "setup-location.void-lock-5-players",
+        "definitionId": "setup-location.void-lock-5-players"
+      },
+      {
+        "id": "setup-location.void-lock-3-or-6-players",
+        "definitionId": "setup-location.void-lock-3-or-6-players"
+      }
+    ]
+  }
+}
