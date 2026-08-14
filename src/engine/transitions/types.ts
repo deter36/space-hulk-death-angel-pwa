@@ -8,6 +8,8 @@ export type RandomRecord = {
   preLength: number | null;
   postLength: number | null;
   resultingRng: RngState;
+  dieValue?: number;
+  dieSkull?: boolean;
 };
 
 export type MutationRecord = {

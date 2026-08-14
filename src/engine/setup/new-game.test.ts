@@ -50,7 +50,7 @@ describe("deterministic solo setup", () => {
     expect(first.transitions).toEqual(second.transitions);
     const serialized = serialize(first.state);
     expect(serialize(load(serialized))).toBe(serialized);
-    expect(stateHash(first.state)).toBe("e886e4a8b51f65e3e8657513af41d554a4758758d812bf33bc02d5fad516aae6");
+    expect(stateHash(first.state)).toBe("38080f962fa45c4d4377caa2a3cbd85e19d63557025cf69890005c371a18f7ef");
   });
 
   it("supports a certified zero-decision replay package", () => {

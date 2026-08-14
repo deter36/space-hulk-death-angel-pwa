@@ -106,7 +106,8 @@ describe("Event phase", () => {
     expect(result.state.round).toBe(2);
     while (result.state.pendingDecision?.type === "CHOOSE_ACTION" && result.state.pendingDecision.sourceId !== `team.${team.toLowerCase()}`) result = submit(result, result.state.pendingDecision.legalOptions[0].id);
     expect(result.state.pendingDecision?.sourceId).toBe(`team.${team.toLowerCase()}`);
-    expect(result.state.pendingDecision!.legalOptions.every((option) => !String(option.payload.actionId).includes("attack") && option.payload.actionId !== "action.red.full-auto")).toBe(true);
+    const jammedTeamOptions = result.state.pendingDecision!.legalOptions.filter((option) => option.payload.team === team);
+    expect(jammedTeamOptions.every((option) => !String(option.payload.actionId).includes("attack") && option.payload.actionId !== "action.red.full-auto")).toBe(true);
   });
 
   it("rescues an eligible slain Marine at the bottom without shifting the surviving formation", () => {

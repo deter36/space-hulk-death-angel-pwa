@@ -92,10 +92,21 @@ describe("Action selection and Support actions", () => {
     state.teams.GREEN.previousActionInstanceId = "action.green.block";
     const advanced = advanceAutomatic(state);
     expect(advanced.state.pendingDecision?.legalOptions.map((option) => option.payload.actionId)).not.toContain("action.green.block");
-    expect(advanced.state.pendingDecision?.legalOptions).toHaveLength(2);
+    expect(advanced.state.pendingDecision?.legalOptions).toHaveLength(8);
     const view = actionSelectionView(advanced.state)!;
     expect(view.cards).toHaveLength(3);
     expect(view.cards.find((card) => card.name === "Block")).toMatchObject({ available: false, unavailableReason: "PREVIOUS_ROUND", optionId: null });
+  });
+
+  it("allows active teams to choose Actions in any order", () => {
+    let result = newGame(CONFIG);
+    result = chooseAction(result, "Overwatch");
+    expect(result.state.teams.RED.chosenActionInstanceId).toBe("action.red.overwatch");
+    expect(result.state.pendingDecision?.legalOptions.some((option) => option.payload.team === "RED")).toBe(false);
+    result = chooseAction(result, "Defensive Stance");
+    expect(result.state.teams.YELLOW.chosenActionInstanceId).toBe("action.yellow.defensive-stance");
+    result = chooseAction(result, "Block");
+    expect(result.state.phase).not.toBe("CHOOSE_ACTIONS");
   });
 
   it("replays the same Action and Support decisions to identical transitions and state", () => {

@@ -591,7 +591,7 @@ function advanceMutable(state: GameState, transitions: TransitionRecord[]): void
           state.rng = resultingRng;
           state.activeDie = { id: `die.${state.transitionSeq + 1}`, sourceId: actionId, purpose: "HEROIC_CHARGE", rawValue: face.value, skull: face.skull, modifiedValue: face.value, rerolls: [] };
           state.actionStep = "HEROIC_CHARGE_RESOLVE";
-        }, { randomInputs: [{ operationSeq: resultingRng.operationSeq, kind: "DIE", sourceId: actionId, cardId: null, preLength: null, postLength: null, resultingRng }] }));
+        }, { randomInputs: [{ operationSeq: resultingRng.operationSeq, kind: "DIE", sourceId: actionId, cardId: null, preLength: null, postLength: null, resultingRng, dieValue: face.value, dieSkull: face.skull }] }));
         continue;
       }
       if (state.actionStep === "HEROIC_CHARGE_RESOLVE") {
@@ -683,7 +683,7 @@ function advanceMutable(state: GameState, transitions: TransitionRecord[]): void
             state.actionRuntime!.data.terrainMarineId = marineId;
             state.actionRuntime!.data.terrainId = terrainId;
             state.actionStep = "SPORE_CHIMNEY_RESOLVE";
-          }, { randomInputs: [{ operationSeq: resultingRng.operationSeq, kind: "DIE", sourceId: terrainId, cardId: null, preLength: null, postLength: null, resultingRng }] }));
+          }, { randomInputs: [{ operationSeq: resultingRng.operationSeq, kind: "DIE", sourceId: terrainId, cardId: null, preLength: null, postLength: null, resultingRng, dieValue: face.value, dieSkull: face.skull }] }));
           continue;
         }
         if (!state.pendingQueue.some((checkpoint) => checkpoint.timing === "IMPLEMENTATION_PENDING")) {
@@ -714,7 +714,7 @@ function advanceMutable(state: GameState, transitions: TransitionRecord[]): void
           state.rng = resultingRng;
           state.activeDie = { id: `die.${state.transitionSeq + 1}`, sourceId: "terrain.promethium-tank", purpose: "PROMETHIUM_TANK", rawValue: face.value, skull: face.skull, modifiedValue: face.value, rerolls: [] };
           state.actionStep = "PROMETHIUM_RESOLVE";
-        }, { randomInputs: [{ operationSeq: resultingRng.operationSeq, kind: "DIE", sourceId: "terrain.promethium-tank", cardId: null, preLength: null, postLength: null, resultingRng }] }));
+        }, { randomInputs: [{ operationSeq: resultingRng.operationSeq, kind: "DIE", sourceId: "terrain.promethium-tank", cardId: null, preLength: null, postLength: null, resultingRng, dieValue: face.value, dieSkull: face.skull }] }));
         continue;
       }
       if (state.actionStep === "PROMETHIUM_RESOLVE") {
@@ -808,7 +808,7 @@ function advanceMutable(state: GameState, transitions: TransitionRecord[]): void
           state.activeDie = { id: `die.${state.transitionSeq + 1}`, sourceId: actionId, purpose: "INTIMIDATION", rawValue: face.value, skull: face.skull, modifiedValue: face.value, rerolls: [] };
           state.actionRuntime!.data.intimidationCount = Math.min(face.value, eligibleCount);
           state.actionStep = Math.min(face.value, eligibleCount) === 0 ? "COMPLETE" : "INTIMIDATION_PICK";
-        }, { randomInputs: [{ operationSeq: resultingRng.operationSeq, kind: "DIE", sourceId: actionId, cardId: null, preLength: null, postLength: null, resultingRng }] }));
+        }, { randomInputs: [{ operationSeq: resultingRng.operationSeq, kind: "DIE", sourceId: actionId, cardId: null, preLength: null, postLength: null, resultingRng, dieValue: face.value, dieSkull: face.skull }] }));
         continue;
       }
       if (state.actionStep === "INTIMIDATION_PICK") {
@@ -873,7 +873,7 @@ function advanceMutable(state: GameState, transitions: TransitionRecord[]): void
             rerolls: prior ? [...prior.rerolls, { rawValue: prior.rawValue, skull: prior.skull, modifiedValue: prior.modifiedValue }] : [],
           };
           state.actionStep = "RUN_AND_GUN_REROLL";
-        }, { randomInputs: [{ operationSeq: resultingRng.operationSeq, kind: "DIE", sourceId: actionId, cardId: null, preLength: null, postLength: null, resultingRng }] }));
+        }, { randomInputs: [{ operationSeq: resultingRng.operationSeq, kind: "DIE", sourceId: actionId, cardId: null, preLength: null, postLength: null, resultingRng, dieValue: face.value, dieSkull: face.skull }] }));
         continue;
       }
       if (state.actionStep === "RUN_AND_GUN_REROLL") {
@@ -1042,7 +1042,7 @@ function advanceControlPanel(state: GameState, transitions: TransitionRecord[]):
       state.rng = resultingRng;
       state.activeDie = { id: `die.${state.transitionSeq + 1}`, sourceId: state.currentLocationInstanceId, purpose, rawValue: face.value, skull: face.skull, modifiedValue: face.value, rerolls: [] };
       state.actionStep = purpose.replace("_ROLL", "_RESOLVE");
-    }, { randomInputs: [{ operationSeq: resultingRng.operationSeq, kind: "DIE", sourceId: state.currentLocationInstanceId, cardId: null, preLength: null, postLength: null, resultingRng }] }));
+    }, { randomInputs: [{ operationSeq: resultingRng.operationSeq, kind: "DIE", sourceId: state.currentLocationInstanceId, cardId: null, preLength: null, postLength: null, resultingRng, dieValue: face.value, dieSkull: face.skull }] }));
     return true;
   }
   if (state.actionStep === "TELEPORTARIUM_RESOLVE") {
@@ -1418,7 +1418,7 @@ function advanceGenestealerAttack(state: GameState, transitions: TransitionRecor
         rerolls: prior ? [...prior.rerolls, { rawValue: prior.rawValue, skull: prior.skull, modifiedValue: prior.modifiedValue }] : [],
       };
       state.genestealerAttackStep = "TRIGGERS";
-    }, { randomInputs: [{ operationSeq: resultingRng.operationSeq, kind: "DIE", sourceId: runtime.swarmId, cardId: null, preLength: null, postLength: null, resultingRng }] }));
+    }, { randomInputs: [{ operationSeq: resultingRng.operationSeq, kind: "DIE", sourceId: runtime.swarmId, cardId: null, preLength: null, postLength: null, resultingRng, dieValue: face.value, dieSkull: face.skull }] }));
     return true;
   }
 
@@ -1553,19 +1553,26 @@ function rollAttackDie(state: GameState, actionId: string, purpose: string, tran
       rerolls: prior ? [...prior.rerolls, { rawValue: prior.rawValue, skull: prior.skull, modifiedValue: prior.modifiedValue }] : [],
     };
     state.actionStep = "ATTACK_REROLL";
-  }, { randomInputs: [{ operationSeq: resultingRng.operationSeq, kind: "DIE", sourceId: actionId, cardId: null, preLength: null, postLength: null, resultingRng }] }));
+  }, { randomInputs: [{ operationSeq: resultingRng.operationSeq, kind: "DIE", sourceId: actionId, cardId: null, preLength: null, postLength: null, resultingRng, dieValue: face.value, dieSkull: face.skull }] }));
 }
 
 function actionSelectionDecision(state: GameState, team: TeamColor): PendingDecision {
-  const teamState = state.teams[team];
-  const gunJammed = state.roundEffects.some((effect) => effect.data.handlerId === "event.gun-jam" && Number(effect.data.activeRound) === state.round && effect.targetIds.includes(team));
-  const actions = teamState.actionInstanceIds.map(actionDefinition).filter((action) => !gunJammed || action.type !== "ATTACK");
-  return makeDecision(state, "CHOOSE_ACTION", `team.${team.toLowerCase()}`, "actions.choose", actions.map((action) => ({
-    id: `action:${action.id}`,
-    label: `${action.name} · Initiative ${action.initiative}`,
-    payload: { team, actionId: action.id },
-    canonicalEffectPreview: action.sourceText,
-  })).filter((option) => option.payload.actionId !== teamState.previousActionInstanceId));
+  const unchosenTeams = state.activeTeams.filter((color) => state.teams[color].active && state.teams[color].chosenActionInstanceId === null);
+  const options = unchosenTeams.flatMap((color) => {
+    const teamState = state.teams[color];
+    const gunJammed = state.roundEffects.some((effect) => effect.data.handlerId === "event.gun-jam" && Number(effect.data.activeRound) === state.round && effect.targetIds.includes(color));
+    return teamState.actionInstanceIds.map(actionDefinition)
+      .filter((action) => (!gunJammed || action.type !== "ATTACK") && action.id !== teamState.previousActionInstanceId)
+      .map((action) => ({
+        id: `action:${action.id}`,
+        label: `${action.name} · Initiative ${action.initiative}`,
+        payload: { team: color, actionId: action.id },
+        canonicalEffectPreview: action.sourceText,
+      }));
+  });
+  // Keep the source keyed to the first unchosen team so existing deterministic
+  // replays retain their decision IDs while the option set permits any team.
+  return makeDecision(state, "CHOOSE_ACTION", `team.${team.toLowerCase()}`, "actions.choose", options);
 }
 
 function lockActions(state: GameState, transitions: TransitionRecord[]): void {

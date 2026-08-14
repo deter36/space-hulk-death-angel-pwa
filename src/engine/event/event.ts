@@ -143,7 +143,7 @@ function roll(state: GameState, sourceId: string, purpose: string, nextStep: str
     state.rng = resultingRng;
     state.activeDie = { id: prior?.purpose === purpose ? prior.id : `die.${state.transitionSeq + 1}`, sourceId, purpose, rawValue: face.value, skull: face.skull, modifiedValue: face.value, rerolls: prior?.purpose === purpose ? [...prior.rerolls, { rawValue: prior.rawValue, skull: prior.skull, modifiedValue: prior.modifiedValue }] : [] };
     state.eventStep = nextStep;
-  }, { randomInputs: [{ operationSeq: resultingRng.operationSeq, kind: "DIE", sourceId, cardId: null, preLength: null, postLength: null, resultingRng }] }));
+  }, { randomInputs: [{ operationSeq: resultingRng.operationSeq, kind: "DIE", sourceId, cardId: null, preLength: null, postLength: null, resultingRng, dieValue: face.value, dieSkull: face.skull }] }));
 }
 
 function drawGenestealer(state: GameState, side: Side, positionIndex: number | null, spawnSide: Side | null, transitions: TransitionRecord[], after?: () => void): boolean {

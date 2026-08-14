@@ -23,7 +23,7 @@ type ActionDefinition = Definition & { team: TeamColor; initiative: number; type
 type TerrainDefinition = Definition & { spawnColor: string; activatable: boolean; sourceText: string | null };
 type LocationDefinition = Definition & { tier: string; leftBlips: number; rightBlips: number; abilityTiming: string | null; sourceText: string | null };
 type SetupLocationDefinition = Definition;
-type EventDefinition = Definition & { copyIndex: number | null; sourceText: string; movementIcon: GenestealerIcon | null; movement: string | null };
+type EventDefinition = Definition & { copyIndex: number | null; sourceText: string; movementIcon: GenestealerIcon | null; movement: string | null; activations: Array<{ severity: "MAJOR" | "MINOR"; terrainColor: string }> };
 type Instance = { id: string; definitionId: string };
 type GameDatabase = {
   definitions: {
@@ -42,6 +42,14 @@ type Inspection = {
   title: string;
   body: string;
   meta?: string;
+};
+
+type RollNotice = {
+  id: string;
+  value: number;
+  skull: boolean;
+  title: string;
+  reroll: boolean;
 };
 
 const data = dataJson as unknown as GameDatabase;
@@ -86,6 +94,11 @@ function formatTransition(kind: string): string {
   return kind.replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+function formatActionType(type: string): string {
+  if (type === "MOVE_ACTIVATE") return "Move + Activate";
+  return formatPhase(type);
+}
+
 function componentDefinitionId(session: EngineSession, instanceId: string): string {
   return session.state.components[instanceId]?.definitionId ?? instanceId.split("#", 1)[0];
 }
@@ -110,7 +123,10 @@ function sourceInspection(session: EngineSession, sourceId: string): Inspection 
   const terrain = data.definitions.terrain.find((item) => item.id === definitionId);
   if (terrain) return { eyebrow: terrain.activatable ? "Activatable terrain" : "Terrain", title: terrain.name, body: terrain.sourceText ?? "No ability.", meta: `${terrain.spawnColor} spawn marker` };
   const marine = data.definitions.marines.find((item) => item.id === definitionId);
-  if (marine) return { eyebrow: `${marine.team} combat team`, title: marine.name, body: marine.namedActionAbility ? `Named ability: ${marine.namedActionAbility}. See that team's Action card for the complete ability text.` : "No named Action-card ability.", meta: `Attack range ${marine.attackRange}` };
+  if (marine) {
+    const namedAction = marine.namedActionAbility ? data.definitions.actions.find((item) => item.team === marine.team && item.name === marine.namedActionAbility) : null;
+    return { eyebrow: `${marine.team} combat team`, title: marine.name, body: namedAction ? `${namedAction.name}: ${namedAction.sourceText}` : "No named Action-card ability.", meta: `Attack range ${marine.attackRange}` };
+  }
   const location = data.definitions.locations.find((item) => item.id === definitionId);
   if (location) return { eyebrow: `Location ${location.tier}`, title: location.name, body: location.sourceText ?? "No special Location ability.", meta: `Blips: ${location.leftBlips} left · ${location.rightBlips} right${location.abilityTiming ? ` · ${location.abilityTiming}` : ""}` };
   const event = findEvent(sourceId);
@@ -139,6 +155,8 @@ function uniquePayloadOption(decision: PendingDecision | null, key: string, valu
 }
 
 function isDirectInputOption(decision: PendingDecision, option: DecisionOption): boolean {
+  if (decision.type === "SET_FACING") return true;
+  if (decision.type === "MOVE_MARINE" && !option.payload.finish) return true;
   for (const key of ["actionId", "terrainId", "cardId", "swarmId", "marineId"] as const) {
     const value = option.payload[key];
     if ((typeof value === "string" || typeof value === "number") && uniquePayloadOption(decision, key, value)?.id === option.id) return true;
@@ -149,6 +167,21 @@ function isDirectInputOption(decision: PendingDecision, option: DecisionOption):
     if (typeof value === "number" && uniquePayloadOption(decision, key, value, side)?.id === option.id) return true;
   }
   return false;
+}
+
+function rollNoticesFrom(session: EngineSession, startingAt: number): RollNotice[] {
+  return session.transitions.slice(startingAt).flatMap((transition) => transition.randomInputs
+    .filter((input) => input.kind === "DIE" && input.dieValue !== undefined)
+    .map((input, index) => {
+      const inspection = input.sourceId ? sourceInspection(session, input.sourceId) : null;
+      return {
+        id: `${transition.seq}.${index}`,
+        value: input.dieValue!,
+        skull: Boolean(input.dieSkull),
+        title: inspection?.title ?? (input.sourceId.startsWith("swarm.") ? "Genestealer attack" : "Combat die"),
+        reroll: transition.type === "DIE_REROLLED",
+      };
+    }));
 }
 
 type TacticalButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "onClick"> & {
@@ -195,6 +228,7 @@ export default function GameClient() {
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [diagnosticNotice, setDiagnosticNotice] = useState<string | null>(null);
+  const [rollNotices, setRollNotices] = useState<RollNotice[]>([]);
   const [restoreComplete, setRestoreComplete] = useState(false);
 
   useEffect(() => {
@@ -247,7 +281,9 @@ export default function GameClient() {
     if (!session || !decision) return;
     try {
       const prepared = prepareUiSession(submitSessionDecision(session, decision.id, optionId));
+      const notices = rollNoticesFrom(prepared.session, session.transitions.length);
       setSession(prepared.session);
+      if (notices.length) setRollNotices((current) => [...current, ...notices]);
       setInspection(null);
       setError(prepared.error);
       setDiagnosticNotice(null);
@@ -263,6 +299,7 @@ export default function GameClient() {
     setError(prepared.error);
     setInspection(null);
     setDiagnosticNotice(null);
+    setRollNotices([]);
   };
 
   const copyDiagnostics = async () => {
@@ -301,6 +338,7 @@ export default function GameClient() {
     setSelectedTeams([]);
     setError(null);
     setDiagnosticNotice(null);
+    setRollNotices([]);
   };
 
   if (!restoreComplete) return <main className="restore-shell"><span>Restoring mission state…</span></main>;
@@ -329,7 +367,7 @@ export default function GameClient() {
     );
   }
 
-  return <MissionBoard session={session} inspection={inspection} error={error} diagnosticNotice={diagnosticNotice} onInspect={setInspection} onChooseOption={resolveDecision} onUndo={undoOne} onCopyDiagnostics={copyDiagnostics} onDownloadSave={downloadSave} onDismissInspection={() => setInspection(null)} onNewMission={startNewMission} />;
+  return <MissionBoard session={session} inspection={inspection} error={error} diagnosticNotice={diagnosticNotice} rollNotice={rollNotices[0] ?? null} onDismissRoll={() => setRollNotices((current) => current.slice(1))} onInspect={setInspection} onChooseOption={resolveDecision} onUndo={undoOne} onCopyDiagnostics={copyDiagnostics} onDownloadSave={downloadSave} onDismissInspection={() => setInspection(null)} onNewMission={startNewMission} />;
 }
 
 type MissionBoardProps = {
@@ -337,18 +375,22 @@ type MissionBoardProps = {
   inspection: Inspection | null;
   error: string | null;
   diagnosticNotice: string | null;
+  rollNotice: RollNotice | null;
   onInspect: (inspection: Inspection) => void;
   onChooseOption: (optionId: string) => void;
   onUndo: () => void;
   onCopyDiagnostics: () => void;
   onDownloadSave: () => void;
   onDismissInspection: () => void;
+  onDismissRoll: () => void;
   onNewMission: () => void;
 };
 
-function MissionBoard({ session, inspection, error, diagnosticNotice, onInspect, onChooseOption, onUndo, onCopyDiagnostics, onDownloadSave, onDismissInspection, onNewMission }: MissionBoardProps) {
+function MissionBoard({ session, inspection, error, diagnosticNotice, rollNotice, onInspect, onChooseOption, onUndo, onCopyDiagnostics, onDownloadSave, onDismissInspection, onDismissRoll, onNewMission }: MissionBoardProps) {
+  const [moveSelection, setMoveSelection] = useState<{ decisionId: string; marineId: string } | null>(null);
   const { state } = session;
   const decision = state.pendingDecision;
+  const selectedMoveMarineId = moveSelection && moveSelection.decisionId === decision?.id ? moveSelection.marineId : null;
   const targetIds = useMemo(() => pendingTargetIds(decision), [decision]);
   const currentLocation = data.definitions.locations.find((item) => item.id === componentDefinitionId(session, state.currentLocationInstanceId));
   const locationInspection = sourceInspection(session, state.currentLocationInstanceId) ?? { eyebrow: "Setup location", title: setupLocationName(componentDefinitionId(session, state.currentLocationInstanceId)), body: "Starting location for the solo mission.", meta: "Void Lock" };
@@ -360,6 +402,8 @@ function MissionBoard({ session, inspection, error, diagnosticNotice, onInspect,
   const lastEvent = lastEventId ? findEvent(lastEventId) : null;
   const recentTransitions = session.transitions.slice(-3).reverse();
   const dockOptions = decision?.legalOptions.filter((option) => !isDirectInputOption(decision, option)) ?? [];
+  const decisionAction = decision ? data.definitions.actions.find((item) => item.id === componentDefinitionId(session, decision.sourceId)) : null;
+  const choosingActions = decision?.type === "CHOOSE_ACTION";
 
   return (
     <main className="mission-shell">
@@ -374,37 +418,43 @@ function MissionBoard({ session, inspection, error, diagnosticNotice, onInspect,
       </header>
 
       <section className="location-strip">
+        <div className="blip-counter"><span>Blips</span><strong>{leftBlips}</strong></div>
         <TacticalButton type="button" className="inspectable location-button" onHold={() => onInspect(locationInspection)}>
-          <span><small>{currentLocation ? `Location · ${currentLocation.tier}` : "Setup location"}</small><strong>{currentLocation?.name ?? setupLocationName(componentDefinitionId(session, state.currentLocationInstanceId))}</strong></span>
-          <span className="tap-hint">Hold for rules&nbsp; ⓘ</span>
+          <span><small>{currentLocation ? `Location · ${currentLocation.tier}` : "Setup location"}</small><strong>{currentLocation?.name ?? setupLocationName(componentDefinitionId(session, state.currentLocationInstanceId))}</strong><em>{locationInspection.body}</em></span>
         </TacticalButton>
-        <div className="blip-readout"><span>Port <strong>{leftBlips}</strong></span><i aria-hidden="true"><b style={{ width: `${Math.min(leftBlips * 8, 100)}%` }} /></i><span>Starboard <strong>{rightBlips}</strong></span><i aria-hidden="true"><b style={{ width: `${Math.min(rightBlips * 8, 100)}%` }} /></i></div>
+        <div className="blip-counter"><span>Blips</span><strong>{rightBlips}</strong></div>
       </section>
 
       {lastEvent && lastEventId && (
         <TacticalButton type="button" className="event-ribbon inspectable" onHold={() => onInspect(sourceInspection(session, lastEventId)!)}>
-          <span className="event-kicker">{state.phase === "EVENT" ? "Event resolving" : "Last event"}</span><strong>{lastEvent.name}</strong><span>{lastEvent.movementIcon ? `${ICON_GLYPHS[lastEvent.movementIcon]} ${ICON_LABELS[lastEvent.movementIcon]}` : "Hold for card text"} &nbsp;ⓘ</span>
+          <span className="event-kicker">{state.phase === "EVENT" ? "Event resolving" : "Current event"}</span>
+          <span className="event-title"><strong>{lastEvent.name}</strong><em>{lastEvent.sourceText}</em></span>
+          <span className="event-data">
+            {lastEvent.activations.map((activation, index) => <b key={`${activation.terrainColor}.${index}`}><i className={`spawn-dot spawn-${activation.terrainColor.toLowerCase()}`} />{formatPhase(activation.severity)}</b>)}
+            {lastEvent.movementIcon && <b>{ICON_GLYPHS[lastEvent.movementIcon]} {ICON_LABELS[lastEvent.movementIcon]}</b>}
+          </span>
         </TacticalButton>
       )}
 
       <section className="formation-board">
-        <div className="column-labels"><span>Port threat</span><span>Formation</span><span>Starboard threat</span></div>
+        <div className="column-labels"><span>Left threat</span><span>Formation</span><span>Right threat</span></div>
         {state.formation.map((slot, positionIndex) => (
-          <FormationRow key={slot.marineInstanceId} session={session} positionIndex={positionIndex} targetIds={targetIds} onInspect={onInspect} onChooseOption={onChooseOption} />
+          <FormationRow key={slot.marineInstanceId} session={session} positionIndex={positionIndex} targetIds={targetIds} selectedMoveMarineId={selectedMoveMarineId} onSelectMoveMarine={(marineId) => { if (decision) setMoveSelection({ decisionId: decision.id, marineId }); }} onInspect={onInspect} onChooseOption={onChooseOption} />
         ))}
       </section>
 
       <section className="action-reference">
-        <div className="panel-label">Combat team cards <span>Tap highlighted card · hold any card for rules</span></div>
+        <div className="panel-label">Combat team cards <span>Tap an available card · hold any card for rules</span></div>
         <div className="action-reference-grid">
           {state.activeTeams.flatMap((team) => state.teams[team].actionInstanceIds).map((actionId) => {
             const action = data.definitions.actions.find((item) => item.id === componentDefinitionId(session, actionId));
             if (!action) return null;
             const option = uniquePayloadOption(decision, "actionId", actionId);
             const chosen = state.teams[action.team].chosenActionInstanceId === actionId;
+            const unavailable = choosingActions && !option && !chosen;
             return (
-              <TacticalButton key={actionId} type="button" className={`reference-card team-${action.team.toLowerCase()} ${option ? "legal-target" : ""} ${chosen ? "is-chosen" : ""}`} onTap={option ? () => onChooseOption(option.id) : undefined} onHold={() => onInspect(sourceInspection(session, actionId)!)}>
-                <span>{action.team}</span><strong>{action.name}</strong><small>Initiative {action.initiative}</small>
+              <TacticalButton key={actionId} type="button" className={`reference-card team-${action.team.toLowerCase()} ${chosen ? "is-chosen" : ""} ${unavailable ? "is-unavailable" : ""}`} onTap={option ? () => onChooseOption(option.id) : undefined} onHold={() => onInspect(sourceInspection(session, actionId)!)} aria-disabled={unavailable}>
+                <span>{formatActionType(action.type)}</span><strong>{action.name}</strong><small>Initiative {action.initiative}</small>{unavailable && <i className="unavailable-x" aria-hidden="true">×</i>}
               </TacticalButton>
             );
           })}
@@ -414,9 +464,10 @@ function MissionBoard({ session, inspection, error, diagnosticNotice, onInspect,
       <section className="command-dock" aria-live="polite">
         {state.activeDie && <DiePanel value={state.activeDie.modifiedValue} skull={state.activeDie.skull} purpose={state.activeDie.purpose} rerolls={state.activeDie.rerolls.length} />}
         {decision ? (
-          <div className="dock-decision">
+          <div className={`dock-decision ${decisionAction ? `team-context team-${decisionAction.team.toLowerCase()}` : ""}`}>
             <div className="decision-heading"><span>{formatPhase(decision.type)}</span><strong>{decision.promptKey.replaceAll(".", " · ").replaceAll("_", " ")}</strong></div>
-            <p>{decision.legalOptions.some((option) => isDirectInputOption(decision, option)) ? "Tap a highlighted card or board target. Hold any object briefly to read its rules." : "Choose an option below. The formation remains visible while you decide."}</p>
+            {decisionAction && <div className="decision-source"><i />{decisionAction.team} · {decisionAction.name}</div>}
+            <p>{decision.type === "MOVE_MARINE" && !selectedMoveMarineId ? "Choose a highlighted Marine to move." : decision.type === "MOVE_MARINE" ? "Choose the highlighted destination for that Marine, or select another Marine." : decision.type === "SET_FACING" ? "Choose the left or right tile beside the highlighted Marine—even to keep its current facing." : decision.legalOptions.some((option) => isDirectInputOption(decision, option)) ? "Tap an available card or highlighted board target. Hold any object briefly to read its rules." : "Choose an option below. The formation remains visible while you decide."}</p>
             {dockOptions.length > 0 && <div className="dock-options">{dockOptions.map((option) => <button key={option.id} type="button" onClick={() => onChooseOption(option.id)}><strong>{option.label}</strong>{option.canonicalEffectPreview && <small>{option.canonicalEffectPreview}</small>}</button>)}</div>}
           </div>
         ) : state.status === "IN_PROGRESS" ? (
@@ -441,27 +492,32 @@ function MissionBoard({ session, inspection, error, diagnosticNotice, onInspect,
       </section>
 
       {inspection && <InspectionDrawer inspection={inspection} onClose={onDismissInspection} />}
+      {rollNotice && <RollResult notice={rollNotice} onProceed={onDismissRoll} />}
     </main>
   );
 }
 
-function FormationRow({ session, positionIndex, targetIds, onInspect, onChooseOption }: { session: EngineSession; positionIndex: number; targetIds: Set<string>; onInspect: (inspection: Inspection) => void; onChooseOption: (optionId: string) => void }) {
+function FormationRow({ session, positionIndex, targetIds, selectedMoveMarineId, onSelectMoveMarine, onInspect, onChooseOption }: { session: EngineSession; positionIndex: number; targetIds: Set<string>; selectedMoveMarineId: string | null; onSelectMoveMarine: (marineId: string) => void; onInspect: (inspection: Inspection) => void; onChooseOption: (optionId: string) => void }) {
   const { state } = session;
   const decision = state.pendingDecision;
   const slot = state.formation[positionIndex];
   const marine = state.marines[slot.marineInstanceId];
   const marineDefinition = data.definitions.marines.find((item) => item.id === componentDefinitionId(session, slot.marineInstanceId))!;
-  const marineOption = uniquePayloadOption(decision, "marineId", slot.marineInstanceId);
-  const rowOption = uniquePayloadOption(decision, "to", positionIndex) ?? uniquePayloadOption(decision, "positionIndex", positionIndex);
+  const moveMarineAvailable = decision?.type === "MOVE_MARINE" && decision.legalOptions.some((option) => option.payload.marineId === slot.marineInstanceId);
+  const marineOption = decision?.type === "MOVE_MARINE" ? null : uniquePayloadOption(decision, "marineId", slot.marineInstanceId);
+  const moveDestination = decision?.type === "MOVE_MARINE" && selectedMoveMarineId
+    ? decision.legalOptions.find((option) => option.payload.marineId === selectedMoveMarineId && option.payload.to === positionIndex) ?? null
+    : null;
+  const rowOption = moveDestination ?? uniquePayloadOption(decision, "positionIndex", positionIndex);
   const tapOption = marineOption ?? rowOption;
   return (
-    <div className={`formation-row ${targetIds.has(`position:${positionIndex}`) ? "legal-row" : ""}`}>
+    <div className={`formation-row ${moveDestination || (decision?.type !== "MOVE_MARINE" && targetIds.has(`position:${positionIndex}`)) ? "legal-row" : ""}`}>
       <Flank session={session} positionIndex={positionIndex} side="LEFT" onInspect={onInspect} onChooseOption={onChooseOption} />
-      <TacticalButton type="button" className={`marine-card inspectable team-${marineDefinition.team.toLowerCase()} ${tapOption ? "legal-target" : ""}`} onTap={tapOption ? () => onChooseOption(tapOption.id) : undefined} onHold={() => onInspect(sourceInspection(session, slot.marineInstanceId)!)}>
+      <TacticalButton type="button" className={`marine-card inspectable team-${marineDefinition.team.toLowerCase()} ${tapOption || moveMarineAvailable ? "legal-target" : ""} ${selectedMoveMarineId === slot.marineInstanceId ? "is-move-selected" : ""}`} onTap={tapOption ? () => onChooseOption(tapOption.id) : moveMarineAvailable ? () => onSelectMoveMarine(slot.marineInstanceId) : undefined} onHold={() => onInspect(sourceInspection(session, slot.marineInstanceId)!)}>
         <span className="marine-facing" aria-label={`Facing ${marine.facing}`}>{marine.facing === "LEFT" ? "◀" : "▶"}</span>
-        <span className="marine-team">{marineDefinition.team} team</span>
+        {marineDefinition.namedActionAbility && <span className="marine-ability" aria-label={`Special ability: ${marineDefinition.namedActionAbility}`}>★</span>}
         <strong>{marineDefinition.name}</strong>
-        <span className="marine-stats"><b>◎ Range {marineDefinition.attackRange}</b><i>{marine.support ? `${"●".repeat(marine.support)} support` : "No support"}</i></span>
+        <span className="marine-stats"><b>◎ Range {marineDefinition.attackRange}</b><i>{marine.support ? `${"●".repeat(marine.support)} support tokens` : "No support tokens"}</i></span>
       </TacticalButton>
       <Flank session={session} positionIndex={positionIndex} side="RIGHT" onInspect={onInspect} onChooseOption={onChooseOption} />
     </div>
@@ -473,16 +529,19 @@ function Flank({ session, positionIndex, side, onInspect, onChooseOption }: { se
   const decision = session.state.pendingDecision;
   const terrainIds = slot.terrainInstanceIds[side];
   const swarmIds = slot.swarmIds[side];
-  const positionOption = uniquePayloadOption(decision, "positionIndex", positionIndex, side) ?? uniquePayloadOption(decision, "to", positionIndex);
+  const facingOption = decision?.type === "SET_FACING"
+    ? decision.legalOptions.find((option) => option.payload.marineId === slot.marineInstanceId && option.payload.facing === side) ?? null
+    : null;
+  const positionOption = facingOption ?? uniquePayloadOption(decision, "positionIndex", positionIndex, side);
   return (
-    <div className={`flank-cell ${positionOption ? "legal-target" : ""}`}>
-      {positionOption && <button type="button" className="flank-position-input" aria-label={`Choose formation position ${positionIndex + 1}, ${side.toLowerCase()} side`} onClick={() => onChooseOption(positionOption.id)} />}
+    <div className={`flank-cell ${positionOption ? "legal-target" : ""} ${facingOption ? "facing-choice" : ""}`}>
+      {positionOption && <button type="button" className="flank-position-input" aria-label={facingOption ? `Face ${side.toLowerCase()}` : `Choose formation position ${positionIndex + 1}, ${side.toLowerCase()} side`} onClick={() => onChooseOption(positionOption.id)}>{facingOption && <span>{side === "LEFT" ? "◀" : "▶"}<small>Face {side.toLowerCase()}</small></span>}</button>}
       <div className="terrain-stack">
         {terrainIds.map((terrainId) => {
           const terrain = data.definitions.terrain.find((item) => item.id === componentDefinitionId(session, terrainId));
           if (!terrain) return null;
           const option = uniquePayloadOption(decision, "terrainId", terrainId);
-          return <TacticalButton key={terrainId} type="button" className={`terrain-chip inspectable ${option ? "legal-target" : ""}`} onTap={option ? () => onChooseOption(option.id) : undefined} onHold={() => onInspect(sourceInspection(session, terrainId)!)} stopPropagation><span>{terrain.name}</span><i>ⓘ</i>{session.state.terrain[terrainId]?.support > 0 && <b>{"●".repeat(session.state.terrain[terrainId].support)}</b>}</TacticalButton>;
+          return <TacticalButton key={terrainId} type="button" className={`terrain-chip inspectable ${option ? "legal-target" : ""}`} onTap={option ? () => onChooseOption(option.id) : undefined} onHold={() => onInspect(sourceInspection(session, terrainId)!)} stopPropagation><span><i className={`spawn-dot spawn-${terrain.spawnColor.toLowerCase()}`} />{terrain.name}</span><em>ⓘ</em>{session.state.terrain[terrainId]?.support > 0 && <b>{"●".repeat(session.state.terrain[terrainId].support)}</b>}</TacticalButton>;
         })}
       </div>
       <div className="swarm-stack">
@@ -516,8 +575,21 @@ function InspectionDrawer({ inspection, onClose }: { inspection: Inspection; onC
         <div className="inspection-handle" aria-hidden="true" />
         <button type="button" className="inspection-close" onClick={onClose} aria-label="Close card details">×</button>
         <span className="inspection-eyebrow">{inspection.eyebrow}</span><h2 id="inspection-title">{inspection.title}</h2>{inspection.meta && <p className="inspection-meta">{inspection.meta}</p>}<p className="inspection-body">{inspection.body}</p>
-        <div className="inspection-note">Viewing this card does not make a game choice.</div>
       </aside>
+    </div>
+  );
+}
+
+function RollResult({ notice, onProceed }: { notice: RollNotice; onProceed: () => void }) {
+  return (
+    <div className="roll-backdrop" role="presentation">
+      <section className="roll-result" role="dialog" aria-modal="true" aria-labelledby="roll-title">
+        <span>{notice.reroll ? "Die rerolled" : "Die rolled"}</span>
+        <h2 id="roll-title">{notice.title}</h2>
+        <div className="roll-face"><strong>{notice.value}</strong>{notice.skull && <i>☠</i>}</div>
+        <p>{notice.skull ? "Skull result" : `Result: ${notice.value}`}</p>
+        <button type="button" onClick={onProceed}>Proceed</button>
+      </section>
     </div>
   );
 }

@@ -52,7 +52,7 @@ type Database = {
 };
 
 const data = dataJson as unknown as Database;
-const ENGINE_VERSION = "0.10.0";
+const ENGINE_VERSION = "0.11.0";
 
 export type NewGameConfig = {
   gameId: string;
