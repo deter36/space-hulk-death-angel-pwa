@@ -9,12 +9,13 @@
   "scripts": {
     "dev": "vinext dev",
     "build": "vinext build",
+    "build:pages": "vite build --config vite.pages.config.ts",
     "start": "vinext start",
     "data:import": "python tools/import-gameplay-db/import.py",
     "data:check": "python tools/import-gameplay-db/import.py && git diff --exit-code -- src/data/generated/base-game.json",
     "test": "vitest run --config vitest.config.ts",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern .review --ignore-pattern build"
+    "lint": "eslint . --ignore-pattern dist --ignore-pattern dist-pages --ignore-pattern .next --ignore-pattern .review --ignore-pattern build"
   },
   "dependencies": {
     "react": "19.2.6",
