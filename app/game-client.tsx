@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ButtonHTMLAttributes } from "react";
+import { useEffect, useMemo, useRef, useState, type ButtonHTMLAttributes, type CSSProperties } from "react";
 import dataJson from "@/src/data/generated/base-game.json";
 import {
   canUndo,
@@ -53,6 +53,23 @@ type RollNotice = {
   reroll: boolean;
 };
 
+type RollLanding = {
+  bounceX: string;
+  bounceY: string;
+  midOneX: string;
+  midOneY: string;
+  midTwoX: string;
+  midTwoY: string;
+  spinBounce: string;
+  spinMidOne: string;
+  spinMidTwo: string;
+  spinStart: string;
+  startX: string;
+  startY: string;
+  x: number;
+  y: number;
+};
+
 const data = dataJson as unknown as GameDatabase;
 const TEAM_COLORS: TeamColor[] = ["GREEN", "YELLOW", "BLUE", "RED", "PURPLE", "GREY"];
 const ICON_GLYPHS: Record<GenestealerIcon, string> = { HEAD: "◉", TAIL: "⌁", CLAW: "ϟ", TONGUE: "⌇" };
@@ -98,6 +115,45 @@ function formatTransition(kind: string): string {
 function formatActionType(type: string): string {
   if (type === "MOVE_ACTIVATE") return "Move + Activate";
   return formatPhase(type);
+}
+
+function rollLanding(id: string): RollLanding {
+  let hash = 2166136261;
+  for (const character of id) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  let randomState = hash >>> 0;
+  const random = () => {
+    randomState += 0x6d2b79f5;
+    let value = randomState;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  };
+  const x = Math.round(14 + random() * 72);
+  const y = Math.round(18 + random() * 57);
+  const edge = Math.floor(random() * 4);
+  const startX = edge === 0 ? `calc(-${x}vw - 140px)` : edge === 1 ? `calc(${100 - x}vw + 140px)` : `${Math.round((random() - .5) * 86)}vw`;
+  const startY = edge === 2 ? `calc(-${y}vh - 140px)` : edge === 3 ? `calc(${100 - y}vh + 140px)` : `${Math.round((random() - .5) * 70)}vh`;
+  const spinDirection = random() > .5 ? 1 : -1;
+  const spin = spinDirection * Math.round(680 + random() * 440);
+  return {
+    x,
+    y,
+    startX,
+    startY,
+    midOneX: `${Math.round((random() - .5) * 66)}vw`,
+    midOneY: `${Math.round((random() - .5) * 52)}vh`,
+    midTwoX: `${Math.round((random() - .5) * 34)}vw`,
+    midTwoY: `${Math.round(-8 - random() * 17)}vh`,
+    bounceX: `${Math.round((random() - .5) * 13)}vw`,
+    bounceY: `${Math.round(4 + random() * 8)}vh`,
+    spinStart: `${spin}deg`,
+    spinMidOne: `${Math.round(spin * .62)}deg`,
+    spinMidTwo: `${Math.round(spin * .29)}deg`,
+    spinBounce: `${Math.round(spin * .08)}deg`,
+  };
 }
 
 function componentDefinitionId(session: EngineSession, instanceId: string): string {
@@ -469,7 +525,7 @@ function MissionBoard({ session, inspection, error, diagnosticNotice, rollNotice
             <div className="decision-heading"><span>{formatPhase(decision.type)}</span><strong>{decision.promptKey.replaceAll(".", " · ").replaceAll("_", " ")}</strong></div>
             {decisionAction && <div className="decision-source"><i />{decisionAction.team} · {decisionAction.name}</div>}
             <p>{decision.type === "MOVE_MARINE" && !selectedMoveMarineId ? "Choose a highlighted Marine to move." : decision.type === "MOVE_MARINE" ? "Choose the highlighted destination for that Marine, or select another Marine." : decision.type === "SET_FACING" ? "Choose the left or right tile beside the highlighted Marine—even to keep its current facing." : decision.legalOptions.some((option) => isDirectInputOption(decision, option)) ? "Tap an available card or highlighted board target. Hold any object briefly to read its rules." : "Choose an option below. The formation remains visible while you decide."}</p>
-            {dockOptions.length > 0 && <div className="dock-options">{dockOptions.map((option) => <button key={option.id} type="button" onClick={() => onChooseOption(option.id)}><strong>{option.label}</strong>{option.canonicalEffectPreview && <small>{option.canonicalEffectPreview}</small>}</button>)}</div>}
+            {decision.type !== "FORWARD_SCOUTING_ORDER" && dockOptions.length > 0 && <div className="dock-options">{dockOptions.map((option) => <button key={option.id} type="button" onClick={() => onChooseOption(option.id)}><strong>{option.label}</strong>{option.canonicalEffectPreview && <small>{option.canonicalEffectPreview}</small>}</button>)}</div>}
           </div>
         ) : state.status === "IN_PROGRESS" ? (
           <div className="mission-result engine-paused"><strong>Engine paused</strong><span>Download the save or copy diagnostics before ending this mission.</span></div>
@@ -493,6 +549,7 @@ function MissionBoard({ session, inspection, error, diagnosticNotice, rollNotice
       </section>
 
       {inspection && <InspectionDrawer inspection={inspection} onClose={onDismissInspection} />}
+      {decision?.type === "FORWARD_SCOUTING_ORDER" && <ForwardScoutingPreview session={session} decision={decision} onChooseOption={onChooseOption} />}
       {rollNotice && <RollResult key={rollNotice.id} notice={rollNotice} onProceed={onDismissRoll} />}
     </main>
   );
@@ -581,8 +638,51 @@ function InspectionDrawer({ inspection, onClose }: { inspection: Inspection; onC
   );
 }
 
+function ForwardScoutingPreview({ session, decision, onChooseOption }: { session: EngineSession; decision: PendingDecision; onChooseOption: (optionId: string) => void }) {
+  const eventCardId = decision.legalOptions.map((option) => option.payload.eventCardId).find((value): value is string => typeof value === "string");
+  const event = eventCardId ? findEvent(componentDefinitionId(session, eventCardId)) : null;
+  if (!event) return null;
+
+  return (
+    <div className="scouting-backdrop" role="presentation">
+      <section className="scouting-preview" role="dialog" aria-modal="true" aria-labelledby="scouting-title">
+        <header><span>Purple team · Forward Scouting</span><h2 id="scouting-title">{event.name}</h2>{event.copyIndex && <small>Event copy {event.copyIndex}</small>}</header>
+        <div className="scouting-rules"><span>Event effect</span><p>{event.sourceText}</p></div>
+        <dl className="scouting-data">
+          {event.activations.map((activation, index) => (
+            <div key={`${activation.terrainColor}.${index}`}><dt>Spawn {index + 1}</dt><dd><i className={`spawn-dot spawn-${activation.terrainColor.toLowerCase()}`} />{formatPhase(activation.severity)} · {formatPhase(activation.terrainColor)}</dd></div>
+          ))}
+          <div><dt>Movement icon</dt><dd>{event.movementIcon ? <><b>{ICON_GLYPHS[event.movementIcon]}</b>{ICON_LABELS[event.movementIcon]}</> : "None"}</dd></div>
+          <div><dt>Movement</dt><dd>{event.movement ? formatPhase(event.movement) : "None"}</dd></div>
+        </dl>
+        <div className="scouting-actions">
+          <span>Choose where to return this event</span>
+          {decision.legalOptions.map((option) => <button key={option.id} type="button" onClick={() => onChooseOption(option.id)}><strong>{option.label}</strong>{option.canonicalEffectPreview && <small>{option.canonicalEffectPreview}</small>}</button>)}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function RollResult({ notice, onProceed }: { notice: RollNotice; onProceed: () => void }) {
   const finalFace = combatDieFace(notice.value);
+  const landing = useMemo(() => rollLanding(notice.id), [notice.id]);
+  const landingStyle = {
+    "--die-x": `${landing.x}%`,
+    "--die-y": `${landing.y}%`,
+    "--die-start-x": landing.startX,
+    "--die-start-y": landing.startY,
+    "--die-mid-one-x": landing.midOneX,
+    "--die-mid-one-y": landing.midOneY,
+    "--die-mid-two-x": landing.midTwoX,
+    "--die-mid-two-y": landing.midTwoY,
+    "--die-bounce-x": landing.bounceX,
+    "--die-bounce-y": landing.bounceY,
+    "--die-spin-start": landing.spinStart,
+    "--die-spin-mid-one": landing.spinMidOne,
+    "--die-spin-mid-two": landing.spinMidTwo,
+    "--die-spin-bounce": landing.spinBounce,
+  } as CSSProperties;
   const reduceMotion = useMemo(() => globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false, []);
   const rollInterval = useRef<ReturnType<typeof globalThis.setInterval> | null>(null);
   const settleTimer = useRef<ReturnType<typeof globalThis.setTimeout> | null>(null);
@@ -616,12 +716,12 @@ function RollResult({ notice, onProceed }: { notice: RollNotice; onProceed: () =
     rollInterval.current = globalThis.setInterval(() => {
       frame = (frame + 1) % COMBAT_DIE_FACES.length;
       setDisplayValue(COMBAT_DIE_FACES[frame].value);
-    }, 90);
+    }, 110);
     settleTimer.current = globalThis.setTimeout(() => {
       clearTimers();
       setDisplayValue(finalFace.value);
       setRolling(false);
-    }, 1080);
+    }, 1680);
     return clearTimers;
   }, [finalFace.value, reduceMotion]);
 
@@ -630,7 +730,7 @@ function RollResult({ notice, onProceed }: { notice: RollNotice; onProceed: () =
       <section className={`roll-result ${rolling ? "is-rolling" : "is-settled"}`} role="dialog" aria-modal="true" aria-labelledby="roll-title">
         <span>{notice.reroll ? "Die rerolled" : "Die rolled"}</span>
         <h2 id="roll-title">{notice.title}</h2>
-        <div className="roll-stage" aria-live="polite">
+        <div className="roll-stage" style={landingStyle} aria-live="polite">
           <div className="roll-face" data-rolling={rolling || undefined} data-skull={displayFace.skull || undefined} aria-label={rolling ? "Combat die rolling" : `Combat die result ${finalFace.value}${finalFace.skull ? ", skull" : ""}`}>
             <strong>{displayFace.value}</strong>{displayFace.skull && <i aria-hidden="true">☠︎</i>}
           </div>
