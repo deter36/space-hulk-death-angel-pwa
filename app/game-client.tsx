@@ -12,6 +12,7 @@ import {
   submitSessionDecision,
   undo,
   type EngineSession,
+  type GameState,
   type PendingDecision,
 } from "@/src/engine";
 import type { GenestealerIcon, Side, TeamColor } from "@/src/data/types";
@@ -51,12 +52,23 @@ type Inspection = {
 };
 
 type RollNotice = {
+  preRollAnimation: BoardAnimation | null;
+  postRollAnimation: BoardAnimation | null;
   id: string;
   value: number;
   skull: boolean;
   title: string;
   reroll: boolean;
 };
+
+type BoardAnimation = {
+  marineAnimation?: "death" | "dodge" | "fire-straight" | "fire-up" | "fire-down" | "gunJam-straight" | "gunJam-up" | "gunJam-down";
+  marineId?: string;
+  swarmAnimation?: "attack" | "death";
+  swarmId?: string;
+};
+
+type PendingRollResolution = { session: EngineSession };
 
 type RollLanding = {
   bounceX: string;
@@ -227,12 +239,38 @@ function isDirectInputOption(decision: PendingDecision, option: DecisionOption):
   return false;
 }
 
-function rollNoticesFrom(session: EngineSession, startingAt: number): RollNotice[] {
-  return session.transitions.slice(startingAt).flatMap((transition) => transition.randomInputs
+function attackTrajectory(state: GameState, marineId: string, swarmId: string): "straight" | "up" | "down" {
+  const marinePosition = state.formation.findIndex((slot) => slot.marineInstanceId === marineId);
+  const swarmPosition = state.swarms[swarmId]?.positionIndex ?? marinePosition;
+  return swarmPosition === marinePosition ? "straight" : swarmPosition < marinePosition ? "up" : "down";
+}
+
+function rollNoticesFrom(session: EngineSession, startingAt: number, priorState: GameState): RollNotice[] {
+  const newTransitions = session.transitions.slice(startingAt);
+  return newTransitions.flatMap((transition) => transition.randomInputs
     .filter((input) => input.kind === "DIE" && input.dieValue !== undefined)
     .map((input, index) => {
       const inspection = input.sourceId ? sourceInspection(session, input.sourceId) : null;
+      const attackerId = priorState.actionRuntime?.data.attackerId;
+      const targetSwarmId = priorState.actionRuntime?.data.targetSwarmId;
+      const marineAttack = typeof attackerId === "string" && typeof targetSwarmId === "string" && !input.sourceId.startsWith("swarm.");
+      const defense = input.sourceId.startsWith("swarm.");
+      const marineId = marineAttack ? attackerId : defense ? priorState.genestealerAttackRuntime?.defenderMarineId : undefined;
+      const hit = Boolean(input.dieSkull);
+      const laterTransitions = newTransitions.filter((candidate) => candidate.seq > transition.seq);
+      const defenseOutcome = laterTransitions.some((candidate) => candidate.type === "MARINE_SLAIN")
+        ? "death"
+        : laterTransitions.some((candidate) => candidate.type === "GENESTEALER_ATTACK_MISSED")
+          ? "dodge"
+          : null;
+      const postRollAnimation: BoardAnimation | null = marineAttack && marineId
+        ? { marineId, marineAnimation: `${hit ? "fire" : "gunJam"}-${attackTrajectory(priorState, marineId, targetSwarmId)}` as BoardAnimation["marineAnimation"], ...(hit ? { swarmId: targetSwarmId, swarmAnimation: "death" as const } : {}) }
+        : defense && marineId && defenseOutcome
+          ? { marineId, marineAnimation: defenseOutcome }
+          : null;
       return {
+        preRollAnimation: defense ? { swarmId: input.sourceId, swarmAnimation: "attack" } : null,
+        postRollAnimation,
         id: `${transition.seq}.${index}`,
         value: input.dieValue!,
         skull: Boolean(input.dieSkull),
@@ -355,7 +393,25 @@ export default function GameClient() {
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [rollNotices, setRollNotices] = useState<RollNotice[]>([]);
+  const [pendingRollResolution, setPendingRollResolution] = useState<PendingRollResolution | null>(null);
+  const [boardAnimation, setBoardAnimation] = useState<BoardAnimation | null>(null);
   const [restoreComplete, setRestoreComplete] = useState(false);
+  const animationTimer = useRef<ReturnType<typeof globalThis.setTimeout> | null>(null);
+
+  const clearBoardAnimationTimer = () => {
+    if (animationTimer.current !== null) globalThis.clearTimeout(animationTimer.current);
+    animationTimer.current = null;
+  };
+
+  const playBoardAnimation = (animation: BoardAnimation, duration: number, onComplete: () => void) => {
+    clearBoardAnimationTimer();
+    setBoardAnimation(animation);
+    animationTimer.current = globalThis.setTimeout(() => {
+      animationTimer.current = null;
+      setBoardAnimation(null);
+      onComplete();
+    }, duration);
+  };
 
   useEffect(() => {
     const restoreTimer = globalThis.setTimeout(() => {
@@ -406,9 +462,25 @@ export default function GameClient() {
     if (!session || !decision) return;
     try {
       const prepared = prepareUiSession(submitSessionDecision(session, decision.id, optionId));
-      const notices = rollNoticesFrom(prepared.session, session.transitions.length);
-      setSession(prepared.session);
-      if (notices.length) setRollNotices((current) => [...current, ...notices]);
+      const notices = rollNoticesFrom(prepared.session, session.transitions.length, session.state);
+      if (notices.length) {
+        setPendingRollResolution({ session: prepared.session });
+        const preRollAnimation = notices[0]?.preRollAnimation;
+        if (preRollAnimation) {
+          playBoardAnimation(preRollAnimation, 1000, () => setRollNotices(notices));
+        } else setRollNotices(notices);
+      } else {
+        const runtime = session.state.genestealerAttackRuntime;
+        const newTransitions = prepared.session.transitions.slice(session.transitions.length);
+        const outcome = runtime && newTransitions.some((transition) => transition.type === "MARINE_SLAIN")
+          ? "death"
+          : runtime && newTransitions.some((transition) => transition.type === "GENESTEALER_ATTACK_MISSED")
+            ? "dodge"
+            : null;
+        if (runtime && outcome) {
+          playBoardAnimation({ marineId: runtime.defenderMarineId, marineAnimation: outcome }, 1400, () => setSession(prepared.session));
+        } else setSession(prepared.session);
+      }
       setInspection(null);
       setError(prepared.error);
     } catch (caught) {
@@ -423,6 +495,9 @@ export default function GameClient() {
     setError(prepared.error);
     setInspection(null);
     setRollNotices([]);
+    setPendingRollResolution(null);
+    clearBoardAnimationTimer();
+    setBoardAnimation(null);
   };
 
   const downloadSave = () => {
@@ -447,6 +522,9 @@ export default function GameClient() {
     setSelectedTeams([]);
     setError(null);
     setRollNotices([]);
+    setPendingRollResolution(null);
+    clearBoardAnimationTimer();
+    setBoardAnimation(null);
   };
 
   if (!restoreComplete) return <main className="restore-shell"><span>Restoring mission state…</span></main>;
@@ -475,11 +553,31 @@ export default function GameClient() {
     );
   }
 
-  return <MissionBoard session={session} inspection={inspection} error={error} rollNotice={rollNotices[0] ?? null} onDismissRoll={() => setRollNotices((current) => current.slice(1))} onInspect={setInspection} onChooseOption={resolveDecision} onUndo={undoOne} onDownloadSave={downloadSave} onDismissInspection={() => setInspection(null)} onNewMission={startNewMission} />;
+  const proceedRoll = () => {
+    const notice = rollNotices[0];
+    const resolve = pendingRollResolution;
+    if (!notice || !resolve) { setRollNotices((current) => current.slice(1)); return; }
+    const animation = notice.postRollAnimation;
+    const duration = animation?.marineAnimation?.startsWith("gunJam") ? 1800 : 1400;
+    if (animation) {
+      playBoardAnimation(animation, duration, () => {
+        setSession(resolve.session);
+        setPendingRollResolution(null);
+        setRollNotices([]);
+      });
+    } else {
+      setSession(resolve.session);
+      setPendingRollResolution(null);
+      setRollNotices([]);
+    }
+  };
+
+  return <MissionBoard session={session} boardAnimation={boardAnimation} inspection={inspection} error={error} rollNotice={rollNotices[0] ?? null} onDismissRoll={proceedRoll} onInspect={setInspection} onChooseOption={resolveDecision} onUndo={undoOne} onDownloadSave={downloadSave} onDismissInspection={() => setInspection(null)} onNewMission={startNewMission} />;
 }
 
 type MissionBoardProps = {
   session: EngineSession;
+  boardAnimation: BoardAnimation | null;
   inspection: Inspection | null;
   error: string | null;
   rollNotice: RollNotice | null;
@@ -492,7 +590,7 @@ type MissionBoardProps = {
   onNewMission: () => void;
 };
 
-function MissionBoard({ session, inspection, error, rollNotice, onInspect, onChooseOption, onUndo, onDownloadSave, onDismissInspection, onDismissRoll, onNewMission }: MissionBoardProps) {
+function MissionBoard({ session, boardAnimation, inspection, error, rollNotice, onInspect, onChooseOption, onUndo, onDownloadSave, onDismissInspection, onDismissRoll, onNewMission }: MissionBoardProps) {
   const [moveSelection, setMoveSelection] = useState<{ decisionId: string; marineId: string } | null>(null);
   const [strategizeSelection, setStrategizeSelection] = useState<{ decisionId: string; swarmId: string } | null>(null);
   const [scoutingPreviewVisible, setScoutingPreviewVisible] = useState(true);
@@ -557,7 +655,7 @@ function MissionBoard({ session, inspection, error, rollNotice, onInspect, onCho
         </TacticalButton>}
       </section>
 
-      <LiveFormationBoard session={session} targetIds={targetIds} selectedMoveMarineId={selectedMoveMarineId} selectedStrategizeSwarmId={selectedStrategizeSwarmId} strategizeSwarmIds={strategizeSwarmSet} onChooseOption={onChooseOption} onInspect={onInspect} onSelectMoveMarine={(marineId) => { if (decision) setMoveSelection({ decisionId: decision.id, marineId }); }} onSelectStrategizeSwarm={(swarmId) => { if (decision) setStrategizeSelection({ decisionId: decision.id, swarmId }); }} />
+      <LiveFormationBoard session={session} boardAnimation={boardAnimation} targetIds={targetIds} selectedMoveMarineId={selectedMoveMarineId} selectedStrategizeSwarmId={selectedStrategizeSwarmId} strategizeSwarmIds={strategizeSwarmSet} onChooseOption={onChooseOption} onInspect={onInspect} onSelectMoveMarine={(marineId) => { if (decision) setMoveSelection({ decisionId: decision.id, marineId }); }} onSelectStrategizeSwarm={(swarmId) => { if (decision) setStrategizeSelection({ decisionId: decision.id, swarmId }); }} />
 
       <LiveActionSelection session={session} onChooseOption={onChooseOption} />
 
@@ -618,7 +716,7 @@ function labRows(session: EngineSession): LabFormationRow[] {
   });
 }
 
-function LiveFormationBoard({ session, targetIds, selectedMoveMarineId, selectedStrategizeSwarmId, strategizeSwarmIds: selectableStrategizeSwarms, onChooseOption, onInspect, onSelectMoveMarine, onSelectStrategizeSwarm }: { session: EngineSession; targetIds: Set<string>; selectedMoveMarineId: string | null; selectedStrategizeSwarmId: string | null; strategizeSwarmIds: Set<string>; onChooseOption: (optionId: string) => void; onInspect: (inspection: Inspection) => void; onSelectMoveMarine: (marineId: string) => void; onSelectStrategizeSwarm: (swarmId: string) => void }) {
+function LiveFormationBoard({ session, boardAnimation, targetIds, selectedMoveMarineId, selectedStrategizeSwarmId, strategizeSwarmIds: selectableStrategizeSwarms, onChooseOption, onInspect, onSelectMoveMarine, onSelectStrategizeSwarm }: { session: EngineSession; boardAnimation: BoardAnimation | null; targetIds: Set<string>; selectedMoveMarineId: string | null; selectedStrategizeSwarmId: string | null; strategizeSwarmIds: Set<string>; onChooseOption: (optionId: string) => void; onInspect: (inspection: Inspection) => void; onSelectMoveMarine: (marineId: string) => void; onSelectStrategizeSwarm: (swarmId: string) => void }) {
   const { state } = session;
   const decision = state.pendingDecision;
   const rows = useMemo(() => labRows(session), [session]);
@@ -658,6 +756,19 @@ function LiveFormationBoard({ session, targetIds, selectedMoveMarineId, selected
     const terrainId = slot.terrainInstanceIds[side][0];
     return [cellKey(positionIndex, side), terrainId && targetIds.has(terrainId) ? "targeted" : "neutral"];
   }))), [state.formation, targetIds]);
+  const marineAnimationStates = useMemo(() => {
+    const marineId = boardAnimation?.marineId;
+    const animation = boardAnimation?.marineAnimation;
+    if (!marineId || !animation) return {};
+    const definition = data.definitions.marines.find((item) => item.id === componentDefinitionId(session, marineId));
+    return definition ? { [definition.name]: animation } : {};
+  }, [boardAnimation, session]);
+  const swarmAnimationStates = useMemo(() => {
+    const swarmId = boardAnimation?.swarmId;
+    if (!swarmId || !boardAnimation?.swarmAnimation) return {};
+    const swarm = state.swarms[swarmId];
+    return swarm ? { [cellKey(swarm.positionIndex, swarm.side)]: boardAnimation.swarmAnimation } : {};
+  }, [boardAnimation, state.swarms]);
   const chooseCellOption = (row: number, side: Side) => {
     if (!decision) return;
     const option = decision.type === "STRATEGIZE" && selectedStrategizeSwarmId
@@ -688,7 +799,7 @@ function LiveFormationBoard({ session, targetIds, selectedMoveMarineId, selected
     if (option) onChooseOption(option.id);
   };
   const liveStyle = { "--lab-scale": "1", "--lab-viewport": "1180px" } as CSSProperties;
-  return <section className="live-sprite-board" style={liveStyle}><FormationBoard rows={rows} marineSpriteUrl="prototype-art/marine-idle.gif" alienSpriteUrl="prototype-art/alien-attack.gif" alienIdleStripUrl="game-art/genestealer/idle.png" broodlordSpriteUrl="game-art/broodlord/idle.png" marineStates={marineStates} marineMoveChoices={marineMoveChoices} overlayChoices={overlayChoices} swarmStates={swarmStates} terrainStates={terrainStates} selectedMarine={null} onSelectMarine={chooseMarine} onSelectSwarm={chooseSwarm} onSelectTerrain={chooseTerrain} onOverlayChoice={(choice) => chooseCellOption(choice.row, choice.side)} onMarineMoveChoice={(choice) => { const option = decision?.legalOptions.find((item) => item.payload.marineId === selectedMoveMarineId && item.payload.to === choice.row); if (option) onChooseOption(option.id); }} onInspect={(details) => onInspect({ eyebrow: details.eyebrow, title: details.title, body: details.body, meta: details.subtitle })} /></section>;
+  return <section className="live-sprite-board" style={liveStyle}><FormationBoard rows={rows} marineSpriteUrl="prototype-art/marine-idle.gif" marineDeathStripUrl="game-art/marine/death.png" marineDodgeStripUrl="game-art/marine/dodge.png" marineFireStripUrls={{ straight: "game-art/marine/fire-straight.png", up: "game-art/marine/fire-up.png", down: "game-art/marine/fire-down.png" }} marineJamStripUrls={{ straight: "game-art/marine/gun-jam-straight.png", up: "game-art/marine/gun-jam-up.png", down: "game-art/marine/gun-jam-down.png" }} alienSpriteUrl="prototype-art/alien-attack.gif" alienAttackStripUrl="game-art/genestealer/attack.png" alienDeathStripUrl="game-art/genestealer/death.png" alienIdleStripUrl="game-art/genestealer/idle.png" broodlordSpriteUrl="game-art/broodlord/idle.png" marineAnimationStates={marineAnimationStates} swarmAnimationStates={swarmAnimationStates} marineStates={marineStates} marineMoveChoices={marineMoveChoices} overlayChoices={overlayChoices} swarmStates={swarmStates} terrainStates={terrainStates} selectedMarine={null} onSelectMarine={chooseMarine} onSelectSwarm={chooseSwarm} onSelectTerrain={chooseTerrain} onOverlayChoice={(choice) => chooseCellOption(choice.row, choice.side)} onMarineMoveChoice={(choice) => { const option = decision?.legalOptions.find((item) => item.payload.marineId === selectedMoveMarineId && item.payload.to === choice.row); if (option) onChooseOption(option.id); }} onInspect={(details) => onInspect({ eyebrow: details.eyebrow, title: details.title, body: details.body, meta: details.subtitle })} /></section>;
 }
 
 // Kept as a reference while the remaining card-level target choices are moved to the sprite board.

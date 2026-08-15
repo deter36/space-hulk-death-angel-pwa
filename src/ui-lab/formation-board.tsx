@@ -19,7 +19,9 @@ type FormationBoardProps = {
   marineSpriteUrl: string;
   marineDeathStripUrl?: string;
   marineDodgeStripUrl?: string;
-  marineAnimationStates?: Record<string, "dead" | "death" | "dodge">;
+  marineFireStripUrls?: Partial<Record<"straight" | "up" | "down", string>>;
+  marineJamStripUrls?: Partial<Record<"straight" | "up" | "down", string>>;
+  marineAnimationStates?: Record<string, "dead" | "death" | "dodge" | "fire-straight" | "fire-up" | "fire-down" | "gunJam-straight" | "gunJam-up" | "gunJam-down">;
   collapsingMarine?: string | null;
   movingSwarmCell?: string | null;
   marineStates?: Record<string, LabTargetState>;
@@ -112,10 +114,11 @@ function Flank({ alienAttackStripUrl, alienDeathStripUrl, alienIdleStripUrl, ali
   );
 }
 
-function Marine({ animation, deathStripUrl, dodgeStripUrl, marine, marineSpriteUrl, moveChoice, onInspect, onSelect, state }: { animation?: "dead" | "death" | "dodge"; deathStripUrl?: string; dodgeStripUrl?: string; marine: LabMarine; marineSpriteUrl: string; moveChoice?: LabMarineMoveChoice; onInspect?: (details: LabInspection) => void; onSelect: () => void; state: LabTargetState }) {
+function Marine({ animation, deathStripUrl, dodgeStripUrl, fireStripUrls, jamStripUrls, marine, marineSpriteUrl, moveChoice, onInspect, onSelect, state }: { animation?: "dead" | "death" | "dodge" | "fire-straight" | "fire-up" | "fire-down" | "gunJam-straight" | "gunJam-up" | "gunJam-down"; deathStripUrl?: string; dodgeStripUrl?: string; fireStripUrls?: Partial<Record<"straight" | "up" | "down", string>>; jamStripUrls?: Partial<Record<"straight" | "up" | "down", string>>; marine: LabMarine; marineSpriteUrl: string; moveChoice?: LabMarineMoveChoice; onInspect?: (details: LabInspection) => void; onSelect: () => void; state: LabTargetState }) {
   const { facing, name, supportTokens = 0, team } = marine;
   const details = MARINE_DETAILS[name] ?? { range: 0 };
-  const animationUrl = animation === "death" || animation === "dead" ? deathStripUrl : animation === "dodge" ? dodgeStripUrl : undefined;
+  const trajectory = animation?.split("-")[1] as "straight" | "up" | "down" | undefined;
+  const animationUrl = animation === "death" || animation === "dead" ? deathStripUrl : animation === "dodge" ? dodgeStripUrl : animation?.startsWith("fire-") ? fireStripUrls?.[trajectory!] : animation?.startsWith("gunJam-") ? jamStripUrls?.[trajectory!] : undefined;
   const press = usePress(onSelect, () => onInspect?.({ eyebrow: `${team} team Space Marine`, title: name, subtitle: `Range ${details.range} · ${supportTokens} support token${supportTokens === 1 ? "" : "s"}`, body: details.ability ? `${details.ability}: ${details.abilityText}` : "This Space Marine has no individual special ability." }));
   return (
     <button type="button" className={`lab-marine lab-team-${team.toLowerCase()} lab-face-${facing.toLowerCase()} is-${state}`} aria-label={`${name}, ${team} team, range ${details.range}, ${supportTokens} support tokens, facing ${facing.toLowerCase()}`} aria-pressed={state === "selected"} aria-disabled={state === "unavailable"} {...press}>
@@ -128,7 +131,7 @@ function Marine({ animation, deathStripUrl, dodgeStripUrl, marine, marineSpriteU
   );
 }
 
-export default function FormationBoard({ alienAttackStripUrl, alienDeathStripUrl, alienIdleStripUrl, alienSpriteUrl, broodlordSpriteUrl, collapsingMarine, marineAnimationStates = {}, marineDeathStripUrl, marineDodgeStripUrl, marineSpriteUrl, marineMoveChoices = [], moveSlots = [], movingSwarmCell, marineStates = {}, onInspect, onMarineMoveChoice, onMoveSlot, onOverlayChoice, onSelectMarine, onSelectSwarm, onSelectTerrain, overlayChoices = [], rows, selectedMarine, swarmAnimationStates = {}, swarmStates = {}, terrainStates = {} }: FormationBoardProps) {
+export default function FormationBoard({ alienAttackStripUrl, alienDeathStripUrl, alienIdleStripUrl, alienSpriteUrl, broodlordSpriteUrl, collapsingMarine, marineAnimationStates = {}, marineDeathStripUrl, marineDodgeStripUrl, marineFireStripUrls, marineJamStripUrls, marineSpriteUrl, marineMoveChoices = [], moveSlots = [], movingSwarmCell, marineStates = {}, onInspect, onMarineMoveChoice, onMoveSlot, onOverlayChoice, onSelectMarine, onSelectSwarm, onSelectTerrain, overlayChoices = [], rows, selectedMarine, swarmAnimationStates = {}, swarmStates = {}, terrainStates = {} }: FormationBoardProps) {
   const renderMoveSlot = (slot: number) => moveSlots.includes(slot) ? <button type="button" className="lab-move-slot" onClick={() => onMoveSlot?.(slot)}><span>Move here</span></button> : null;
   return (
     <section className="lab-board" aria-label="Formation geometry preview"><div className="lab-board-labels"><span>Left threat</span><span>Formation</span><span>Right threat</span></div><div className="lab-formation">
@@ -139,7 +142,7 @@ export default function FormationBoard({ alienAttackStripUrl, alienDeathStripUrl
         const marineState = marineStates[row.marine.name] ?? (selectedMarine === row.marine.name ? "selected" : row.marine.interaction ?? "neutral");
         return <Fragment key={`${row.marine.team}.${row.marine.name}`}>{renderMoveSlot(index)}<div className={`lab-combat-row ${collapsingMarine === row.marine.name ? "is-collapsing" : ""}`}><span className="lab-row-number">{String(index + 1).padStart(2, "0")}</span>
           <Flank alienSpriteUrl={alienSpriteUrl} alienAttackStripUrl={alienAttackStripUrl} alienDeathStripUrl={alienDeathStripUrl} alienIdleStripUrl={alienIdleStripUrl} broodlordSpriteUrl={broodlordSpriteUrl} flank={row.left} moving={movingSwarmCell === cellKey(index, "LEFT")} side="LEFT" swarmAnimation={swarmAnimationStates[cellKey(index, "LEFT")]} swarmState={swarmStates[cellKey(index, "LEFT")]} terrainState={terrainStates[cellKey(index, "LEFT")]} overlay={leftOverlay} onInspect={onInspect} onSelectSwarm={() => leftOverlay ? onOverlayChoice?.(leftOverlay) : onSelectSwarm?.(index, "LEFT")} onSelectTerrain={() => onSelectTerrain?.(index, "LEFT")} />
-          <Marine marine={row.marine} marineSpriteUrl={marineSpriteUrl} animation={marineAnimationStates[row.marine.name]} deathStripUrl={marineDeathStripUrl} dodgeStripUrl={marineDodgeStripUrl} moveChoice={marineMoveChoice} state={marineMoveChoice ? "destination" : marineState} onInspect={onInspect} onSelect={() => marineMoveChoice ? onMarineMoveChoice?.(marineMoveChoice) : onSelectMarine?.(row.marine.name)} />
+          <Marine marine={row.marine} marineSpriteUrl={marineSpriteUrl} animation={marineAnimationStates[row.marine.name]} deathStripUrl={marineDeathStripUrl} dodgeStripUrl={marineDodgeStripUrl} fireStripUrls={marineFireStripUrls} jamStripUrls={marineJamStripUrls} moveChoice={marineMoveChoice} state={marineMoveChoice ? "destination" : marineState} onInspect={onInspect} onSelect={() => marineMoveChoice ? onMarineMoveChoice?.(marineMoveChoice) : onSelectMarine?.(row.marine.name)} />
           <Flank alienSpriteUrl={alienSpriteUrl} alienAttackStripUrl={alienAttackStripUrl} alienDeathStripUrl={alienDeathStripUrl} alienIdleStripUrl={alienIdleStripUrl} broodlordSpriteUrl={broodlordSpriteUrl} flank={row.right} moving={movingSwarmCell === cellKey(index, "RIGHT")} side="RIGHT" swarmAnimation={swarmAnimationStates[cellKey(index, "RIGHT")]} swarmState={swarmStates[cellKey(index, "RIGHT")]} terrainState={terrainStates[cellKey(index, "RIGHT")]} overlay={rightOverlay} onInspect={onInspect} onSelectSwarm={() => rightOverlay ? onOverlayChoice?.(rightOverlay) : onSelectSwarm?.(index, "RIGHT")} onSelectTerrain={() => onSelectTerrain?.(index, "RIGHT")} />
         </div>{index === rows.length - 1 && renderMoveSlot(rows.length)}</Fragment>;
       })}
