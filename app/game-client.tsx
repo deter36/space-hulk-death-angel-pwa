@@ -572,10 +572,12 @@ export default function GameClient() {
     const animation = notice.postRollAnimation;
     const duration = animation?.marineAnimation?.startsWith("gunJam") ? 1800 : 1400;
     if (animation) {
+      // The die result has been acknowledged. Remove its modal before the
+      // consequence plays so the animation is the only thing in focus.
+      setRollNotices([]);
       playBoardAnimation(animation, duration, () => {
         setSession(resolve.session);
         setPendingRollResolution(null);
-        setRollNotices([]);
       });
     } else {
       setSession(resolve.session);
