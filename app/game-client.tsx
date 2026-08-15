@@ -227,7 +227,10 @@ function uniquePayloadOption(decision: PendingDecision | null, key: string, valu
 function isDirectInputOption(decision: PendingDecision, option: DecisionOption): boolean {
   if (decision.type === "SET_FACING") return true;
   if (decision.type === "MOVE_MARINE" && !option.payload.finish) return true;
-  for (const key of ["actionId", "terrainId", "cardId", "swarmId", "marineId"] as const) {
+  // Individual Genestealer cards are not drawn on the formation, so their
+  // choices must remain in the command dock instead of being treated as board
+  // targets.
+  for (const key of ["actionId", "terrainId", "swarmId", "marineId"] as const) {
     const value = option.payload[key];
     if ((typeof value === "string" || typeof value === "number") && uniquePayloadOption(decision, key, value)?.id === option.id) return true;
   }
@@ -245,17 +248,25 @@ function attackTrajectory(state: GameState, marineId: string, swarmId: string): 
   return swarmPosition === marinePosition ? "straight" : swarmPosition < marinePosition ? "up" : "down";
 }
 
-function rollNoticesFrom(session: EngineSession, startingAt: number, priorState: GameState): RollNotice[] {
+function rollNoticesFrom(session: EngineSession, startingAt: number, priorState: GameState, selectedOption?: DecisionOption): RollNotice[] {
   const newTransitions = session.transitions.slice(startingAt);
   return newTransitions.flatMap((transition) => transition.randomInputs
     .filter((input) => input.kind === "DIE" && input.dieValue !== undefined)
     .map((input, index) => {
       const inspection = input.sourceId ? sourceInspection(session, input.sourceId) : null;
-      const attackerId = priorState.actionRuntime?.data.attackerId;
-      const targetSwarmId = priorState.actionRuntime?.data.targetSwarmId;
+      const attackerId = session.state.actionRuntime?.data.attackerId
+        ?? priorState.actionRuntime?.data.attackerId
+        ?? selectedOption?.payload.marineId;
+      const targetSwarmId = session.state.actionRuntime?.data.targetSwarmId
+        ?? priorState.actionRuntime?.data.targetSwarmId
+        ?? selectedOption?.payload.swarmId;
       const marineAttack = typeof attackerId === "string" && typeof targetSwarmId === "string" && !input.sourceId.startsWith("swarm.");
       const defense = input.sourceId.startsWith("swarm.");
-      const marineId = marineAttack ? attackerId : defense ? priorState.genestealerAttackRuntime?.defenderMarineId : undefined;
+      const marineId = marineAttack ? attackerId : defense
+        ? session.state.genestealerAttackRuntime?.defenderMarineId
+          ?? priorState.genestealerAttackRuntime?.defenderMarineId
+          ?? priorState.formation[priorState.swarms[input.sourceId]?.positionIndex ?? -1]?.marineInstanceId
+        : undefined;
       const hit = Boolean(input.dieSkull);
       const laterTransitions = newTransitions.filter((candidate) => candidate.seq > transition.seq);
       const defenseOutcome = laterTransitions.some((candidate) => candidate.type === "MARINE_SLAIN")
@@ -462,7 +473,8 @@ export default function GameClient() {
     if (!session || !decision) return;
     try {
       const prepared = prepareUiSession(submitSessionDecision(session, decision.id, optionId));
-      const notices = rollNoticesFrom(prepared.session, session.transitions.length, session.state);
+      const selectedOption = decision.legalOptions.find((option) => option.id === optionId);
+      const notices = rollNoticesFrom(prepared.session, session.transitions.length, session.state, selectedOption);
       if (notices.length) {
         setPendingRollResolution({ session: prepared.session });
         const preRollAnimation = notices[0]?.preRollAnimation;
