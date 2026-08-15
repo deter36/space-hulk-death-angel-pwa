@@ -19,6 +19,9 @@ import { EngineSessionStallError, settleEngineSession } from "@/src/ui-adapter/s
 import { COMBAT_DIE_FACES, combatDieFace, type CombatDieValue } from "@/src/ui-adapter/combat-die";
 import { isOffBoardMarineOption, presentedDecisionOption } from "@/src/ui-adapter/decision-presentation";
 import { strategizeDestinationOption, strategizeSwarmIds } from "@/src/ui-adapter/strategize-selection";
+import FormationBoard, { cellKey, type LabOverlayChoice, type LabTargetState } from "@/src/ui-lab/formation-board";
+import type { LabFormationRow } from "@/src/ui-lab/formation-types";
+import "@/src/ui-lab/ui-lab.css";
 
 type Definition = { id: string; name: string };
 type MarineDefinition = Definition & { team: TeamColor; attackRange: number; namedActionAbility: string | null };
@@ -504,12 +507,7 @@ function MissionBoard({ session, inspection, error, diagnosticNotice, rollNotice
         </TacticalButton>
       )}
 
-      <section className="formation-board">
-        <div className="column-labels"><span>Left threat</span><span>Formation</span><span>Right threat</span></div>
-        {state.formation.map((slot, positionIndex) => (
-          <FormationRow key={slot.marineInstanceId} session={session} positionIndex={positionIndex} targetIds={targetIds} selectedMoveMarineId={selectedMoveMarineId} strategizeSwarmIds={strategizeSwarmSet} selectedStrategizeSwarmId={selectedStrategizeSwarmId} onSelectMoveMarine={(marineId) => { if (decision) setMoveSelection({ decisionId: decision.id, marineId }); }} onSelectStrategizeSwarm={(swarmId) => { if (decision) setStrategizeSelection({ decisionId: decision.id, swarmId }); }} onInspect={onInspect} onChooseOption={onChooseOption} />
-        ))}
-      </section>
+      <LiveFormationBoard session={session} targetIds={targetIds} selectedMoveMarineId={selectedMoveMarineId} selectedStrategizeSwarmId={selectedStrategizeSwarmId} strategizeSwarmIds={strategizeSwarmSet} onChooseOption={onChooseOption} onInspect={onInspect} onSelectMoveMarine={(marineId) => { if (decision) setMoveSelection({ decisionId: decision.id, marineId }); }} onSelectStrategizeSwarm={(swarmId) => { if (decision) setStrategizeSelection({ decisionId: decision.id, swarmId }); }} />
 
       <section className="action-reference">
         <div className="panel-label">Combat team cards <span>Tap an available card · hold any card for rules</span></div>
@@ -570,6 +568,110 @@ function MissionBoard({ session, inspection, error, diagnosticNotice, rollNotice
   );
 }
 
+function labSpawnColor(value: string): "GREEN" | "YELLOW" | "ORANGE" | "RED" {
+  return value === "YELLOW" || value === "ORANGE" || value === "RED" ? value : "GREEN";
+}
+
+function labRows(session: EngineSession): LabFormationRow[] {
+  const { state } = session;
+  const flank = (positionIndex: number, side: Side) => {
+    const slot = state.formation[positionIndex];
+    const terrainId = slot.terrainInstanceIds[side][0];
+    const terrainDefinition = terrainId ? data.definitions.terrain.find((item) => item.id === componentDefinitionId(session, terrainId)) : undefined;
+    const swarms = slot.swarmIds[side].map((swarmId) => state.swarms[swarmId]).filter((swarm): swarm is NonNullable<typeof swarm> => Boolean(swarm));
+    const icons = swarms.flatMap((swarm) => swarm.cardIds.map((cardId) => state.genestealers[cardId]?.icon).filter((icon): icon is GenestealerIcon => Boolean(icon)));
+    const broodLords = swarms.reduce((total, swarm) => total + swarm.broodLordIds.length, 0);
+    return {
+      terrain: terrainDefinition ? { name: terrainDefinition.name, color: labSpawnColor(terrainDefinition.spawnColor) } : undefined,
+      swarm: icons.length || broodLords ? { icons, broodLords: broodLords || undefined } : undefined,
+    };
+  };
+  return state.formation.map((slot, positionIndex) => {
+    const marineDefinition = data.definitions.marines.find((item) => item.id === componentDefinitionId(session, slot.marineInstanceId));
+    const marine = state.marines[slot.marineInstanceId];
+    return {
+      left: flank(positionIndex, "LEFT"),
+      marine: { name: marineDefinition?.name ?? slot.marineInstanceId, team: marineDefinition?.team ?? "GREY", facing: marine?.facing ?? "LEFT", supportTokens: marine?.support ?? 0 },
+      right: flank(positionIndex, "RIGHT"),
+    };
+  });
+}
+
+function LiveFormationBoard({ session, targetIds, selectedMoveMarineId, selectedStrategizeSwarmId, strategizeSwarmIds: selectableStrategizeSwarms, onChooseOption, onInspect, onSelectMoveMarine, onSelectStrategizeSwarm }: { session: EngineSession; targetIds: Set<string>; selectedMoveMarineId: string | null; selectedStrategizeSwarmId: string | null; strategizeSwarmIds: Set<string>; onChooseOption: (optionId: string) => void; onInspect: (inspection: Inspection) => void; onSelectMoveMarine: (marineId: string) => void; onSelectStrategizeSwarm: (swarmId: string) => void }) {
+  const { state } = session;
+  const decision = state.pendingDecision;
+  const rows = useMemo(() => labRows(session), [session]);
+  const overlayChoices = useMemo<LabOverlayChoice[]>(() => {
+    if (!decision) return [];
+    if (decision.type === "STRATEGIZE" && selectedStrategizeSwarmId) return decision.legalOptions.flatMap((option) => {
+      const row = typeof option.payload.positionIndex === "number" ? option.payload.positionIndex : null;
+      const side = option.payload.side === "LEFT" || option.payload.side === "RIGHT" ? option.payload.side : null;
+      return row === null || side === null ? [] : [{ label: "Move swarm here", row, side, state: "destination" }];
+    });
+    if (decision.type === "SET_FACING") return decision.legalOptions.flatMap((option) => {
+      const marineId = option.payload.marineId;
+      const side = option.payload.facing === "LEFT" || option.payload.facing === "RIGHT" ? option.payload.facing : null;
+      const row = typeof marineId === "string" ? state.formation.findIndex((slot) => slot.marineInstanceId === marineId) : -1;
+      return row < 0 || side === null ? [] : [{ label: `Face ${side.toLowerCase()}`, row, side, state: "destination" }];
+    });
+    return [];
+  }, [decision, selectedStrategizeSwarmId, state.formation]);
+  const marineMoveChoices = useMemo(() => decision?.type === "MOVE_MARINE" && selectedMoveMarineId
+    ? decision.legalOptions.flatMap((option) => typeof option.payload.to === "number" && option.payload.marineId === selectedMoveMarineId ? [{ row: option.payload.to, label: "Swap positions" }] : [])
+    : [], [decision, selectedMoveMarineId]);
+  const marineStates = useMemo<Record<string, LabTargetState>>(() => Object.fromEntries(state.formation.map((slot, positionIndex) => {
+    const marineId = slot.marineInstanceId;
+    const name = rows[positionIndex].marine.name;
+    const selectable = decision?.type === "MOVE_MARINE" && decision.legalOptions.some((option) => option.payload.marineId === marineId);
+    const targeted = decision?.type !== "MOVE_MARINE" && targetIds.has(marineId);
+    return [name, selectedMoveMarineId === marineId ? "selected" : selectable ? "selectable" : targeted ? "targeted" : "neutral"];
+  })), [decision, rows, selectedMoveMarineId, state.formation, targetIds]);
+  const swarmStates = useMemo<Record<string, LabTargetState>>(() => Object.fromEntries(state.formation.flatMap((slot, positionIndex) => (["LEFT", "RIGHT"] as const).map((side) => {
+    const swarmId = slot.swarmIds[side][0];
+    const selectable = decision?.type === "STRATEGIZE" && !selectedStrategizeSwarmId && Boolean(swarmId && selectableStrategizeSwarms.has(swarmId));
+    const selected = Boolean(swarmId && selectedStrategizeSwarmId === swarmId);
+    const targeted = Boolean(swarmId && targetIds.has(swarmId));
+    return [cellKey(positionIndex, side), selected ? "selected" : selectable ? "selectable" : targeted ? "targeted" : "neutral"];
+  }))), [decision, selectedStrategizeSwarmId, selectableStrategizeSwarms, state.formation, targetIds]);
+  const terrainStates = useMemo<Record<string, LabTargetState>>(() => Object.fromEntries(state.formation.flatMap((slot, positionIndex) => (["LEFT", "RIGHT"] as const).map((side) => {
+    const terrainId = slot.terrainInstanceIds[side][0];
+    return [cellKey(positionIndex, side), terrainId && targetIds.has(terrainId) ? "targeted" : "neutral"];
+  }))), [state.formation, targetIds]);
+  const chooseCellOption = (row: number, side: Side) => {
+    if (!decision) return;
+    const option = decision.type === "STRATEGIZE" && selectedStrategizeSwarmId
+      ? strategizeDestinationOption(decision, selectedStrategizeSwarmId, row, side)
+      : decision.type === "SET_FACING"
+        ? decision.legalOptions.find((item) => item.payload.marineId === state.formation[row].marineInstanceId && item.payload.facing === side) ?? null
+        : uniquePayloadOption(decision, "positionIndex", row, side);
+    if (option) onChooseOption(option.id);
+  };
+  const chooseSwarm = (row: number, side: Side) => {
+    const swarmId = state.formation[row].swarmIds[side][0];
+    if (!decision || !swarmId) return;
+    if (decision.type === "STRATEGIZE" && !selectedStrategizeSwarmId && selectableStrategizeSwarms.has(swarmId)) { onSelectStrategizeSwarm(swarmId); return; }
+    const option = uniquePayloadOption(decision, "swarmId", swarmId);
+    if (option) onChooseOption(option.id);
+  };
+  const chooseMarine = (name: string) => {
+    const row = rows.findIndex((item) => item.marine.name === name);
+    const marineId = row >= 0 ? state.formation[row].marineInstanceId : null;
+    if (!decision || !marineId) return;
+    if (decision.type === "MOVE_MARINE" && decision.legalOptions.some((option) => option.payload.marineId === marineId)) { onSelectMoveMarine(marineId); return; }
+    const option = uniquePayloadOption(decision, "marineId", marineId);
+    if (option) onChooseOption(option.id);
+  };
+  const chooseTerrain = (row: number, side: Side) => {
+    const terrainId = state.formation[row].terrainInstanceIds[side][0];
+    const option = terrainId ? uniquePayloadOption(decision, "terrainId", terrainId) : null;
+    if (option) onChooseOption(option.id);
+  };
+  const liveStyle = { "--lab-scale": "1", "--lab-viewport": "1180px" } as CSSProperties;
+  return <section className="live-sprite-board" style={liveStyle}><FormationBoard rows={rows} marineSpriteUrl="prototype-art/marine-idle.gif" alienSpriteUrl="prototype-art/alien-attack.gif" alienIdleStripUrl="game-art/genestealer/idle.png" broodlordSpriteUrl="game-art/broodlord/idle.png" marineStates={marineStates} marineMoveChoices={marineMoveChoices} overlayChoices={overlayChoices} swarmStates={swarmStates} terrainStates={terrainStates} selectedMarine={null} onSelectMarine={chooseMarine} onSelectSwarm={chooseSwarm} onSelectTerrain={chooseTerrain} onOverlayChoice={(choice) => chooseCellOption(choice.row, choice.side)} onMarineMoveChoice={(choice) => { const option = decision?.legalOptions.find((item) => item.payload.marineId === selectedMoveMarineId && item.payload.to === choice.row); if (option) onChooseOption(option.id); }} onInspect={(details) => onInspect({ eyebrow: details.eyebrow, title: details.title, body: details.body, meta: details.subtitle })} /></section>;
+}
+
+// Kept as a reference while the remaining card-level target choices are moved to the sprite board.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function FormationRow({ session, positionIndex, targetIds, selectedMoveMarineId, strategizeSwarmIds: selectableStrategizeSwarms, selectedStrategizeSwarmId, onSelectMoveMarine, onSelectStrategizeSwarm, onInspect, onChooseOption }: { session: EngineSession; positionIndex: number; targetIds: Set<string>; selectedMoveMarineId: string | null; strategizeSwarmIds: Set<string>; selectedStrategizeSwarmId: string | null; onSelectMoveMarine: (marineId: string) => void; onSelectStrategizeSwarm: (swarmId: string) => void; onInspect: (inspection: Inspection) => void; onChooseOption: (optionId: string) => void }) {
   const { state } = session;
   const decision = state.pendingDecision;
