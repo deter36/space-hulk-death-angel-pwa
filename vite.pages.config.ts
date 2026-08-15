@@ -24,6 +24,7 @@ export default defineConfig({
         uiLab: fileURLToPath(new URL("./pages/ui-lab/index.html", import.meta.url)),
         gameView: fileURLToPath(new URL("./pages/ui-lab/game-view/index.html", import.meta.url)),
         swarmAnimation: fileURLToPath(new URL("./pages/ui-lab/swarm-animation/index.html", import.meta.url)),
+        swarmMovement: fileURLToPath(new URL("./pages/ui-lab/swarm-movement/index.html", import.meta.url)),
       },
     },
   },
