@@ -17,6 +17,8 @@ import {
 import type { GenestealerIcon, Side, TeamColor } from "@/src/data/types";
 import { EngineSessionStallError, settleEngineSession } from "@/src/ui-adapter/session-settler";
 import { COMBAT_DIE_FACES, combatDieFace, type CombatDieValue } from "@/src/ui-adapter/combat-die";
+import { isOffBoardMarineOption, presentedDecisionOption } from "@/src/ui-adapter/decision-presentation";
+import { strategizeDestinationOption, strategizeSwarmIds } from "@/src/ui-adapter/strategize-selection";
 
 type Definition = { id: string; name: string };
 type MarineDefinition = Definition & { team: TeamColor; attackRange: number; namedActionAbility: string | null };
@@ -445,10 +447,15 @@ type MissionBoardProps = {
 
 function MissionBoard({ session, inspection, error, diagnosticNotice, rollNotice, onInspect, onChooseOption, onUndo, onCopyDiagnostics, onDownloadSave, onDismissInspection, onDismissRoll, onNewMission }: MissionBoardProps) {
   const [moveSelection, setMoveSelection] = useState<{ decisionId: string; marineId: string } | null>(null);
+  const [strategizeSelection, setStrategizeSelection] = useState<{ decisionId: string; swarmId: string } | null>(null);
+  const [scoutingPreviewVisible, setScoutingPreviewVisible] = useState(true);
   const { state } = session;
   const decision = state.pendingDecision;
   const selectedMoveMarineId = moveSelection && moveSelection.decisionId === decision?.id ? moveSelection.marineId : null;
-  const targetIds = useMemo(() => pendingTargetIds(decision), [decision]);
+  const strategizeSwarms = useMemo(() => strategizeSwarmIds(decision), [decision]);
+  const strategizeSwarmSet = useMemo(() => new Set(strategizeSwarms), [strategizeSwarms]);
+  const selectedStrategizeSwarmId = strategizeSelection && strategizeSelection.decisionId === decision?.id && strategizeSwarmSet.has(strategizeSelection.swarmId) ? strategizeSelection.swarmId : null;
+  const targetIds = useMemo(() => decision?.type === "STRATEGIZE" ? new Set<string>() : pendingTargetIds(decision), [decision]);
   const currentLocation = data.definitions.locations.find((item) => item.id === componentDefinitionId(session, state.currentLocationInstanceId));
   const locationInspection = sourceInspection(session, state.currentLocationInstanceId) ?? { eyebrow: "Setup location", title: setupLocationName(componentDefinitionId(session, state.currentLocationInstanceId)), body: "Starting location for the solo mission.", meta: "Void Lock" };
   const leftBlips = state.orderedSources["blip.left"]?.length ?? 0;
@@ -458,8 +465,12 @@ function MissionBoard({ session, inspection, error, diagnosticNotice, rollNotice
   const lastEventId = state.eventRuntime?.eventCardId ?? state.orderedSources["event.discard"]?.at(-1) ?? null;
   const lastEvent = lastEventId ? findEvent(lastEventId) : null;
   const recentTransitions = session.transitions.slice(-3).reverse();
-  const dockOptions = decision?.legalOptions.filter((option) => !isDirectInputOption(decision, option)) ?? [];
+  const formationMarineIds = new Set(state.formation.map((slot) => slot.marineInstanceId));
+  const dockOptions = decision?.legalOptions.filter((option) => decision.type === "STRATEGIZE" ? option.payload.skip === true : isOffBoardMarineOption(option, formationMarineIds) || !isDirectInputOption(decision, option)) ?? [];
   const decisionAction = decision ? data.definitions.actions.find((item) => item.id === componentDefinitionId(session, decision.sourceId)) : null;
+  const decisionRules = decision?.type === "PLACE_ARTEFACT"
+    ? data.definitions.terrain.find((item) => item.id === "terrain.artefact")?.sourceText ?? null
+    : null;
   const choosingActions = decision?.type === "CHOOSE_ACTION";
 
   return (
@@ -496,7 +507,7 @@ function MissionBoard({ session, inspection, error, diagnosticNotice, rollNotice
       <section className="formation-board">
         <div className="column-labels"><span>Left threat</span><span>Formation</span><span>Right threat</span></div>
         {state.formation.map((slot, positionIndex) => (
-          <FormationRow key={slot.marineInstanceId} session={session} positionIndex={positionIndex} targetIds={targetIds} selectedMoveMarineId={selectedMoveMarineId} onSelectMoveMarine={(marineId) => { if (decision) setMoveSelection({ decisionId: decision.id, marineId }); }} onInspect={onInspect} onChooseOption={onChooseOption} />
+          <FormationRow key={slot.marineInstanceId} session={session} positionIndex={positionIndex} targetIds={targetIds} selectedMoveMarineId={selectedMoveMarineId} strategizeSwarmIds={strategizeSwarmSet} selectedStrategizeSwarmId={selectedStrategizeSwarmId} onSelectMoveMarine={(marineId) => { if (decision) setMoveSelection({ decisionId: decision.id, marineId }); }} onSelectStrategizeSwarm={(swarmId) => { if (decision) setStrategizeSelection({ decisionId: decision.id, swarmId }); }} onInspect={onInspect} onChooseOption={onChooseOption} />
         ))}
       </section>
 
@@ -522,10 +533,12 @@ function MissionBoard({ session, inspection, error, diagnosticNotice, rollNotice
         {state.activeDie && <DiePanel value={state.activeDie.modifiedValue} skull={state.activeDie.skull} purpose={state.activeDie.purpose} rerolls={state.activeDie.rerolls.length} />}
         {decision ? (
           <div className={`dock-decision ${decisionAction ? `team-context team-${decisionAction.team.toLowerCase()}` : ""}`}>
-            <div className="decision-heading"><span>{formatPhase(decision.type)}</span><strong>{decision.promptKey.replaceAll(".", " · ").replaceAll("_", " ")}</strong></div>
+            <div className="decision-heading"><span>{formatPhase(decision.type)}</span></div>
             {decisionAction && <div className="decision-source"><i />{decisionAction.team} · {decisionAction.name}</div>}
-            <p>{decision.type === "MOVE_MARINE" && !selectedMoveMarineId ? "Choose a highlighted Marine to move." : decision.type === "MOVE_MARINE" ? "Choose the highlighted destination for that Marine, or select another Marine." : decision.type === "SET_FACING" ? "Choose the left or right tile beside the highlighted Marine—even to keep its current facing." : decision.legalOptions.some((option) => isDirectInputOption(decision, option)) ? "Tap an available card or highlighted board target. Hold any object briefly to read its rules." : "Choose an option below. The formation remains visible while you decide."}</p>
-            {decision.type !== "FORWARD_SCOUTING_ORDER" && dockOptions.length > 0 && <div className="dock-options">{dockOptions.map((option) => <button key={option.id} type="button" onClick={() => onChooseOption(option.id)}><strong>{option.label}</strong>{option.canonicalEffectPreview && <small>{option.canonicalEffectPreview}</small>}</button>)}</div>}
+            {decisionRules && <div className="decision-rules"><strong>Artefact ability</strong><span>{decisionRules}</span></div>}
+            <p>{decision.promptKey === "event.rescue" ? "Choose a slain Marine below. They will return at the bottom of the formation facing right." : decision.type === "FORWARD_SCOUTING_ORDER" && !scoutingPreviewVisible ? "The event choice is minimized while you inspect the board. Return to Forward Scouting when ready." : decision.type === "STRATEGIZE" && !selectedStrategizeSwarmId ? "Choose a highlighted swarm to move." : decision.type === "STRATEGIZE" ? "Choose a highlighted legal destination, or choose another swarm below." : decision.type === "MOVE_MARINE" && !selectedMoveMarineId ? "Choose a highlighted Marine to move." : decision.type === "MOVE_MARINE" ? "Choose the highlighted destination for that Marine, or select another Marine." : decision.type === "SET_FACING" ? "Choose the left or right tile beside the highlighted Marine—even to keep its current facing." : decision.legalOptions.some((option) => isDirectInputOption(decision, option)) ? "Tap an available card or highlighted board target. Hold any object briefly to read its rules." : "Choose an option below. The formation remains visible while you decide."}</p>
+            {decision.type === "STRATEGIZE" && selectedStrategizeSwarmId && <button type="button" className="strategize-reset" onClick={() => setStrategizeSelection(null)}>Choose another swarm</button>}
+            {decision.type !== "FORWARD_SCOUTING_ORDER" && dockOptions.length > 0 && <div className="dock-options">{dockOptions.map((option) => { const presentation = presentedDecisionOption(decision, option); return <button key={option.id} type="button" onClick={() => onChooseOption(option.id)}><strong>{presentation.label}</strong>{presentation.preview && <small>{presentation.preview}</small>}</button>; })}</div>}
           </div>
         ) : state.status === "IN_PROGRESS" ? (
           <div className="mission-result engine-paused"><strong>Engine paused</strong><span>Download the save or copy diagnostics before ending this mission.</span></div>
@@ -549,13 +562,15 @@ function MissionBoard({ session, inspection, error, diagnosticNotice, rollNotice
       </section>
 
       {inspection && <InspectionDrawer inspection={inspection} onClose={onDismissInspection} />}
-      {decision?.type === "FORWARD_SCOUTING_ORDER" && <ForwardScoutingPreview session={session} decision={decision} onChooseOption={onChooseOption} />}
+      {decision?.type === "FORWARD_SCOUTING_ORDER" && (scoutingPreviewVisible
+        ? <ForwardScoutingPreview session={session} decision={decision} onChooseOption={onChooseOption} onViewBoard={() => setScoutingPreviewVisible(false)} />
+        : <button type="button" className="scouting-return" onClick={() => setScoutingPreviewVisible(true)}><span aria-hidden="true">↩</span><strong>Forward Scouting</strong><small>Return to event choice</small></button>)}
       {rollNotice && <RollResult key={rollNotice.id} notice={rollNotice} onProceed={onDismissRoll} />}
     </main>
   );
 }
 
-function FormationRow({ session, positionIndex, targetIds, selectedMoveMarineId, onSelectMoveMarine, onInspect, onChooseOption }: { session: EngineSession; positionIndex: number; targetIds: Set<string>; selectedMoveMarineId: string | null; onSelectMoveMarine: (marineId: string) => void; onInspect: (inspection: Inspection) => void; onChooseOption: (optionId: string) => void }) {
+function FormationRow({ session, positionIndex, targetIds, selectedMoveMarineId, strategizeSwarmIds: selectableStrategizeSwarms, selectedStrategizeSwarmId, onSelectMoveMarine, onSelectStrategizeSwarm, onInspect, onChooseOption }: { session: EngineSession; positionIndex: number; targetIds: Set<string>; selectedMoveMarineId: string | null; strategizeSwarmIds: Set<string>; selectedStrategizeSwarmId: string | null; onSelectMoveMarine: (marineId: string) => void; onSelectStrategizeSwarm: (swarmId: string) => void; onInspect: (inspection: Inspection) => void; onChooseOption: (optionId: string) => void }) {
   const { state } = session;
   const decision = state.pendingDecision;
   const slot = state.formation[positionIndex];
@@ -566,23 +581,23 @@ function FormationRow({ session, positionIndex, targetIds, selectedMoveMarineId,
   const moveDestination = decision?.type === "MOVE_MARINE" && selectedMoveMarineId
     ? decision.legalOptions.find((option) => option.payload.marineId === selectedMoveMarineId && option.payload.to === positionIndex) ?? null
     : null;
-  const rowOption = moveDestination ?? uniquePayloadOption(decision, "positionIndex", positionIndex);
+  const rowOption = moveDestination ?? (decision?.type === "STRATEGIZE" ? null : uniquePayloadOption(decision, "positionIndex", positionIndex));
   const tapOption = marineOption ?? rowOption;
   return (
     <div className={`formation-row ${moveDestination || (decision?.type !== "MOVE_MARINE" && targetIds.has(`position:${positionIndex}`)) ? "legal-row" : ""}`}>
-      <Flank session={session} positionIndex={positionIndex} side="LEFT" onInspect={onInspect} onChooseOption={onChooseOption} />
+      <Flank session={session} positionIndex={positionIndex} side="LEFT" strategizeSwarmIds={selectableStrategizeSwarms} selectedStrategizeSwarmId={selectedStrategizeSwarmId} onSelectStrategizeSwarm={onSelectStrategizeSwarm} onInspect={onInspect} onChooseOption={onChooseOption} />
       <TacticalButton type="button" className={`marine-card inspectable team-${marineDefinition.team.toLowerCase()} ${tapOption || moveMarineAvailable ? "legal-target" : ""} ${selectedMoveMarineId === slot.marineInstanceId ? "is-move-selected" : ""}`} onTap={tapOption ? () => onChooseOption(tapOption.id) : moveMarineAvailable ? () => onSelectMoveMarine(slot.marineInstanceId) : undefined} onHold={() => onInspect(sourceInspection(session, slot.marineInstanceId)!)}>
         <span className="marine-facing" aria-label={`Facing ${marine.facing}`}>{marine.facing === "LEFT" ? "◀" : "▶"}</span>
         {marineDefinition.namedActionAbility && <span className="marine-ability" aria-label={`Special ability: ${marineDefinition.namedActionAbility}`}>★</span>}
         <strong>{marineDefinition.name}</strong>
         <span className="marine-stats"><b>◎ Range {marineDefinition.attackRange}</b><i>{marine.support ? `${"●".repeat(marine.support)} support tokens` : "No support tokens"}</i></span>
       </TacticalButton>
-      <Flank session={session} positionIndex={positionIndex} side="RIGHT" onInspect={onInspect} onChooseOption={onChooseOption} />
+      <Flank session={session} positionIndex={positionIndex} side="RIGHT" strategizeSwarmIds={selectableStrategizeSwarms} selectedStrategizeSwarmId={selectedStrategizeSwarmId} onSelectStrategizeSwarm={onSelectStrategizeSwarm} onInspect={onInspect} onChooseOption={onChooseOption} />
     </div>
   );
 }
 
-function Flank({ session, positionIndex, side, onInspect, onChooseOption }: { session: EngineSession; positionIndex: number; side: Side; onInspect: (inspection: Inspection) => void; onChooseOption: (optionId: string) => void }) {
+function Flank({ session, positionIndex, side, strategizeSwarmIds: selectableStrategizeSwarms, selectedStrategizeSwarmId, onSelectStrategizeSwarm, onInspect, onChooseOption }: { session: EngineSession; positionIndex: number; side: Side; strategizeSwarmIds: Set<string>; selectedStrategizeSwarmId: string | null; onSelectStrategizeSwarm: (swarmId: string) => void; onInspect: (inspection: Inspection) => void; onChooseOption: (optionId: string) => void }) {
   const slot = session.state.formation[positionIndex];
   const decision = session.state.pendingDecision;
   const terrainIds = slot.terrainInstanceIds[side];
@@ -590,7 +605,8 @@ function Flank({ session, positionIndex, side, onInspect, onChooseOption }: { se
   const facingOption = decision?.type === "SET_FACING"
     ? decision.legalOptions.find((option) => option.payload.marineId === slot.marineInstanceId && option.payload.facing === side) ?? null
     : null;
-  const positionOption = facingOption ?? uniquePayloadOption(decision, "positionIndex", positionIndex, side);
+  const strategizeDestination = strategizeDestinationOption(decision, selectedStrategizeSwarmId, positionIndex, side);
+  const positionOption = strategizeDestination ?? facingOption ?? (decision?.type === "STRATEGIZE" ? null : uniquePayloadOption(decision, "positionIndex", positionIndex, side));
   return (
     <div className={`flank-cell ${positionOption ? "legal-target" : ""} ${facingOption ? "facing-choice" : ""}`}>
       {positionOption && <button type="button" className="flank-position-input" aria-label={facingOption ? `Face ${side.toLowerCase()}` : `Choose formation position ${positionIndex + 1}, ${side.toLowerCase()} side`} onClick={() => onChooseOption(positionOption.id)}>{facingOption && <span>{side === "LEFT" ? "◀" : "▶"}<small>Face {side.toLowerCase()}</small></span>}</button>}
@@ -603,18 +619,25 @@ function Flank({ session, positionIndex, side, onInspect, onChooseOption }: { se
         })}
       </div>
       <div className="swarm-stack">
-        {swarmIds.flatMap((swarmId) => {
+        {swarmIds.map((swarmId) => {
           const swarm = session.state.swarms[swarmId];
-          if (!swarm) return [];
-          return swarm.cardIds.map((cardId) => {
-            const icon = session.state.genestealers[cardId].icon;
-            const option = uniquePayloadOption(decision, "cardId", cardId) ?? uniquePayloadOption(decision, "swarmId", swarmId);
-            return <TacticalButton key={cardId} type="button" className={`genestealer-icon ${option ? "legal-target" : ""}`} aria-label={`${ICON_LABELS[icon]} Genestealer. Hold to inspect.`} onTap={option ? () => onChooseOption(option.id) : undefined} onHold={() => onInspect({ eyebrow: `Genestealer · ${side.toLowerCase()} swarm`, title: ICON_LABELS[icon], body: `A ${ICON_LABELS[icon].toLowerCase()} Genestealer in a swarm of ${swarm.cardIds.length + swarm.broodLordIds.length}.`, meta: `Formation position ${positionIndex + 1}${session.state.genestealers[cardId].movedOrFlankedThisEvent ? " · moved this event" : ""}` })} stopPropagation><span>{ICON_GLYPHS[icon]}</span><small>{ICON_LABELS[icon]}</small></TacticalButton>;
-          });
-        })}
-        {swarmIds.flatMap((swarmId) => session.state.swarms[swarmId]?.broodLordIds.map((broodLordId) => ({ broodLordId, swarmId })) ?? []).map(({ broodLordId, swarmId }) => {
-          const option = uniquePayloadOption(decision, "cardId", broodLordId) ?? uniquePayloadOption(decision, "swarmId", swarmId);
-          return <TacticalButton key={broodLordId} type="button" className={`genestealer-icon brood-lord ${option ? "legal-target" : ""}`} onTap={option ? () => onChooseOption(option.id) : undefined} onHold={() => onInspect({ eyebrow: "Brood Lord", title: "Brood Lord", body: "A Brood Lord counts as multiple Genestealers when attacking and follows its current movement icons.", meta: `Formation position ${positionIndex + 1}` })} stopPropagation><span>♛</span><small>Lord</small></TacticalButton>;
+          if (!swarm) return null;
+          const strategizeSelectable = decision?.type === "STRATEGIZE" && !selectedStrategizeSwarmId && selectableStrategizeSwarms.has(swarmId);
+          const strategizeSelected = selectedStrategizeSwarmId === swarmId;
+          return (
+            <div key={swarmId} className={`swarm-group ${strategizeSelectable ? "strategize-selectable" : ""} ${strategizeSelected ? "strategize-selected" : ""}`}>
+              {strategizeSelectable && <button type="button" className="swarm-select-input" aria-label={`Select swarm at formation position ${positionIndex + 1}, ${side.toLowerCase()} side`} onClick={() => onSelectStrategizeSwarm(swarmId)} />}
+              {swarm.cardIds.map((cardId) => {
+                const icon = session.state.genestealers[cardId].icon;
+                const option = decision?.type === "STRATEGIZE" ? null : uniquePayloadOption(decision, "cardId", cardId) ?? uniquePayloadOption(decision, "swarmId", swarmId);
+                return <TacticalButton key={cardId} type="button" className={`genestealer-icon ${option ? "legal-target" : ""}`} aria-label={`${ICON_LABELS[icon]} Genestealer. Hold to inspect.`} onTap={option ? () => onChooseOption(option.id) : undefined} onHold={() => onInspect({ eyebrow: `Genestealer · ${side.toLowerCase()} swarm`, title: ICON_LABELS[icon], body: `A ${ICON_LABELS[icon].toLowerCase()} Genestealer in a swarm of ${swarm.cardIds.length + swarm.broodLordIds.length}.`, meta: `Formation position ${positionIndex + 1}${session.state.genestealers[cardId].movedOrFlankedThisEvent ? " · moved this event" : ""}` })} stopPropagation><span>{ICON_GLYPHS[icon]}</span><small>{ICON_LABELS[icon]}</small></TacticalButton>;
+              })}
+              {swarm.broodLordIds.map((broodLordId) => {
+                const option = decision?.type === "STRATEGIZE" ? null : uniquePayloadOption(decision, "cardId", broodLordId) ?? uniquePayloadOption(decision, "swarmId", swarmId);
+                return <TacticalButton key={broodLordId} type="button" className={`genestealer-icon brood-lord ${option ? "legal-target" : ""}`} onTap={option ? () => onChooseOption(option.id) : undefined} onHold={() => onInspect({ eyebrow: "Brood Lord", title: "Brood Lord", body: "A Brood Lord counts as multiple Genestealers when attacking and follows its current movement icons.", meta: `Formation position ${positionIndex + 1}` })} stopPropagation><span>♛</span><small>Lord</small></TacticalButton>;
+              })}
+            </div>
+          );
         })}
       </div>
       {!terrainIds.length && !swarmIds.length && <span className="clear-lane">Clear</span>}
@@ -638,7 +661,7 @@ function InspectionDrawer({ inspection, onClose }: { inspection: Inspection; onC
   );
 }
 
-function ForwardScoutingPreview({ session, decision, onChooseOption }: { session: EngineSession; decision: PendingDecision; onChooseOption: (optionId: string) => void }) {
+function ForwardScoutingPreview({ session, decision, onChooseOption, onViewBoard }: { session: EngineSession; decision: PendingDecision; onChooseOption: (optionId: string) => void; onViewBoard: () => void }) {
   const eventCardId = decision.legalOptions.map((option) => option.payload.eventCardId).find((value): value is string => typeof value === "string");
   const event = eventCardId ? findEvent(componentDefinitionId(session, eventCardId)) : null;
   if (!event) return null;
@@ -646,7 +669,7 @@ function ForwardScoutingPreview({ session, decision, onChooseOption }: { session
   return (
     <div className="scouting-backdrop" role="presentation">
       <section className="scouting-preview" role="dialog" aria-modal="true" aria-labelledby="scouting-title">
-        <header><span>Purple team · Forward Scouting</span><h2 id="scouting-title">{event.name}</h2>{event.copyIndex && <small>Event copy {event.copyIndex}</small>}</header>
+        <header><span>Purple team · Forward Scouting</span><h2 id="scouting-title">{event.name}</h2>{event.copyIndex && <small>Event copy {event.copyIndex}</small>}<button type="button" className="scouting-board-toggle" onClick={onViewBoard} aria-label="View formation board" title="View formation board">▦</button></header>
         <div className="scouting-rules"><span>Event effect</span><p>{event.sourceText}</p></div>
         <dl className="scouting-data">
           {event.activations.map((activation, index) => (

@@ -115,7 +115,11 @@ describe("Event phase", () => {
     const marineId = state.formation[2].marineInstanceId;
     slayMarine(state, marineId);
     const survivors = state.formation.map((slot) => slot.marineInstanceId);
-    const { result } = resolveEvent(state);
+    let result = advanceAutomatic(state);
+    const rescueOption = result.state.pendingDecision?.legalOptions.find((option) => option.payload.marineId === marineId);
+    expect(rescueOption?.label).not.toContain("F0");
+    expect(rescueOption?.canonicalEffectPreview).toBe("Return at the bottom of the formation facing right");
+    result = submit(result, rescueOption!.id);
     expect(result.state.formation.slice(0, survivors.length).map((slot) => slot.marineInstanceId)).toEqual(survivors);
     expect(result.state.formation.at(-1)?.marineInstanceId).toBe(marineId);
     expect(result.state.marines[marineId].facing).toBe("RIGHT");

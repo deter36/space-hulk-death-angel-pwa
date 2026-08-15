@@ -60,12 +60,15 @@ function markSpecialUnavailable(state: GameState, transitions: TransitionRecord[
 }
 
 function marinesDecision(state: GameState, purpose: string, ids: string[], includeSkip = false): PendingDecision | null {
-  const options: Option[] = ids.map((marineId) => ({
-    id: `marine:${marineId}`,
-    label: `F${positionOf(state, marineId) + 1} · ${marineName(state, marineId)}`,
-    payload: { purpose, marineId },
-    canonicalEffectPreview: null,
-  }));
+  const options: Option[] = ids.map((marineId) => {
+    const positionIndex = positionOf(state, marineId);
+    return {
+      id: `marine:${marineId}`,
+      label: positionIndex >= 0 ? `F${positionIndex + 1} · ${marineName(state, marineId)}` : marineName(state, marineId),
+      payload: { purpose, marineId },
+      canonicalEffectPreview: purpose === "rescue" ? "Return at the bottom of the formation facing right" : null,
+    };
+  });
   if (includeSkip) options.push({ id: "skip", label: "Skip this effect", payload: { purpose, skip: true }, canonicalEffectPreview: null });
   return options.length ? makeDecision(state, "EVENT_MARINE", currentCard(state), `event.${purpose}`, options) : null;
 }

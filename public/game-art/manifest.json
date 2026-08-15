@@ -1,0 +1,200 @@
+{
+  "version": 1,
+  "nativeFacing": "right",
+  "playbackOrder": {
+    "marineAttack": [
+      "dieResult",
+      "marine.fire|marine.gunJam",
+      "genestealer.death?",
+      "boardUpdate"
+    ],
+    "genestealerAttack": [
+      "genestealer.attack",
+      "dieResult",
+      "marine.dodge|marine.death",
+      "boardUpdate"
+    ]
+  },
+  "entities": {
+    "marine": {
+      "anchor": {
+        "x": 46,
+        "y": 78
+      },
+      "animations": {
+        "idle": {
+          "state": "idle",
+          "trajectory": null,
+          "src": "/game-art/marine/idle.png",
+          "frameWidth": 92,
+          "frameHeight": 92,
+          "frameCount": 5,
+          "frameDurationMs": 200,
+          "totalDurationMs": 1000,
+          "loop": true,
+          "retainLastFrame": false
+        },
+        "fire-straight": {
+          "state": "fire",
+          "trajectory": "straight",
+          "src": "/game-art/marine/fire-straight.png",
+          "frameWidth": 92,
+          "frameHeight": 92,
+          "frameCount": 7,
+          "frameDurationMs": 200,
+          "totalDurationMs": 1400,
+          "loop": false,
+          "retainLastFrame": false
+        },
+        "fire-up": {
+          "state": "fire",
+          "trajectory": "up",
+          "src": "/game-art/marine/fire-up.png",
+          "frameWidth": 92,
+          "frameHeight": 92,
+          "frameCount": 7,
+          "frameDurationMs": 200,
+          "totalDurationMs": 1400,
+          "loop": false,
+          "retainLastFrame": false
+        },
+        "fire-down": {
+          "state": "fire",
+          "trajectory": "down",
+          "src": "/game-art/marine/fire-down.png",
+          "frameWidth": 92,
+          "frameHeight": 92,
+          "frameCount": 7,
+          "frameDurationMs": 200,
+          "totalDurationMs": 1400,
+          "loop": false,
+          "retainLastFrame": false
+        },
+        "gunJam-straight": {
+          "state": "gunJam",
+          "trajectory": "straight",
+          "src": "/game-art/marine/gun-jam-straight.png",
+          "frameWidth": 92,
+          "frameHeight": 92,
+          "frameCount": 9,
+          "frameDurationMs": 200,
+          "totalDurationMs": 1800,
+          "loop": false,
+          "retainLastFrame": false
+        },
+        "gunJam-up": {
+          "state": "gunJam",
+          "trajectory": "up",
+          "src": "/game-art/marine/gun-jam-up.png",
+          "frameWidth": 92,
+          "frameHeight": 92,
+          "frameCount": 9,
+          "frameDurationMs": 200,
+          "totalDurationMs": 1800,
+          "loop": false,
+          "retainLastFrame": false
+        },
+        "gunJam-down": {
+          "state": "gunJam",
+          "trajectory": "down",
+          "src": "/game-art/marine/gun-jam-down.png",
+          "frameWidth": 92,
+          "frameHeight": 92,
+          "frameCount": 9,
+          "frameDurationMs": 200,
+          "totalDurationMs": 1800,
+          "loop": false,
+          "retainLastFrame": false
+        },
+        "dodge": {
+          "state": "dodge",
+          "trajectory": null,
+          "src": "/game-art/marine/dodge.png",
+          "frameWidth": 92,
+          "frameHeight": 92,
+          "frameCount": 7,
+          "frameDurationMs": 200,
+          "totalDurationMs": 1400,
+          "loop": false,
+          "retainLastFrame": false
+        },
+        "death": {
+          "state": "death",
+          "trajectory": null,
+          "src": "/game-art/marine/death.png",
+          "frameWidth": 92,
+          "frameHeight": 92,
+          "frameCount": 7,
+          "frameDurationMs": 200,
+          "totalDurationMs": 1400,
+          "loop": false,
+          "retainLastFrame": true
+        }
+      }
+    },
+    "genestealer": {
+      "anchor": {
+        "x": 66,
+        "y": 96
+      },
+      "animations": {
+        "idle": {
+          "state": "idle",
+          "trajectory": null,
+          "src": "/game-art/genestealer/idle.png",
+          "frameWidth": 132,
+          "frameHeight": 132,
+          "frameCount": 5,
+          "frameDurationMs": 200,
+          "totalDurationMs": 1000,
+          "loop": true,
+          "retainLastFrame": false
+        },
+        "attack": {
+          "state": "attack",
+          "trajectory": null,
+          "src": "/game-art/genestealer/attack.png",
+          "frameWidth": 132,
+          "frameHeight": 132,
+          "frameCount": 5,
+          "frameDurationMs": 200,
+          "totalDurationMs": 1000,
+          "loop": false,
+          "retainLastFrame": false
+        },
+        "death": {
+          "state": "death",
+          "trajectory": null,
+          "src": "/game-art/genestealer/death.png",
+          "frameWidth": 132,
+          "frameHeight": 132,
+          "frameCount": 7,
+          "frameDurationMs": 200,
+          "totalDurationMs": 1400,
+          "loop": false,
+          "retainLastFrame": true
+        }
+      }
+    },
+    "broodlord": {
+      "anchor": {
+        "x": 66,
+        "y": 96
+      },
+      "animations": {
+        "idle": {
+          "state": "idle",
+          "trajectory": null,
+          "src": "/game-art/broodlord/idle.png",
+          "frameWidth": 124,
+          "frameHeight": 124,
+          "frameCount": 5,
+          "frameDurationMs": 200,
+          "totalDurationMs": 1000,
+          "loop": true,
+          "retainLastFrame": false
+        }
+      }
+    }
+  }
+}

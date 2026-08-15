@@ -78,8 +78,6 @@
     .combat-row::after { content: ""; position: absolute; z-index: -1; left: 10%; right: 10%; bottom: 4px; height: 1px; background: #69766e1c; }
     .flank { position: relative; display: grid; place-items: center; align-self: stretch; min-width: 0; }
     .marine-slot { position: relative; display: grid; place-items: center; height: 100%; }
-    .marine-slot::after { content: ""; position: absolute; bottom: 8%; width: 54%; height: 8px; border-radius: 50%; background: #000b; filter: blur(2px); }
-
     .marine-sprite {
       position: relative;
       z-index: 2;
@@ -119,7 +117,7 @@
     .terrain-toggle { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: .5rem; text-transform: uppercase; }.terrain-toggle input { accent-color: var(--signal); }
     body.hide-terrain .terrain-piece { display: none; }
 
-    @keyframes marine-bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -2px; } }
+    @keyframes marine-bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -1px; } }
     @media (max-width: 420px) { :root { --zoom: .85; }.prototype-header { padding-block: 9px; }.corridor { padding-inline: 2px; }.combat-row { grid-template-columns: minmax(0, 1fr) calc(88px * var(--zoom)) minmax(0, 1fr); }.lane-labels { grid-template-columns: 1fr 78px 1fr; } }
     @media (prefers-reduced-motion: reduce) { .marine-sprite { animation: none; } }
   </style>
