@@ -16,6 +16,7 @@ import {
 } from "@/src/engine";
 import type { GenestealerIcon, Side, TeamColor } from "@/src/data/types";
 import { EngineSessionStallError, settleEngineSession } from "@/src/ui-adapter/session-settler";
+import { COMBAT_DIE_FACES, combatDieFace, type CombatDieValue } from "@/src/ui-adapter/combat-die";
 
 type Definition = { id: string; name: string };
 type MarineDefinition = Definition & { team: TeamColor; attackRange: number; namedActionAbility: string | null };
@@ -492,7 +493,7 @@ function MissionBoard({ session, inspection, error, diagnosticNotice, rollNotice
       </section>
 
       {inspection && <InspectionDrawer inspection={inspection} onClose={onDismissInspection} />}
-      {rollNotice && <RollResult notice={rollNotice} onProceed={onDismissRoll} />}
+      {rollNotice && <RollResult key={rollNotice.id} notice={rollNotice} onProceed={onDismissRoll} />}
     </main>
   );
 }
@@ -565,7 +566,7 @@ function Flank({ session, positionIndex, side, onInspect, onChooseOption }: { se
 }
 
 function DiePanel({ value, skull, purpose, rerolls }: { value: number; skull: boolean; purpose: string; rerolls: number }) {
-  return <section className="die-panel"><div className="die-face"><strong>{value}</strong>{skull && <span>☠</span>}</div><div><span>Combat die</span><strong>{formatPhase(purpose)}</strong><small>{rerolls ? `${rerolls} reroll${rerolls === 1 ? "" : "s"}` : "Initial result"}</small></div></section>;
+  return <section className="die-panel"><div className="die-face"><strong>{value}</strong>{skull && <span>☠︎</span>}</div><div><span>Combat die</span><strong>{formatPhase(purpose)}</strong><small>{rerolls ? `${rerolls} reroll${rerolls === 1 ? "" : "s"}` : "Initial result"}</small></div></section>;
 }
 
 function InspectionDrawer({ inspection, onClose }: { inspection: Inspection; onClose: () => void }) {
@@ -581,14 +582,61 @@ function InspectionDrawer({ inspection, onClose }: { inspection: Inspection; onC
 }
 
 function RollResult({ notice, onProceed }: { notice: RollNotice; onProceed: () => void }) {
+  const finalFace = combatDieFace(notice.value);
+  const reduceMotion = useMemo(() => globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false, []);
+  const rollInterval = useRef<ReturnType<typeof globalThis.setInterval> | null>(null);
+  const settleTimer = useRef<ReturnType<typeof globalThis.setTimeout> | null>(null);
+  const [rolling, setRolling] = useState(!reduceMotion);
+  const [displayValue, setDisplayValue] = useState<CombatDieValue>(reduceMotion ? finalFace.value : 0);
+  const displayFace = combatDieFace(displayValue);
+
+  const clearRollTimers = () => {
+    if (rollInterval.current !== null) globalThis.clearInterval(rollInterval.current);
+    if (settleTimer.current !== null) globalThis.clearTimeout(settleTimer.current);
+    rollInterval.current = null;
+    settleTimer.current = null;
+  };
+
+  const settleRoll = () => {
+    clearRollTimers();
+    setDisplayValue(finalFace.value);
+    setRolling(false);
+  };
+
+  useEffect(() => {
+    const clearTimers = () => {
+      if (rollInterval.current !== null) globalThis.clearInterval(rollInterval.current);
+      if (settleTimer.current !== null) globalThis.clearTimeout(settleTimer.current);
+      rollInterval.current = null;
+      settleTimer.current = null;
+    };
+    if (reduceMotion) return clearTimers;
+
+    let frame = 0;
+    rollInterval.current = globalThis.setInterval(() => {
+      frame = (frame + 1) % COMBAT_DIE_FACES.length;
+      setDisplayValue(COMBAT_DIE_FACES[frame].value);
+    }, 90);
+    settleTimer.current = globalThis.setTimeout(() => {
+      clearTimers();
+      setDisplayValue(finalFace.value);
+      setRolling(false);
+    }, 1080);
+    return clearTimers;
+  }, [finalFace.value, reduceMotion]);
+
   return (
     <div className="roll-backdrop" role="presentation">
-      <section className="roll-result" role="dialog" aria-modal="true" aria-labelledby="roll-title">
+      <section className={`roll-result ${rolling ? "is-rolling" : "is-settled"}`} role="dialog" aria-modal="true" aria-labelledby="roll-title">
         <span>{notice.reroll ? "Die rerolled" : "Die rolled"}</span>
         <h2 id="roll-title">{notice.title}</h2>
-        <div className="roll-face"><strong>{notice.value}</strong>{notice.skull && <i>☠</i>}</div>
-        <p>{notice.skull ? "Skull result" : `Result: ${notice.value}`}</p>
-        <button type="button" onClick={onProceed}>Proceed</button>
+        <div className="roll-stage" aria-live="polite">
+          <div className="roll-face" data-rolling={rolling || undefined} data-skull={displayFace.skull || undefined} aria-label={rolling ? "Combat die rolling" : `Combat die result ${finalFace.value}${finalFace.skull ? ", skull" : ""}`}>
+            <strong>{displayFace.value}</strong>{displayFace.skull && <i aria-hidden="true">☠︎</i>}
+          </div>
+        </div>
+        <p>{rolling ? "Rolling…" : finalFace.skull ? `${finalFace.value} · Skull result` : `Result: ${finalFace.value}`}</p>
+        <button type="button" onClick={rolling ? settleRoll : onProceed}>{rolling ? "Skip roll" : "Proceed"}</button>
       </section>
     </div>
   );
