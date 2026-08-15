@@ -14,6 +14,7 @@ type FormationBoardProps = {
   alienSpriteUrl: string;
   alienAttackStripUrl?: string;
   alienDeathStripUrl?: string;
+  alienIdleStripUrl?: string;
   broodlordSpriteUrl?: string;
   marineSpriteUrl: string;
   marineStates?: Record<string, LabTargetState>;
@@ -86,7 +87,7 @@ function SwarmReadout({ swarm }: { swarm: LabSwarm }) {
   return <div className="lab-swarm-readout" aria-label={`${count} Genestealers`}><b>{count}</b><span>{swarm.icons.map((icon, index) => <i key={`${icon}.${index}`} title={icon}>{ICON_GLYPHS[icon]}</i>)}{Array.from({ length: swarm.broodLords ?? 0 }, (_, index) => <i key={`lord.${index}`} className="lab-brood-icon" title="Brood Lord">♛</i>)}</span></div>;
 }
 
-function Flank({ alienAttackStripUrl, alienDeathStripUrl, alienSpriteUrl, broodlordSpriteUrl, flank, onInspect, onSelectSwarm, onSelectTerrain, overlay, side, swarmAnimation, swarmState = "neutral", terrainState = "neutral" }: { alienAttackStripUrl?: string; alienDeathStripUrl?: string; alienSpriteUrl: string; broodlordSpriteUrl?: string; flank: LabFlank; onInspect?: (details: LabInspection) => void; onSelectSwarm: () => void; onSelectTerrain: () => void; overlay?: LabOverlayChoice; side: Side; swarmAnimation?: "attack" | "death"; swarmState?: LabTargetState; terrainState?: LabTargetState }) {
+function Flank({ alienAttackStripUrl, alienDeathStripUrl, alienIdleStripUrl, alienSpriteUrl, broodlordSpriteUrl, flank, onInspect, onSelectSwarm, onSelectTerrain, overlay, side, swarmAnimation, swarmState = "neutral", terrainState = "neutral" }: { alienAttackStripUrl?: string; alienDeathStripUrl?: string; alienIdleStripUrl?: string; alienSpriteUrl: string; broodlordSpriteUrl?: string; flank: LabFlank; onInspect?: (details: LabInspection) => void; onSelectSwarm: () => void; onSelectTerrain: () => void; overlay?: LabOverlayChoice; side: Side; swarmAnimation?: "attack" | "death"; swarmState?: LabTargetState; terrainState?: LabTargetState }) {
   const visibleMembers = flank.swarm ? [...Array.from({ length: flank.swarm.broodLords ?? 0 }, () => "broodlord" as const), ...flank.swarm.icons.map(() => "genestealer" as const)].slice(0, 3) : [];
   const terrainPress = usePress(onSelectTerrain, () => flank.terrain && onInspect?.(inspectTerrain(flank.terrain)));
   const swarmPress = usePress(onSelectSwarm, () => flank.swarm && onInspect?.(inspectSwarm(flank.swarm)));
@@ -97,6 +98,7 @@ function Flank({ alienAttackStripUrl, alienDeathStripUrl, alienSpriteUrl, broodl
         const animationUrl = swarmAnimation === "attack" ? alienAttackStripUrl : swarmAnimation === "death" ? alienDeathStripUrl : undefined;
         if (index === 0 && member === "genestealer" && swarmAnimation && animationUrl) return <span className={`lab-alien-sprite lab-genestealer-strip is-${swarmAnimation}`} style={{ "--swarm-layer": index, backgroundImage: `url(${animationUrl})` } as CSSProperties} aria-hidden="true" key={`${member}.${index}`} />;
         if (member === "broodlord" && broodlordSpriteUrl) return <span className="lab-alien-sprite lab-broodlord-sprite" style={{ "--swarm-layer": index, backgroundImage: `url(${broodlordSpriteUrl})` } as CSSProperties} aria-hidden="true" key={`${member}.${index}`} />;
+        if (alienIdleStripUrl) return <span className="lab-alien-sprite lab-genestealer-strip is-idle" style={{ "--swarm-layer": index, backgroundImage: `url(${alienIdleStripUrl})` } as CSSProperties} aria-hidden="true" key={`${member}.${index}`} />;
         return <img className="lab-alien-sprite" style={{ "--swarm-layer": index } as CSSProperties} src={alienSpriteUrl} alt="" key={`${member}.${index}`} />;
       })}</span><SwarmReadout swarm={flank.swarm} /></button>}
       {overlay && <button type="button" className={`lab-cell-choice is-${overlay.state ?? "destination"}`} onClick={() => overlay && onSelectSwarm()} aria-label={overlay.label}><b>{overlay.side === "LEFT" ? "←" : "→"}</b><span>{overlay.label}</span></button>}
@@ -120,7 +122,7 @@ function Marine({ marine, marineSpriteUrl, moveChoice, onInspect, onSelect, stat
   );
 }
 
-export default function FormationBoard({ alienAttackStripUrl, alienDeathStripUrl, alienSpriteUrl, broodlordSpriteUrl, marineSpriteUrl, marineMoveChoices = [], marineStates = {}, moveSlots = [], onInspect, onMarineMoveChoice, onMoveSlot, onOverlayChoice, onSelectMarine, onSelectSwarm, onSelectTerrain, overlayChoices = [], rows, selectedMarine, swarmAnimationStates = {}, swarmStates = {}, terrainStates = {} }: FormationBoardProps) {
+export default function FormationBoard({ alienAttackStripUrl, alienDeathStripUrl, alienIdleStripUrl, alienSpriteUrl, broodlordSpriteUrl, marineSpriteUrl, marineMoveChoices = [], marineStates = {}, moveSlots = [], onInspect, onMarineMoveChoice, onMoveSlot, onOverlayChoice, onSelectMarine, onSelectSwarm, onSelectTerrain, overlayChoices = [], rows, selectedMarine, swarmAnimationStates = {}, swarmStates = {}, terrainStates = {} }: FormationBoardProps) {
   const renderMoveSlot = (slot: number) => moveSlots.includes(slot) ? <button type="button" className="lab-move-slot" onClick={() => onMoveSlot?.(slot)}><span>Move here</span></button> : null;
   return (
     <section className="lab-board" aria-label="Formation geometry preview"><div className="lab-board-labels"><span>Left threat</span><span>Formation</span><span>Right threat</span></div><div className="lab-formation">
@@ -130,9 +132,9 @@ export default function FormationBoard({ alienAttackStripUrl, alienDeathStripUrl
         const marineMoveChoice = marineMoveChoices.find((choice) => choice.row === index);
         const marineState = marineStates[row.marine.name] ?? (selectedMarine === row.marine.name ? "selected" : row.marine.interaction ?? "neutral");
         return <Fragment key={`${row.marine.team}.${row.marine.name}`}>{renderMoveSlot(index)}<div className="lab-combat-row"><span className="lab-row-number">{String(index + 1).padStart(2, "0")}</span>
-          <Flank alienSpriteUrl={alienSpriteUrl} alienAttackStripUrl={alienAttackStripUrl} alienDeathStripUrl={alienDeathStripUrl} broodlordSpriteUrl={broodlordSpriteUrl} flank={row.left} side="LEFT" swarmAnimation={swarmAnimationStates[cellKey(index, "LEFT")]} swarmState={swarmStates[cellKey(index, "LEFT")]} terrainState={terrainStates[cellKey(index, "LEFT")]} overlay={leftOverlay} onInspect={onInspect} onSelectSwarm={() => leftOverlay ? onOverlayChoice?.(leftOverlay) : onSelectSwarm?.(index, "LEFT")} onSelectTerrain={() => onSelectTerrain?.(index, "LEFT")} />
+          <Flank alienSpriteUrl={alienSpriteUrl} alienAttackStripUrl={alienAttackStripUrl} alienDeathStripUrl={alienDeathStripUrl} alienIdleStripUrl={alienIdleStripUrl} broodlordSpriteUrl={broodlordSpriteUrl} flank={row.left} side="LEFT" swarmAnimation={swarmAnimationStates[cellKey(index, "LEFT")]} swarmState={swarmStates[cellKey(index, "LEFT")]} terrainState={terrainStates[cellKey(index, "LEFT")]} overlay={leftOverlay} onInspect={onInspect} onSelectSwarm={() => leftOverlay ? onOverlayChoice?.(leftOverlay) : onSelectSwarm?.(index, "LEFT")} onSelectTerrain={() => onSelectTerrain?.(index, "LEFT")} />
           <Marine marine={row.marine} marineSpriteUrl={marineSpriteUrl} moveChoice={marineMoveChoice} state={marineMoveChoice ? "destination" : marineState} onInspect={onInspect} onSelect={() => marineMoveChoice ? onMarineMoveChoice?.(marineMoveChoice) : onSelectMarine?.(row.marine.name)} />
-          <Flank alienSpriteUrl={alienSpriteUrl} alienAttackStripUrl={alienAttackStripUrl} alienDeathStripUrl={alienDeathStripUrl} broodlordSpriteUrl={broodlordSpriteUrl} flank={row.right} side="RIGHT" swarmAnimation={swarmAnimationStates[cellKey(index, "RIGHT")]} swarmState={swarmStates[cellKey(index, "RIGHT")]} terrainState={terrainStates[cellKey(index, "RIGHT")]} overlay={rightOverlay} onInspect={onInspect} onSelectSwarm={() => rightOverlay ? onOverlayChoice?.(rightOverlay) : onSelectSwarm?.(index, "RIGHT")} onSelectTerrain={() => onSelectTerrain?.(index, "RIGHT")} />
+          <Flank alienSpriteUrl={alienSpriteUrl} alienAttackStripUrl={alienAttackStripUrl} alienDeathStripUrl={alienDeathStripUrl} alienIdleStripUrl={alienIdleStripUrl} broodlordSpriteUrl={broodlordSpriteUrl} flank={row.right} side="RIGHT" swarmAnimation={swarmAnimationStates[cellKey(index, "RIGHT")]} swarmState={swarmStates[cellKey(index, "RIGHT")]} terrainState={terrainStates[cellKey(index, "RIGHT")]} overlay={rightOverlay} onInspect={onInspect} onSelectSwarm={() => rightOverlay ? onOverlayChoice?.(rightOverlay) : onSelectSwarm?.(index, "RIGHT")} onSelectTerrain={() => onSelectTerrain?.(index, "RIGHT")} />
         </div>{index === rows.length - 1 && renderMoveSlot(rows.length)}</Fragment>;
       })}
     </div></section>

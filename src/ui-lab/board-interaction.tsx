@@ -10,6 +10,7 @@ type Cell = { row: number; side: Side };
 
 type BoardInteractionProps = {
   alienSpriteUrl: string;
+  alienIdleStripUrl?: string;
   broodlordSpriteUrl?: string;
   marineSpriteUrl: string;
   mode: InteractionMode;
@@ -23,7 +24,7 @@ const MODE_INFO = {
   strategize: { color: "PURPLE", title: "Strategize", first: "Select a Genestealer swarm" },
 } as const;
 
-export default function BoardInteraction({ alienSpriteUrl, broodlordSpriteUrl, marineSpriteUrl, mode, onInspect, rows: initialRows }: BoardInteractionProps) {
+export default function BoardInteraction({ alienIdleStripUrl, alienSpriteUrl, broodlordSpriteUrl, marineSpriteUrl, mode, onInspect, rows: initialRows }: BoardInteractionProps) {
   const [rows, setRows] = useState(() => initialRows.map((row) => ({ ...row })));
   const [marine, setMarine] = useState<string | null>(null);
   const [moveOrigin, setMoveOrigin] = useState<number | null>(null);
@@ -138,7 +139,7 @@ export default function BoardInteraction({ alienSpriteUrl, broodlordSpriteUrl, m
 
   return <>
     <div className={`lab-choice-banner lab-choice-${MODE_INFO[mode].color.toLowerCase()}`}><span>{MODE_INFO[mode].color} squad · {MODE_INFO[mode].title}</span><strong>{prompt}</strong><em>{hint}</em></div>
-    <FormationBoard rows={rows} marineSpriteUrl={marineSpriteUrl} alienSpriteUrl={alienSpriteUrl} broodlordSpriteUrl={broodlordSpriteUrl} marineStates={marineStates} marineMoveChoices={marineMoveChoices} overlayChoices={overlayChoices} swarmStates={swarmStates} terrainStates={terrainStates} onInspect={onInspect} onMarineMoveChoice={chooseMarineMove} onOverlayChoice={chooseOverlay} onSelectMarine={chooseMarine} onSelectSwarm={chooseSwarm} onSelectTerrain={chooseTerrain} />
+    <FormationBoard rows={rows} marineSpriteUrl={marineSpriteUrl} alienSpriteUrl={alienSpriteUrl} alienIdleStripUrl={alienIdleStripUrl} broodlordSpriteUrl={broodlordSpriteUrl} marineStates={marineStates} marineMoveChoices={marineMoveChoices} overlayChoices={overlayChoices} swarmStates={swarmStates} terrainStates={terrainStates} onInspect={onInspect} onMarineMoveChoice={chooseMarineMove} onOverlayChoice={chooseOverlay} onSelectMarine={chooseMarine} onSelectSwarm={chooseSwarm} onSelectTerrain={chooseTerrain} />
     <div className="lab-interaction-dock"><button type="button" onClick={back} disabled={!marine && !source}>Back</button><div><span>Board-driven input demo</span><strong>{prompt}</strong></div>{mode === "move" && facing && !complete ? <button type="button" className="is-primary" onClick={() => setComplete(true)}>Finish move</button> : <button type="button" onClick={reset}>Reset</button>}</div>
   </>;
 }
