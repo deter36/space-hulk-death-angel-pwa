@@ -521,6 +521,8 @@ function MissionBoard({ session, inspection, error, diagnosticNotice, rollNotice
   const [moveSelection, setMoveSelection] = useState<{ decisionId: string; marineId: string } | null>(null);
   const [strategizeSelection, setStrategizeSelection] = useState<{ decisionId: string; swarmId: string } | null>(null);
   const [scoutingPreviewVisible, setScoutingPreviewVisible] = useState(true);
+  const [locationCollapsed, setLocationCollapsed] = useState(false);
+  const [eventCollapsed, setEventCollapsed] = useState(false);
   const { state } = session;
   const decision = state.pendingDecision;
   const selectedMoveMarineId = moveSelection && moveSelection.decisionId === decision?.id ? moveSelection.marineId : null;
@@ -554,22 +556,28 @@ function MissionBoard({ session, inspection, error, diagnosticNotice, rollNotice
           <div className="live-hud-stats"><span>Marines <b>{livingMarines}/6</b></span><span>Support <b><i>●</i>{state.supportSupply}</b></span></div>
         </div>
 
-        <div className="lab-location-frame">
-          <div className="lab-blip-counter lab-blip-left"><span>Blips</span><strong>{leftBlips}</strong><em>Left</em></div>
-          <TacticalButton type="button" className="lab-location-card inspectable" onHold={() => onInspect(locationInspection)}>
-            <span>Current location <b>{currentLocation?.tier ?? "Setup"}</b></span>
-            <h2>{currentLocation?.name ?? setupLocationName(componentDefinitionId(session, state.currentLocationInstanceId))}</h2>
-            <strong>{locationInspection.meta ?? "Location"}</strong><p>{locationInspection.body}</p><i className="lab-hud-rivet lab-rivet-one" /><i className="lab-hud-rivet lab-rivet-two" />
+        {locationCollapsed ? (
+          <TacticalButton type="button" className="lab-hud-tray lab-location-tray inspectable" onTap={() => setLocationCollapsed(false)} onHold={() => onInspect(locationInspection)} aria-label="Expand current location">
+            <span>Location</span><strong>{currentLocation?.name ?? setupLocationName(componentDefinitionId(session, state.currentLocationInstanceId))}</strong><em>⌄</em>
           </TacticalButton>
-          <div className="lab-blip-counter lab-blip-right"><span>Blips</span><strong>{rightBlips}</strong><em>Right</em></div>
-        </div>
+        ) : (
+          <div className="lab-location-frame">
+            <div className="lab-blip-counter lab-blip-left"><span>Blips</span><strong>{leftBlips}</strong><em>Left</em></div>
+            <TacticalButton type="button" className="lab-location-card inspectable" onTap={() => setLocationCollapsed(true)} onHold={() => onInspect(locationInspection)}>
+              <span>Current location <b>{currentLocation?.tier ?? "Setup"}</b></span>
+              <h2>{currentLocation?.name ?? setupLocationName(componentDefinitionId(session, state.currentLocationInstanceId))}</h2>
+              <strong>{locationInspection.meta ?? "Location"}</strong><p>{locationInspection.body}</p><i className="lab-hud-rivet lab-rivet-one" /><i className="lab-hud-rivet lab-rivet-two" />
+            </TacticalButton>
+            <div className="lab-blip-counter lab-blip-right"><span>Blips</span><strong>{rightBlips}</strong><em>Right</em></div>
+          </div>
+        )}
 
-        {lastEvent && lastEventId && <TacticalButton type="button" className="lab-event-card inspectable" onHold={() => onInspect(sourceInspection(session, lastEventId)!)}>
+        {lastEvent && lastEventId && <TacticalButton type="button" className={`lab-event-card inspectable ${eventCollapsed ? "is-collapsed" : ""}`} onTap={() => setEventCollapsed((current) => !current)} onHold={() => onInspect(sourceInspection(session, lastEventId)!)}>
           <div className="lab-event-heading"><span>{state.phase === "EVENT" ? "Event resolving" : "Current event"}{lastEvent.movement ? <i>{lastEvent.movement}</i> : null}</span><h3>{lastEvent.name}</h3></div>
           <p>{lastEvent.sourceText}</p>
           <div className="lab-event-data" aria-label="Event spawn and movement data">
             {lastEvent.activations.map((activation, index) => <span key={`${activation.terrainColor}.${index}`}><i className={`lab-spawn-dot is-${activation.terrainColor.toLowerCase()}`} />{formatPhase(activation.severity)}</span>)}
-            {lastEvent.movementIcon && <span className="lab-icon-readout">{ICON_GLYPHS[lastEvent.movementIcon]} {ICON_LABELS[lastEvent.movementIcon]}</span>}
+            {lastEvent.movementIcon && <span className="lab-icon-readout">{ICON_GLYPHS[lastEvent.movementIcon]} {ICON_LABELS[lastEvent.movementIcon]}</span>}<span className="lab-tray-chevron">{eventCollapsed ? "⌄" : "⌃"}</span>
           </div>
         </TacticalButton>}
       </section>
