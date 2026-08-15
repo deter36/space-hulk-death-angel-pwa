@@ -113,10 +113,6 @@ function formatPhase(phase: string): string {
   return phase.replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function formatTransition(kind: string): string {
-  return kind.replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
 function formatActionType(type: string): string {
   if (type === "MOVE_ACTIVATE") return "Move + Activate";
   return formatPhase(type);
@@ -358,7 +354,6 @@ export default function GameClient() {
   const [session, setSession] = useState<EngineSession | null>(null);
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [diagnosticNotice, setDiagnosticNotice] = useState<string | null>(null);
   const [rollNotices, setRollNotices] = useState<RollNotice[]>([]);
   const [restoreComplete, setRestoreComplete] = useState(false);
 
@@ -401,7 +396,6 @@ export default function GameClient() {
       setSession(prepared.session);
       setInspection(null);
       setError(prepared.error);
-      setDiagnosticNotice(null);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "The mission could not be started.");
     }
@@ -417,7 +411,6 @@ export default function GameClient() {
       if (notices.length) setRollNotices((current) => [...current, ...notices]);
       setInspection(null);
       setError(prepared.error);
-      setDiagnosticNotice(null);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "That choice could not be resolved.");
     }
@@ -429,19 +422,7 @@ export default function GameClient() {
     setSession(prepared.session);
     setError(prepared.error);
     setInspection(null);
-    setDiagnosticNotice(null);
     setRollNotices([]);
-  };
-
-  const copyDiagnostics = async () => {
-    if (!session) return;
-    try {
-      if (!globalThis.navigator?.clipboard) throw new Error("Clipboard access is unavailable in this browser.");
-      await globalThis.navigator.clipboard.writeText(diagnosticText(session));
-      setDiagnosticNotice("Diagnostic report copied.");
-    } catch (caught) {
-      setDiagnosticNotice(caught instanceof Error ? caught.message : "The diagnostic report could not be copied.");
-    }
   };
 
   const downloadSave = () => {
@@ -456,10 +437,7 @@ export default function GameClient() {
       anchor.click();
       anchor.remove();
       globalThis.setTimeout(() => URL.revokeObjectURL(url), 0);
-      setDiagnosticNotice("Diagnostic save downloaded.");
-    } catch (caught) {
-      setDiagnosticNotice(caught instanceof Error ? caught.message : "The diagnostic save could not be downloaded.");
-    }
+    } catch { setError("The diagnostic save could not be downloaded."); }
   };
 
   const startNewMission = () => {
@@ -468,7 +446,6 @@ export default function GameClient() {
     setInspection(null);
     setSelectedTeams([]);
     setError(null);
-    setDiagnosticNotice(null);
     setRollNotices([]);
   };
 
@@ -498,31 +475,30 @@ export default function GameClient() {
     );
   }
 
-  return <MissionBoard session={session} inspection={inspection} error={error} diagnosticNotice={diagnosticNotice} rollNotice={rollNotices[0] ?? null} onDismissRoll={() => setRollNotices((current) => current.slice(1))} onInspect={setInspection} onChooseOption={resolveDecision} onUndo={undoOne} onCopyDiagnostics={copyDiagnostics} onDownloadSave={downloadSave} onDismissInspection={() => setInspection(null)} onNewMission={startNewMission} />;
+  return <MissionBoard session={session} inspection={inspection} error={error} rollNotice={rollNotices[0] ?? null} onDismissRoll={() => setRollNotices((current) => current.slice(1))} onInspect={setInspection} onChooseOption={resolveDecision} onUndo={undoOne} onDownloadSave={downloadSave} onDismissInspection={() => setInspection(null)} onNewMission={startNewMission} />;
 }
 
 type MissionBoardProps = {
   session: EngineSession;
   inspection: Inspection | null;
   error: string | null;
-  diagnosticNotice: string | null;
   rollNotice: RollNotice | null;
   onInspect: (inspection: Inspection) => void;
   onChooseOption: (optionId: string) => void;
   onUndo: () => void;
-  onCopyDiagnostics: () => void;
   onDownloadSave: () => void;
   onDismissInspection: () => void;
   onDismissRoll: () => void;
   onNewMission: () => void;
 };
 
-function MissionBoard({ session, inspection, error, diagnosticNotice, rollNotice, onInspect, onChooseOption, onUndo, onCopyDiagnostics, onDownloadSave, onDismissInspection, onDismissRoll, onNewMission }: MissionBoardProps) {
+function MissionBoard({ session, inspection, error, rollNotice, onInspect, onChooseOption, onUndo, onDownloadSave, onDismissInspection, onDismissRoll, onNewMission }: MissionBoardProps) {
   const [moveSelection, setMoveSelection] = useState<{ decisionId: string; marineId: string } | null>(null);
   const [strategizeSelection, setStrategizeSelection] = useState<{ decisionId: string; swarmId: string } | null>(null);
   const [scoutingPreviewVisible, setScoutingPreviewVisible] = useState(true);
   const [locationCollapsed, setLocationCollapsed] = useState(false);
   const [eventCollapsed, setEventCollapsed] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const { state } = session;
   const decision = state.pendingDecision;
   const selectedMoveMarineId = moveSelection && moveSelection.decisionId === decision?.id ? moveSelection.marineId : null;
@@ -538,7 +514,6 @@ function MissionBoard({ session, inspection, error, diagnosticNotice, rollNotice
   const undoStatus = getUndoStatus(session);
   const lastEventId = state.eventRuntime?.eventCardId ?? state.orderedSources["event.discard"]?.at(-1) ?? null;
   const lastEvent = lastEventId ? findEvent(lastEventId) : null;
-  const recentTransitions = session.transitions.slice(-3).reverse();
   const formationMarineIds = new Set(state.formation.map((slot) => slot.marineInstanceId));
   const dockOptions = decision?.legalOptions.filter((option) => decision.type === "STRATEGIZE" ? option.payload.skip === true : isOffBoardMarineOption(option, formationMarineIds) || !isDirectInputOption(decision, option)) ?? [];
   const decisionAction = decision ? data.definitions.actions.find((item) => item.id === componentDefinitionId(session, decision.sourceId)) : null;
@@ -550,10 +525,10 @@ function MissionBoard({ session, inspection, error, diagnosticNotice, rollNotice
     <main className="mission-shell">
       <section className="lab-hud" aria-label="Mission status">
         <div className="lab-hud-command">
-          <div className="lab-hud-brand"><span>Space Hulk:</span><strong>Death Angel</strong></div>
+          <div className="live-hud-stats"><span>Marines <b>{livingMarines}/6</b></span><span>Support <b><i>●</i>{state.supportSupply}</b></span></div>
           <div className="lab-hud-cycle"><span>Round</span><strong>{String(state.round).padStart(2, "0")}</strong></div>
           <div className="lab-hud-phase"><span>Current phase</span><strong>{formatPhase(state.phase)}</strong></div>
-          <div className="live-hud-stats"><span>Marines <b>{livingMarines}/6</b></span><span>Support <b><i>●</i>{state.supportSupply}</b></span></div>
+          <div className="live-hud-menu"><button type="button" aria-label="Open game menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((current) => !current)}>☰</button>{menuOpen && <div className="live-hud-menu-panel"><button type="button" disabled={!undoStatus.allowed} onClick={() => { onUndo(); setMenuOpen(false); }}><strong>↶ Undo</strong><small>{undoStatus.allowed ? `${undoStatus.availableSteps} step${undoStatus.availableSteps === 1 ? "" : "s"} available` : undoStatus.unavailableReason === "RANDOMNESS_BARRIER" ? "Locked by random result" : undoStatus.unavailableReason === "HIDDEN_INFORMATION_BARRIER" ? "Locked by card reveal" : "No reversible step"}</small></button><button type="button" onClick={() => { onDownloadSave(); setMenuOpen(false); }}><strong>⇩ Download save</strong><small>Export this game’s diagnostics</small></button><button type="button" className="is-danger" onClick={() => { if (globalThis.confirm("End this mission and return to team selection?")) { onNewMission(); setMenuOpen(false); } }}><strong>New mission</strong><small>End the current game</small></button></div>}</div>
         </div>
 
         {locationCollapsed ? (
@@ -598,24 +573,11 @@ function MissionBoard({ session, inspection, error, diagnosticNotice, rollNotice
             {decision.type !== "FORWARD_SCOUTING_ORDER" && dockOptions.length > 0 && <div className="dock-options">{dockOptions.map((option) => { const presentation = presentedDecisionOption(decision, option); return <button key={option.id} type="button" onClick={() => onChooseOption(option.id)}><strong>{presentation.label}</strong>{presentation.preview && <small>{presentation.preview}</small>}</button>; })}</div>}
           </div>
         ) : state.status === "IN_PROGRESS" ? (
-          <div className="mission-result engine-paused"><strong>Engine paused</strong><span>Download the save or copy diagnostics before ending this mission.</span></div>
+          <div className="mission-result engine-paused"><strong>Engine paused</strong><span>Download a save from the game menu before ending this mission.</span></div>
         ) : (
           <div className="mission-result"><strong>{state.status === "VICTORY" ? "Mission accomplished" : "Squad eliminated"}</strong><button type="button" onClick={onNewMission}>Start new mission</button></div>
         )}
         {error && <p className="error-message" role="alert">{error}</p>}
-        <div className="diagnostic-tools">
-          <button type="button" onClick={onCopyDiagnostics}>Copy diagnostics</button>
-          <button type="button" onClick={onDownloadSave}>Download save</button>
-          {diagnosticNotice && <span role="status">{diagnosticNotice}</span>}
-        </div>
-      </section>
-
-      <section className="history-bar">
-        <div className="history-feed">{recentTransitions.map((transition) => <span key={transition.seq}><b>{String(transition.seq).padStart(3, "0")}</b>{formatTransition(transition.type)}</span>)}</div>
-        <div className="history-controls">
-          <button type="button" className="new-mission-command" onClick={() => { if (globalThis.confirm("End this mission and return to team selection?")) onNewMission(); }}>New mission</button>
-          <button type="button" className="undo-command" disabled={!undoStatus.allowed} onClick={onUndo}><span>↶</span><strong>Undo</strong><small>{undoStatus.allowed ? `${undoStatus.availableSteps} step${undoStatus.availableSteps === 1 ? "" : "s"} available` : undoStatus.unavailableReason === "RANDOMNESS_BARRIER" ? "Locked by random result" : undoStatus.unavailableReason === "HIDDEN_INFORMATION_BARRIER" ? "Locked by card reveal" : "No reversible step"}</small></button>
-        </div>
       </section>
 
       {inspection && <InspectionDrawer inspection={inspection} onClose={onDismissInspection} />}
