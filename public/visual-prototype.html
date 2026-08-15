@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Death Angel — Visual Formation Prototype</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --void: #060908;
+      --shell: #0b110e;
+      --panel: #131b17;
+      --line: #35443c;
+      --ink: #eee9dc;
+      --muted: #91a098;
+      --signal: #c8df45;
+      --danger: #ff443d;
+      --blue: #27aaff;
+      --green: #25e66f;
+      --red: #ff443d;
+      --zoom: 1;
+    }
+
+    * { box-sizing: border-box; }
+    html { background: var(--void); }
+    body {
+      min-height: 100dvh;
+      margin: 0;
+      background: radial-gradient(circle at 50% 0%, #29382f, var(--void) 46%);
+      color: var(--ink);
+      font-family: "Courier New", monospace;
+    }
+
+    button, input { font: inherit; }
+    .prototype-shell { width: min(100%, 620px); min-height: 100dvh; margin: 0 auto; border-inline: 1px solid #26322c; background: var(--shell); }
+    .prototype-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border-bottom: 2px solid var(--danger); background: linear-gradient(#1c2821, #0a0f0c); }
+    .prototype-header span, .prototype-header strong { display: block; text-transform: uppercase; }
+    .prototype-header span { color: var(--muted); font-size: .58rem; letter-spacing: .16em; }
+    .prototype-header strong { margin-top: 3px; font-family: Arial, sans-serif; font-size: .96rem; letter-spacing: .055em; }
+    .prototype-badge { padding: 5px 7px; border: 1px solid var(--signal); color: var(--signal); font-size: .56rem; letter-spacing: .1em; text-transform: uppercase; }
+
+    .location-bar { display: grid; grid-template-columns: 56px 1fr 56px; gap: 5px; padding: 7px; background: #d8d3c7; color: #171b18; }
+    .blips { display: grid; place-items: center; align-content: center; border: 2px solid #4d554f; background: #222925; color: #f1ecdf; }
+    .blips span { font-size: .48rem; letter-spacing: .1em; text-transform: uppercase; }.blips b { font-size: 1.3rem; }
+    .location-card { padding: 7px 9px; border: 1px solid #92978f; background: #ece7dc; }
+    .location-card small, .location-card strong, .location-card em { display: block; }
+    .location-card small { color: #667069; font-size: .5rem; letter-spacing: .12em; text-transform: uppercase; }
+    .location-card strong { margin-top: 2px; font: 800 .74rem Arial, sans-serif; text-transform: uppercase; }
+    .location-card em { margin-top: 4px; color: #56605a; font-size: .52rem; font-style: normal; }
+
+    .event-bar { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 7px 10px; border-block: 1px solid #64312e; background: #321a18; }
+    .event-bar small, .event-bar strong { display: block; }.event-bar small { color: #df776e; font-size: .5rem; letter-spacing: .11em; text-transform: uppercase; }
+    .event-bar strong { margin-top: 3px; font: 750 .67rem Arial, sans-serif; text-transform: uppercase; }
+    .event-data { align-self: center; color: #f0b543; font-size: .53rem; text-align: right; }
+
+    .corridor {
+      position: relative;
+      overflow: hidden;
+      padding: 7px 5px 10px;
+      background:
+        linear-gradient(90deg, #050806 0 7%, transparent 7% 93%, #050806 93%),
+        repeating-linear-gradient(0deg, transparent 0 77px, #50615826 77px 79px),
+        linear-gradient(90deg, #101713, #202a24 23%, #111713 50%, #202a24 77%, #101713);
+    }
+    .corridor::before, .corridor::after { content: ""; position: absolute; z-index: 0; top: 0; bottom: 0; width: 5px; background: repeating-linear-gradient(#d39c22 0 8px, #161b18 8px 16px); opacity: .68; }
+    .corridor::before { left: 8%; }.corridor::after { right: 8%; }
+    .lane-labels { position: relative; z-index: 3; display: grid; grid-template-columns: 1fr 94px 1fr; padding: 2px 5px 6px; color: #7f8e85; font-size: .46rem; letter-spacing: .09em; text-align: center; text-transform: uppercase; }
+
+    .formation { position: relative; z-index: 2; display: grid; gap: 2px; }
+    .combat-row {
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) calc(94px * var(--zoom)) minmax(0, 1fr);
+      align-items: center;
+      min-height: calc(89px * var(--zoom));
+      border-top: 1px solid #6c7a7130;
+    }
+    .combat-row::after { content: ""; position: absolute; z-index: -1; left: 10%; right: 10%; bottom: 4px; height: 1px; background: #69766e1c; }
+    .flank { position: relative; display: grid; place-items: center; align-self: stretch; min-width: 0; }
+    .marine-slot { position: relative; display: grid; place-items: center; height: 100%; }
+    .marine-slot::after { content: ""; position: absolute; bottom: 8%; width: 54%; height: 8px; border-radius: 50%; background: #000b; filter: blur(2px); }
+
+    .marine-sprite {
+      position: relative;
+      z-index: 2;
+      width: calc(92px * var(--zoom));
+      height: auto;
+      image-rendering: pixelated;
+      transform: scaleX(var(--facing, 1));
+      animation: marine-bob 1s steps(2, end) infinite;
+    }
+    .face-left { --facing: -1; }.face-right { --facing: 1; }
+    .team-red { --team: var(--red); --palette: saturate(1.25) contrast(1.08); }
+    .team-blue { --team: var(--blue); --palette: hue-rotate(175deg) saturate(1.55) brightness(1.12) contrast(1.06); }
+    .team-green { --team: var(--green); --palette: hue-rotate(76deg) saturate(1.5) brightness(1.08) contrast(1.06); }
+    .team-red .marine-sprite, .team-blue .marine-sprite, .team-green .marine-sprite { filter: var(--palette) drop-shadow(0 0 4px color-mix(in srgb, var(--team) 70%, transparent)); }
+    .team-marker { position: absolute; z-index: 3; top: 7px; right: 6px; width: 8px; height: 8px; border: 1px solid #fff9; border-radius: 50%; background: var(--team); box-shadow: 0 0 7px var(--team); }
+
+    .alien-sprite { position: relative; z-index: 3; width: calc(116px * var(--zoom)); max-width: 100%; image-rendering: pixelated; filter: drop-shadow(0 0 5px #b958ff88); }
+    .alien-from-left { transform: scaleX(1); }.alien-from-right { transform: scaleX(-1); }
+    .engaged::after { content: ""; position: absolute; z-index: 0; top: 50%; width: 38%; height: 1px; background: linear-gradient(90deg, transparent, #ff594d88, transparent); }
+    .flank-left.engaged::after { right: -5%; }.flank-right.engaged::after { left: -5%; }
+    .swarm-count { position: absolute; z-index: 5; right: 7%; bottom: 9%; display: grid; place-items: center; width: 19px; height: 19px; border: 1px solid #ff8b82; background: #551d1a; color: white; font-size: .59rem; }
+    .flank-right .swarm-count { right: auto; left: 7%; }
+
+    .terrain-piece { position: absolute; z-index: 1; width: calc(70px * var(--zoom)); height: calc(48px * var(--zoom)); border: 2px solid var(--terrain-color, #d7a12d); background: linear-gradient(135deg, #26312b, #101512); box-shadow: inset 0 0 0 3px #0007, 0 0 8px #000; opacity: .9; transform: translate(-25%, -23%); }
+    .flank-right .terrain-piece { transform: translate(25%, -23%); }
+    .terrain-piece::before { content: ""; position: absolute; inset: 7px; border: 2px dashed color-mix(in srgb, var(--terrain-color) 65%, #58645d); }
+    .terrain-piece span { position: absolute; z-index: 2; right: 3px; bottom: 2px; padding: 1px 3px; background: #090d0bdb; color: var(--terrain-color); font-size: .39rem; letter-spacing: .04em; text-transform: uppercase; }
+    .terrain-door { --terrain-color: #e5bd39; }.terrain-vent { --terrain-color: #55b971; }.terrain-corner { --terrain-color: #dc653d; }
+
+    .action-tray { padding: 8px; border-top: 3px solid #dba32e; background: #101713; }
+    .action-tray > span { display: block; margin-bottom: 6px; color: #8f9b94; font-size: .48rem; letter-spacing: .1em; text-transform: uppercase; }
+    .action-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+    .action-card { padding: 6px; border: 1px solid var(--team); border-top: 5px solid var(--team); background: color-mix(in srgb, var(--team) 13%, #1b231f); }
+    .action-card small, .action-card strong { display: block; }.action-card small { color: var(--team); font-size: .43rem; text-transform: uppercase; }.action-card strong { margin-top: 4px; font: 750 .55rem Arial, sans-serif; }
+
+    .prototype-controls { position: sticky; z-index: 20; bottom: 0; display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 8px 10px max(8px, env(safe-area-inset-bottom)); border-top: 1px solid #536059; background: #0a0f0ded; backdrop-filter: blur(8px); }
+    .zoom-control { display: grid; grid-template-columns: auto 1fr auto; gap: 7px; align-items: center; color: var(--muted); font-size: .5rem; text-transform: uppercase; }.zoom-control input { width: 100%; accent-color: var(--signal); }
+    .terrain-toggle { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: .5rem; text-transform: uppercase; }.terrain-toggle input { accent-color: var(--signal); }
+    body.hide-terrain .terrain-piece { display: none; }
+
+    @keyframes marine-bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -2px; } }
+    @media (max-width: 420px) { :root { --zoom: .85; }.prototype-header { padding-block: 9px; }.corridor { padding-inline: 2px; }.combat-row { grid-template-columns: minmax(0, 1fr) calc(88px * var(--zoom)) minmax(0, 1fr); }.lane-labels { grid-template-columns: 1fr 78px 1fr; } }
+    @media (prefers-reduced-motion: reduce) { .marine-sprite { animation: none; } }
+  </style>
+</head>
+<body>
+  <main class="prototype-shell">
+    <header class="prototype-header">
+      <div><span>Death Angel</span><strong>Visual Formation Prototype</strong></div>
+      <div class="prototype-badge">No engine</div>
+    </header>
+
+    <section class="location-bar">
+      <div class="blips"><span>Blips</span><b>5</b></div>
+      <div class="location-card"><small>Setup location</small><strong>Void Lock</strong><em>Single-file formation · threats engage across rows</em></div>
+      <div class="blips"><span>Blips</span><b>5</b></div>
+    </section>
+
+    <section class="event-bar">
+      <div><small>Current event</small><strong>Chaos of Battle</strong></div>
+      <div class="event-data">● Minor &nbsp; ● Minor</div>
+    </section>
+
+    <section class="corridor">
+      <div class="lane-labels"><span>Left threat</span><span>Formation</span><span>Right threat</span></div>
+      <div class="formation">
+        <div class="combat-row">
+          <div class="flank flank-left"></div>
+          <div class="marine-slot team-blue face-left"><i class="team-marker"></i><img class="marine-sprite" src="./prototype-art/marine-idle.gif" alt="Blue Marine facing left" /></div>
+          <div class="flank flank-right"></div>
+        </div>
+
+        <div class="combat-row">
+          <div class="flank flank-left engaged"><div class="terrain-piece terrain-door"><span>Door</span></div><img class="alien-sprite alien-from-left" src="./prototype-art/alien-attack.gif" alt="Alien attacking from the left" /><b class="swarm-count">2</b></div>
+          <div class="marine-slot team-red face-left"><i class="team-marker"></i><img class="marine-sprite" src="./prototype-art/marine-idle.gif" alt="Red Marine facing left" /></div>
+          <div class="flank flank-right"></div>
+        </div>
+
+        <div class="combat-row">
+          <div class="flank flank-left"></div>
+          <div class="marine-slot team-green face-right"><i class="team-marker"></i><img class="marine-sprite" src="./prototype-art/marine-idle.gif" alt="Green Marine facing right" /></div>
+          <div class="flank flank-right"></div>
+        </div>
+
+        <div class="combat-row">
+          <div class="flank flank-left"></div>
+          <div class="marine-slot team-blue face-right"><i class="team-marker"></i><img class="marine-sprite" src="./prototype-art/marine-idle.gif" alt="Blue Marine facing right" /></div>
+          <div class="flank flank-right engaged"><div class="terrain-piece terrain-vent"><span>Vent</span></div><img class="alien-sprite alien-from-right" src="./prototype-art/alien-attack.gif" alt="Alien attacking from the right" /><b class="swarm-count">3</b></div>
+        </div>
+
+        <div class="combat-row">
+          <div class="flank flank-left"></div>
+          <div class="marine-slot team-green face-right"><i class="team-marker"></i><img class="marine-sprite" src="./prototype-art/marine-idle.gif" alt="Green Marine facing right" /></div>
+          <div class="flank flank-right"></div>
+        </div>
+
+        <div class="combat-row">
+          <div class="flank flank-left engaged"><div class="terrain-piece terrain-corner"><span>Corner</span></div><img class="alien-sprite alien-from-left" src="./prototype-art/alien-attack.gif" alt="Alien attacking from the left" /><b class="swarm-count">1</b></div>
+          <div class="marine-slot team-red face-left"><i class="team-marker"></i><img class="marine-sprite" src="./prototype-art/marine-idle.gif" alt="Red Marine facing left" /></div>
+          <div class="flank flank-right"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="action-tray">
+      <span>Selected combat team cards</span>
+      <div class="action-cards">
+        <div class="action-card team-red"><small>Support</small><strong>Overwatch</strong></div>
+        <div class="action-card team-blue"><small>Move + Activate</small><strong>Intimidation</strong></div>
+        <div class="action-card team-green"><small>Attack</small><strong>Dead Aim</strong></div>
+      </div>
+    </section>
+
+    <section class="prototype-controls">
+      <label class="zoom-control"><span>Board scale</span><input id="zoom" type="range" min="0.7" max="1.1" step="0.05" value="1" /><output id="zoom-value">100%</output></label>
+      <label class="terrain-toggle"><input id="terrain-toggle" type="checkbox" checked /> Terrain</label>
+    </section>
+  </main>
+
+  <script>
+      const zoom = document.querySelector("#zoom");
+      const zoomValue = document.querySelector("#zoom-value");
+      const terrainToggle = document.querySelector("#terrain-toggle");
+      const initialZoom = getComputedStyle(document.documentElement).getPropertyValue("--zoom").trim() || "1";
+      zoom.value = initialZoom;
+      zoomValue.value = `${Math.round(Number(initialZoom) * 100)}%`;
+      zoom.addEventListener("input", () => {
+      document.documentElement.style.setProperty("--zoom", zoom.value);
+      zoomValue.value = `${Math.round(Number(zoom.value) * 100)}%`;
+    });
+    terrainToggle.addEventListener("change", () => document.body.classList.toggle("hide-terrain", !terrainToggle.checked));
+  </script>
+</body>
+</html>
