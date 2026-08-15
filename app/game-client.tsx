@@ -566,14 +566,14 @@ function MissionBoard({ session, inspection, error, diagnosticNotice, rollNotice
             <TacticalButton type="button" className="lab-location-card inspectable" onTap={() => setLocationCollapsed(true)} onHold={() => onInspect(locationInspection)}>
               <span>Current location <b>{currentLocation?.tier ?? "Setup"}</b></span>
               <h2>{currentLocation?.name ?? setupLocationName(componentDefinitionId(session, state.currentLocationInstanceId))}</h2>
-              <strong>{locationInspection.meta ?? "Location"}</strong><p>{locationInspection.body}</p><i className="lab-hud-rivet lab-rivet-one" /><i className="lab-hud-rivet lab-rivet-two" />
+              <strong>{locationInspection.meta ?? "Location"}</strong><p>{locationInspection.body}</p><em className="lab-panel-collapse-cue">Tap to minimize ⌃</em><i className="lab-hud-rivet lab-rivet-one" /><i className="lab-hud-rivet lab-rivet-two" />
             </TacticalButton>
             <div className="lab-blip-counter lab-blip-right"><span>Blips</span><strong>{rightBlips}</strong><em>Right</em></div>
           </div>
         )}
 
         {lastEvent && lastEventId && <TacticalButton type="button" className={`lab-event-card inspectable ${eventCollapsed ? "is-collapsed" : ""}`} onTap={() => setEventCollapsed((current) => !current)} onHold={() => onInspect(sourceInspection(session, lastEventId)!)}>
-          <div className="lab-event-heading"><span>{state.phase === "EVENT" ? "Event resolving" : "Current event"}{lastEvent.movement ? <i>{lastEvent.movement}</i> : null}</span><h3>{lastEvent.name}</h3></div>
+          <div className="lab-event-heading"><span>{state.phase === "EVENT" ? "Event resolving" : "Current event"}{lastEvent.movement ? <i>{lastEvent.movement}</i> : null}</span><h3>{lastEvent.name}</h3><em className="lab-panel-collapse-cue">Tap to minimize ⌃</em></div>
           <p>{lastEvent.sourceText}</p>
           <div className="lab-event-data" aria-label="Event spawn and movement data">
             {lastEvent.activations.map((activation, index) => <span key={`${activation.terrainColor}.${index}`}><i className={`lab-spawn-dot is-${activation.terrainColor.toLowerCase()}`} />{formatPhase(activation.severity)}</span>)}
