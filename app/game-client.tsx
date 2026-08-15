@@ -284,6 +284,75 @@ function TacticalButton({ onTap, onHold, stopPropagation, onPointerDown, onPoint
   );
 }
 
+type LiveActionCard = ActionDefinition & { instanceId: string };
+
+function LiveActionSelection({ session, onChooseOption }: { session: EngineSession; onChooseOption: (optionId: string) => void }) {
+  const { state } = session;
+  const decision = state.pendingDecision;
+  const choosingActions = decision?.type === "CHOOSE_ACTION";
+  const [expandedTeam, setExpandedTeam] = useState<TeamColor | null>(null);
+  const [pendingActionId, setPendingActionId] = useState<string | null>(null);
+  const cardsByTeam = useMemo(() => Object.fromEntries(state.activeTeams.map((team) => [team, state.teams[team].actionInstanceIds.map((instanceId) => {
+    const definition = data.definitions.actions.find((item) => item.id === componentDefinitionId(session, instanceId));
+    return definition ? { ...definition, instanceId } : null;
+  }).filter((card): card is LiveActionCard => Boolean(card))])) as Partial<Record<TeamColor, LiveActionCard[]>>, [session, state.activeTeams, state.teams]);
+  const selectedActionIds = choosingActions
+    ? state.activeTeams.map((team) => state.teams[team].chosenActionInstanceId).filter((id): id is string => Boolean(id))
+    : state.actionQueue;
+  const selectedCards = selectedActionIds.map((instanceId) => {
+    const definition = data.definitions.actions.find((item) => item.id === componentDefinitionId(session, instanceId));
+    return definition ? { ...definition, instanceId } : null;
+  }).filter((card): card is LiveActionCard => Boolean(card));
+  const selectionComplete = selectedCards.length === state.activeTeams.length;
+  const orderedCards = selectionComplete && !choosingActions ? [...selectedCards].sort((left, right) => left.initiative - right.initiative) : selectedCards;
+  const displayTeams = choosingActions ? state.activeTeams : orderedCards.map((card) => card.team);
+  const activeIndex = state.phase === "RESOLVE_ACTIONS" ? state.currentActionIndex : -1;
+
+  const openTeam = (team: TeamColor) => {
+    if (!choosingActions || state.teams[team].chosenActionInstanceId) return;
+    setExpandedTeam(team);
+    setPendingActionId(null);
+  };
+  const pendingOption = pendingActionId ? uniquePayloadOption(decision, "actionId", pendingActionId) : null;
+  const expandedCards = expandedTeam ? cardsByTeam[expandedTeam] ?? [] : [];
+
+  return (
+    <section className={`live-action-dock ${expandedTeam ? "is-expanded" : ""}`} aria-label="Combat team action cards">
+      {expandedTeam && choosingActions && (
+        <div className={`live-expanded-hand lab-team-${expandedTeam.toLowerCase()}`}>
+          <header><span>{expandedTeam} squad</span><strong>Choose an action</strong><button type="button" onClick={() => setExpandedTeam(null)} aria-label="Close action hand">×</button></header>
+          <div className="live-full-action-grid">
+            {expandedCards.map((card) => {
+              const option = uniquePayloadOption(decision, "actionId", card.instanceId);
+              const unavailable = !option;
+              return <button type="button" key={card.instanceId} className={`live-full-action-card lab-team-${card.team.toLowerCase()} ${pendingActionId === card.instanceId ? "is-pending" : ""} ${unavailable ? "is-unavailable" : ""}`} disabled={unavailable} onClick={() => setPendingActionId(card.instanceId)}>
+                <small>{formatActionType(card.type)}</small><strong>{card.name}</strong><b>Initiative {card.initiative}</b><p>{card.sourceText}</p>{unavailable && <i aria-hidden="true">×</i>}
+              </button>;
+            })}
+          </div>
+          <button type="button" className="live-confirm-action" disabled={!pendingOption} onClick={() => { if (pendingOption) onChooseOption(pendingOption.id); }}>Select action</button>
+        </div>
+      )}
+      <div className="live-action-dock-heading"><span>{choosingActions ? "Select squad actions" : selectionComplete ? "Initiative order" : "Combat team cards"}</span><b>{choosingActions ? `${selectedCards.length}/${state.activeTeams.length}` : selectionComplete ? `${Math.min(activeIndex + 1, orderedCards.length)}/${orderedCards.length}` : ""}</b></div>
+      <div className={`live-action-hands ${selectionComplete && !choosingActions ? "is-initiative-order" : ""}`}>
+        {displayTeams.map((team, orderIndex) => {
+          const cards = cardsByTeam[team] ?? [];
+          const chosenId = state.teams[team].chosenActionInstanceId;
+          const selected = cards.find((card) => card.instanceId === chosenId) ?? orderedCards.find((card) => card.team === team) ?? null;
+          const resolutionState = !choosingActions && activeIndex >= 0 ? orderIndex < activeIndex ? "is-completed" : orderIndex === activeIndex ? "is-active" : "is-upcoming" : "";
+          return <button key={team} type="button" className={`live-action-team-slot lab-team-${team.toLowerCase()} ${selected ? "has-selection" : ""} ${resolutionState}`} onClick={() => openTeam(team)} disabled={!choosingActions || Boolean(selected)}>
+            <span className="live-action-team-name">{team}</span>
+            {selected ? <span className="live-chosen-action"><small>{formatActionType(selected.type)} · {selected.initiative}</small><strong>{selected.name}</strong></span> : <span className="live-mini-hand">{cards.map((card, index) => {
+              const unavailable = !uniquePayloadOption(decision, "actionId", card.instanceId);
+              return <span key={card.instanceId} className={`live-mini-action-card ${unavailable ? "is-unavailable" : ""}`} style={{ "--card-index": index } as CSSProperties}><b>{card.type === "MOVE_ACTIVATE" ? "Move" : formatActionType(card.type)}</b></span>;
+            })}</span>}
+          </button>;
+        })}
+      </div>
+    </section>
+  );
+}
+
 export default function GameClient() {
   const [selectedTeams, setSelectedTeams] = useState<TeamColor[]>([]);
   const [session, setSession] = useState<EngineSession | null>(null);
@@ -474,7 +543,6 @@ function MissionBoard({ session, inspection, error, diagnosticNotice, rollNotice
   const decisionRules = decision?.type === "PLACE_ARTEFACT"
     ? data.definitions.terrain.find((item) => item.id === "terrain.artefact")?.sourceText ?? null
     : null;
-  const choosingActions = decision?.type === "CHOOSE_ACTION";
 
   return (
     <main className="mission-shell">
@@ -509,23 +577,7 @@ function MissionBoard({ session, inspection, error, diagnosticNotice, rollNotice
 
       <LiveFormationBoard session={session} targetIds={targetIds} selectedMoveMarineId={selectedMoveMarineId} selectedStrategizeSwarmId={selectedStrategizeSwarmId} strategizeSwarmIds={strategizeSwarmSet} onChooseOption={onChooseOption} onInspect={onInspect} onSelectMoveMarine={(marineId) => { if (decision) setMoveSelection({ decisionId: decision.id, marineId }); }} onSelectStrategizeSwarm={(swarmId) => { if (decision) setStrategizeSelection({ decisionId: decision.id, swarmId }); }} />
 
-      <section className="action-reference">
-        <div className="panel-label">Combat team cards <span>Tap an available card · hold any card for rules</span></div>
-        <div className="action-reference-grid">
-          {state.activeTeams.flatMap((team) => state.teams[team].actionInstanceIds).map((actionId) => {
-            const action = data.definitions.actions.find((item) => item.id === componentDefinitionId(session, actionId));
-            if (!action) return null;
-            const option = uniquePayloadOption(decision, "actionId", actionId);
-            const chosen = state.teams[action.team].chosenActionInstanceId === actionId;
-            const unavailable = choosingActions && !option && !chosen;
-            return (
-              <TacticalButton key={actionId} type="button" className={`reference-card team-${action.team.toLowerCase()} ${chosen ? "is-chosen" : ""} ${unavailable ? "is-unavailable" : ""}`} onTap={option ? () => onChooseOption(option.id) : undefined} onHold={() => onInspect(sourceInspection(session, actionId)!)} aria-disabled={unavailable}>
-                <span>{formatActionType(action.type)}</span><strong>{action.name}</strong><small>Initiative {action.initiative}</small>{unavailable && <i className="unavailable-x" aria-hidden="true">×</i>}
-              </TacticalButton>
-            );
-          })}
-        </div>
-      </section>
+      <LiveActionSelection session={session} onChooseOption={onChooseOption} />
 
       <section className="command-dock" aria-live="polite">
         {state.activeDie && <DiePanel value={state.activeDie.modifiedValue} skull={state.activeDie.skull} purpose={state.activeDie.purpose} rerolls={state.activeDie.rerolls.length} />}
