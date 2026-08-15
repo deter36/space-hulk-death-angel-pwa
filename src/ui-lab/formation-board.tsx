@@ -20,6 +20,7 @@ type FormationBoardProps = {
   marineDeathStripUrl?: string;
   marineDodgeStripUrl?: string;
   marineAnimationStates?: Record<string, "dead" | "death" | "dodge">;
+  collapsingMarine?: string | null;
   marineStates?: Record<string, LabTargetState>;
   marineMoveChoices?: LabMarineMoveChoice[];
   moveSlots?: number[];
@@ -126,7 +127,7 @@ function Marine({ animation, deathStripUrl, dodgeStripUrl, marine, marineSpriteU
   );
 }
 
-export default function FormationBoard({ alienAttackStripUrl, alienDeathStripUrl, alienIdleStripUrl, alienSpriteUrl, broodlordSpriteUrl, marineAnimationStates = {}, marineDeathStripUrl, marineDodgeStripUrl, marineSpriteUrl, marineMoveChoices = [], marineStates = {}, moveSlots = [], onInspect, onMarineMoveChoice, onMoveSlot, onOverlayChoice, onSelectMarine, onSelectSwarm, onSelectTerrain, overlayChoices = [], rows, selectedMarine, swarmAnimationStates = {}, swarmStates = {}, terrainStates = {} }: FormationBoardProps) {
+export default function FormationBoard({ alienAttackStripUrl, alienDeathStripUrl, alienIdleStripUrl, alienSpriteUrl, broodlordSpriteUrl, collapsingMarine, marineAnimationStates = {}, marineDeathStripUrl, marineDodgeStripUrl, marineSpriteUrl, marineMoveChoices = [], marineStates = {}, moveSlots = [], onInspect, onMarineMoveChoice, onMoveSlot, onOverlayChoice, onSelectMarine, onSelectSwarm, onSelectTerrain, overlayChoices = [], rows, selectedMarine, swarmAnimationStates = {}, swarmStates = {}, terrainStates = {} }: FormationBoardProps) {
   const renderMoveSlot = (slot: number) => moveSlots.includes(slot) ? <button type="button" className="lab-move-slot" onClick={() => onMoveSlot?.(slot)}><span>Move here</span></button> : null;
   return (
     <section className="lab-board" aria-label="Formation geometry preview"><div className="lab-board-labels"><span>Left threat</span><span>Formation</span><span>Right threat</span></div><div className="lab-formation">
@@ -135,7 +136,7 @@ export default function FormationBoard({ alienAttackStripUrl, alienDeathStripUrl
         const rightOverlay = overlayChoices.find((choice) => choice.row === index && choice.side === "RIGHT");
         const marineMoveChoice = marineMoveChoices.find((choice) => choice.row === index);
         const marineState = marineStates[row.marine.name] ?? (selectedMarine === row.marine.name ? "selected" : row.marine.interaction ?? "neutral");
-        return <Fragment key={`${row.marine.team}.${row.marine.name}`}>{renderMoveSlot(index)}<div className="lab-combat-row"><span className="lab-row-number">{String(index + 1).padStart(2, "0")}</span>
+        return <Fragment key={`${row.marine.team}.${row.marine.name}`}>{renderMoveSlot(index)}<div className={`lab-combat-row ${collapsingMarine === row.marine.name ? "is-collapsing" : ""}`}><span className="lab-row-number">{String(index + 1).padStart(2, "0")}</span>
           <Flank alienSpriteUrl={alienSpriteUrl} alienAttackStripUrl={alienAttackStripUrl} alienDeathStripUrl={alienDeathStripUrl} alienIdleStripUrl={alienIdleStripUrl} broodlordSpriteUrl={broodlordSpriteUrl} flank={row.left} side="LEFT" swarmAnimation={swarmAnimationStates[cellKey(index, "LEFT")]} swarmState={swarmStates[cellKey(index, "LEFT")]} terrainState={terrainStates[cellKey(index, "LEFT")]} overlay={leftOverlay} onInspect={onInspect} onSelectSwarm={() => leftOverlay ? onOverlayChoice?.(leftOverlay) : onSelectSwarm?.(index, "LEFT")} onSelectTerrain={() => onSelectTerrain?.(index, "LEFT")} />
           <Marine marine={row.marine} marineSpriteUrl={marineSpriteUrl} animation={marineAnimationStates[row.marine.name]} deathStripUrl={marineDeathStripUrl} dodgeStripUrl={marineDodgeStripUrl} moveChoice={marineMoveChoice} state={marineMoveChoice ? "destination" : marineState} onInspect={onInspect} onSelect={() => marineMoveChoice ? onMarineMoveChoice?.(marineMoveChoice) : onSelectMarine?.(row.marine.name)} />
           <Flank alienSpriteUrl={alienSpriteUrl} alienAttackStripUrl={alienAttackStripUrl} alienDeathStripUrl={alienDeathStripUrl} alienIdleStripUrl={alienIdleStripUrl} broodlordSpriteUrl={broodlordSpriteUrl} flank={row.right} side="RIGHT" swarmAnimation={swarmAnimationStates[cellKey(index, "RIGHT")]} swarmState={swarmStates[cellKey(index, "RIGHT")]} terrainState={terrainStates[cellKey(index, "RIGHT")]} overlay={rightOverlay} onInspect={onInspect} onSelectSwarm={() => rightOverlay ? onOverlayChoice?.(rightOverlay) : onSelectSwarm?.(index, "RIGHT")} onSelectTerrain={() => onSelectTerrain?.(index, "RIGHT")} />

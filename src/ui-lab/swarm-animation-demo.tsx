@@ -19,6 +19,20 @@ function initialRows(): LabFormationRow[] {
   return INTERACTION_SCENARIO.rows.map((row, index) => index === TARGET_ROW ? { ...row, right: { ...row.right, swarm: { icons: ["HEAD", "TAIL", "CLAW"] } } } : { ...row });
 }
 
+function condenseTopCasualty(rows: LabFormationRow[]): LabFormationRow[] {
+  if (rows.length < 2) return [];
+  const casualty = rows[0];
+  const survivor = rows[1];
+  const mergeFlank = (destination: LabFormationRow["left"], source: LabFormationRow["left"]): LabFormationRow["left"] => ({
+    terrain: destination.terrain ?? source.terrain,
+    swarm: destination.swarm && source.swarm ? {
+      broodLords: (destination.swarm.broodLords ?? 0) + (source.swarm.broodLords ?? 0),
+      icons: [...destination.swarm.icons, ...source.swarm.icons],
+    } : destination.swarm ?? source.swarm,
+  });
+  return [{ ...survivor, left: mergeFlank(survivor.left, casualty.left), right: mergeFlank(survivor.right, casualty.right) }, ...rows.slice(2)];
+}
+
 function CombatDie({ outcome, rolling }: { outcome: Outcome; rolling: boolean }) {
   const result = outcome === "hit" ? 2 : 5;
   return <div className="lab-die-backdrop"><section className={`lab-die-result ${rolling ? "is-rolling" : "is-settled"}`} role="dialog" aria-modal="true" aria-label={`Defense roll ${result}, ${outcome}`}>
@@ -31,8 +45,8 @@ function CombatDie({ outcome, rolling }: { outcome: Outcome; rolling: boolean })
 }
 
 export default function SwarmAnimationDemo({ assetBase }: { assetBase: string }) {
-  const [accent, setAccent] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [collapsingMarine, setCollapsingMarine] = useState<string | null>(null);
   const [die, setDie] = useState<{ outcome: Outcome; rolling: boolean } | null>(null);
   const [inspection, setInspection] = useState<LabInspection | null>(null);
   const [marineAnimation, setMarineAnimation] = useState<MarineAnimation | null>(null);
@@ -46,12 +60,28 @@ export default function SwarmAnimationDemo({ assetBase }: { assetBase: string })
   useEffect(() => clearTimers, []);
 
   const playDefense = (outcome: Outcome) => {
-    if (busy || marineDead) return;
+    if (busy || marineDead || rows.length < initialRows().length) return;
     clearTimers(); setBusy(true); setSwarmAnimation("attack"); setStatus("Lead Genestealer attacks");
     schedule(() => { setSwarmAnimation(null); setDie({ outcome, rolling: true }); setStatus("Rolling Marine defense"); }, 1000);
     schedule(() => { setDie({ outcome, rolling: false }); setStatus(outcome === "hit" ? "Hit confirmed" : "Attack misses"); }, 3300);
     schedule(() => { setDie(null); setMarineAnimation(outcome === "hit" ? "death" : "dodge"); setStatus(outcome === "hit" ? "Marine slain" : "Marine dodges"); }, 4200);
-    schedule(() => { if (outcome === "hit") setMarineDead(true); setMarineAnimation(null); setBusy(false); setStatus(outcome === "hit" ? "Casualty confirmed · Reset to compare" : "Miss resolved · Marine returns to idle"); }, 5600);
+    schedule(() => {
+      if (outcome === "hit") {
+        setMarineDead(true);
+        setStatus("Casualty confirmed");
+      } else {
+        setBusy(false);
+        setStatus("Miss resolved · Marine returns to idle");
+      }
+      setMarineAnimation(null);
+    }, 5600);
+    if (outcome === "hit") {
+      schedule(() => { setCollapsingMarine(TARGET_MARINE); setStatus("Closing formation"); }, 6400);
+      schedule(() => {
+        setRows((current) => condenseTopCasualty(current));
+        setCollapsingMarine(null); setMarineDead(false); setBusy(false); setStatus("Formation condensed · Threats move with the fallen slot");
+      }, 7000);
+    }
   };
   const playGenestealerDeath = () => {
     if (busy || !rows[TARGET_ROW].right.swarm?.icons.length) return;
@@ -61,15 +91,15 @@ export default function SwarmAnimationDemo({ assetBase }: { assetBase: string })
       setSwarmAnimation(null); setBusy(false); setStatus("Next creature advances to lead");
     }, 1400);
   };
-  const reset = () => { clearTimers(); setBusy(false); setDie(null); setMarineAnimation(null); setMarineDead(false); setRows(initialRows()); setStatus("Ready to resolve attack"); setSwarmAnimation(null); };
-  const count = rows[TARGET_ROW].right.swarm?.icons.length ?? 0;
+  const reset = () => { clearTimers(); setBusy(false); setCollapsingMarine(null); setDie(null); setMarineAnimation(null); setMarineDead(false); setRows(initialRows()); setStatus("Ready to resolve attack"); setSwarmAnimation(null); };
+  const count = rows[TARGET_ROW]?.right.swarm?.icons.length ?? 0;
   const style = { "--lab-scale": "1", "--lab-viewport": "620px" } as CSSProperties;
 
-  return <main className={`lab-game-view ${accent ? "has-combat-rim" : ""}`} style={style}>
+  return <main className="lab-game-view has-combat-rim" style={style}>
     <MissionHud activeStep="Combat sequence" onInspect={setInspection} />
-    <div className="lab-choice-banner lab-choice-red"><span>Genestealer attack timing</span><strong>{status}</strong><em>Attack → die → Marine reaction</em></div>
-    <FormationBoard rows={rows} marineSpriteUrl={`${assetBase}/marine-idle.gif`} marineDeathStripUrl="../../game-art/marine/death.png" marineDodgeStripUrl="../../game-art/marine/dodge.png" marineAnimationStates={marineDead ? { [TARGET_MARINE]: "dead" } : marineAnimation ? { [TARGET_MARINE]: marineAnimation } : {}} alienSpriteUrl={`${assetBase}/alien-attack.gif`} alienIdleStripUrl="../../game-art/genestealer/idle.png" broodlordSpriteUrl="../../game-art/broodlord/idle.png" alienAttackStripUrl="../../game-art/genestealer/attack.png" alienDeathStripUrl="../../game-art/genestealer/death.png" swarmAnimationStates={swarmAnimation ? { [TARGET_KEY]: swarmAnimation } : {}} swarmStates={{ [TARGET_KEY]: "targeted" }} onInspect={setInspection} />
-    <div className="lab-animation-dock"><div><span>3 attackers vs {TARGET_MARINE}</span><strong>{status}</strong></div><button type="button" className={accent ? "is-active" : ""} onClick={() => setAccent((current) => !current)}>Rim {accent ? "on" : "off"}</button><button type="button" onClick={() => playDefense("hit")} disabled={busy || marineDead || count === 0}>Hit</button><button type="button" onClick={() => playDefense("miss")} disabled={busy || marineDead || count === 0}>Miss</button><button type="button" onClick={playGenestealerDeath} disabled={busy || count === 0}>Kill G</button><button type="button" onClick={reset}>Reset</button></div>
+    <div className="lab-choice-banner lab-choice-red"><span>Genestealer attack timing</span><strong>{status}</strong><em>Attack → die → casualty → formation</em></div>
+    <FormationBoard rows={rows} collapsingMarine={collapsingMarine} marineSpriteUrl={`${assetBase}/marine-idle.gif`} marineDeathStripUrl="../../game-art/marine/death.png" marineDodgeStripUrl="../../game-art/marine/dodge.png" marineAnimationStates={marineDead ? { [TARGET_MARINE]: "dead" } : marineAnimation ? { [TARGET_MARINE]: marineAnimation } : {}} alienSpriteUrl={`${assetBase}/alien-attack.gif`} alienIdleStripUrl="../../game-art/genestealer/idle.png" broodlordSpriteUrl="../../game-art/broodlord/idle.png" alienAttackStripUrl="../../game-art/genestealer/attack.png" alienDeathStripUrl="../../game-art/genestealer/death.png" swarmAnimationStates={swarmAnimation ? { [TARGET_KEY]: swarmAnimation } : {}} swarmStates={{ [TARGET_KEY]: "targeted" }} onInspect={setInspection} />
+    <div className="lab-animation-dock"><div><span>{rows.length < initialRows().length ? "5 Marines remain · swarm transferred to Brother Noctis" : `3 attackers vs ${TARGET_MARINE}`}</span><strong>{status}</strong></div><button type="button" onClick={() => playDefense("hit")} disabled={busy || rows.length < initialRows().length || count === 0}>Hit</button><button type="button" onClick={() => playDefense("miss")} disabled={busy || rows.length < initialRows().length || count === 0}>Miss</button><button type="button" onClick={playGenestealerDeath} disabled={busy || count === 0}>Kill G</button><button type="button" onClick={reset}>Reset</button></div>
     {die && <CombatDie outcome={die.outcome} rolling={die.rolling} />}
     {inspection && <div className="lab-inspection-backdrop"><button type="button" className="lab-inspection-dismiss" aria-label="Close details and return to board" onClick={() => setInspection(null)} /><section className="lab-inspection-drawer" role="dialog" aria-modal="true" aria-labelledby="swarm-inspection-title"><span>{inspection.eyebrow}</span><h2 id="swarm-inspection-title">{inspection.title}</h2>{inspection.subtitle && <strong>{inspection.subtitle}</strong>}<p>{inspection.body}</p><button type="button" onClick={() => setInspection(null)}>Return to board</button></section></div>}
   </main>;
