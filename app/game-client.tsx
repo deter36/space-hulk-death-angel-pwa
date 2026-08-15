@@ -546,34 +546,33 @@ function MissionBoard({ session, inspection, error, diagnosticNotice, rollNotice
 
   return (
     <main className="mission-shell">
-      <header className="command-header">
-        <div className="mission-brand"><span>Death Angel</span><strong>Squad Command</strong></div>
-        <div className="round-block"><span>Round</span><strong>{String(state.round).padStart(2, "0")}</strong></div>
-        <dl className="mission-stats">
-          <div><dt>Phase</dt><dd>{formatPhase(state.phase)}</dd></div>
-          <div><dt>Marines</dt><dd>{livingMarines} / 6</dd></div>
-          <div><dt>Support</dt><dd><span className="support-dot">●</span> {state.supportSupply}</dd></div>
-        </dl>
-      </header>
+      <section className="lab-hud" aria-label="Mission status">
+        <div className="lab-hud-command">
+          <div className="lab-hud-brand"><span>Space Hulk:</span><strong>Death Angel</strong></div>
+          <div className="lab-hud-cycle"><span>Round</span><strong>{String(state.round).padStart(2, "0")}</strong></div>
+          <div className="lab-hud-phase"><span>Current phase</span><strong>{formatPhase(state.phase)}</strong></div>
+          <div className="live-hud-stats"><span>Marines <b>{livingMarines}/6</b></span><span>Support <b><i>●</i>{state.supportSupply}</b></span></div>
+        </div>
 
-      <section className="location-strip">
-        <div className="blip-counter"><span>Blips</span><strong>{leftBlips}</strong></div>
-        <TacticalButton type="button" className="inspectable location-button" onHold={() => onInspect(locationInspection)}>
-          <span><small>{currentLocation ? `Location · ${currentLocation.tier}` : "Setup location"}</small><strong>{currentLocation?.name ?? setupLocationName(componentDefinitionId(session, state.currentLocationInstanceId))}</strong><em>{locationInspection.body}</em></span>
-        </TacticalButton>
-        <div className="blip-counter"><span>Blips</span><strong>{rightBlips}</strong></div>
+        <div className="lab-location-frame">
+          <div className="lab-blip-counter lab-blip-left"><span>Blips</span><strong>{leftBlips}</strong><em>Left</em></div>
+          <TacticalButton type="button" className="lab-location-card inspectable" onHold={() => onInspect(locationInspection)}>
+            <span>Current location <b>{currentLocation?.tier ?? "Setup"}</b></span>
+            <h2>{currentLocation?.name ?? setupLocationName(componentDefinitionId(session, state.currentLocationInstanceId))}</h2>
+            <strong>{locationInspection.meta ?? "Location"}</strong><p>{locationInspection.body}</p><i className="lab-hud-rivet lab-rivet-one" /><i className="lab-hud-rivet lab-rivet-two" />
+          </TacticalButton>
+          <div className="lab-blip-counter lab-blip-right"><span>Blips</span><strong>{rightBlips}</strong><em>Right</em></div>
+        </div>
+
+        {lastEvent && lastEventId && <TacticalButton type="button" className="lab-event-card inspectable" onHold={() => onInspect(sourceInspection(session, lastEventId)!)}>
+          <div className="lab-event-heading"><span>{state.phase === "EVENT" ? "Event resolving" : "Current event"}{lastEvent.movement ? <i>{lastEvent.movement}</i> : null}</span><h3>{lastEvent.name}</h3></div>
+          <p>{lastEvent.sourceText}</p>
+          <div className="lab-event-data" aria-label="Event spawn and movement data">
+            {lastEvent.activations.map((activation, index) => <span key={`${activation.terrainColor}.${index}`}><i className={`lab-spawn-dot is-${activation.terrainColor.toLowerCase()}`} />{formatPhase(activation.severity)}</span>)}
+            {lastEvent.movementIcon && <span className="lab-icon-readout">{ICON_GLYPHS[lastEvent.movementIcon]} {ICON_LABELS[lastEvent.movementIcon]}</span>}
+          </div>
+        </TacticalButton>}
       </section>
-
-      {lastEvent && lastEventId && (
-        <TacticalButton type="button" className="event-ribbon inspectable" onHold={() => onInspect(sourceInspection(session, lastEventId)!)}>
-          <span className="event-kicker">{state.phase === "EVENT" ? "Event resolving" : "Current event"}</span>
-          <span className="event-title"><strong>{lastEvent.name}</strong><em>{lastEvent.sourceText}</em></span>
-          <span className="event-data">
-            {lastEvent.activations.map((activation, index) => <b key={`${activation.terrainColor}.${index}`}><i className={`spawn-dot spawn-${activation.terrainColor.toLowerCase()}`} />{formatPhase(activation.severity)}</b>)}
-            {lastEvent.movementIcon && <b>{ICON_GLYPHS[lastEvent.movementIcon]} {ICON_LABELS[lastEvent.movementIcon]}</b>}
-          </span>
-        </TacticalButton>
-      )}
 
       <LiveFormationBoard session={session} targetIds={targetIds} selectedMoveMarineId={selectedMoveMarineId} selectedStrategizeSwarmId={selectedStrategizeSwarmId} strategizeSwarmIds={strategizeSwarmSet} onChooseOption={onChooseOption} onInspect={onInspect} onSelectMoveMarine={(marineId) => { if (decision) setMoveSelection({ decisionId: decision.id, marineId }); }} onSelectStrategizeSwarm={(swarmId) => { if (decision) setStrategizeSelection({ decisionId: decision.id, swarmId }); }} />
 
