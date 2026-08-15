@@ -122,7 +122,7 @@ function Marine({ animation, deathStripUrl, dodgeStripUrl, marine, marineSpriteU
       {animation && animationUrl ? <span className={`lab-marine-sprite lab-marine-strip is-${animation}`} style={{ backgroundImage: `url(${animationUrl})` }} aria-hidden="true" /> : <img className="lab-marine-sprite" src={marineSpriteUrl} alt="" />}
       {details.ability && <span className="lab-ability-marker" title={details.ability}>★</span>}
       <span className="lab-marine-stats"><b title={`Range ${details.range}`}>R{details.range}</b>{supportTokens > 0 && <b title={`${supportTokens} support tokens`}><i />{supportTokens}</b>}</span>
-      <strong className="lab-marine-name">{name}</strong>{state === "targeted" && <span className="lab-target-reticle" aria-hidden="true">⌖</span>}{state === "unavailable" && <span className="lab-unavailable-mark" aria-hidden="true">×</span>}
+      <strong className="lab-marine-name">{name}</strong>{state === "unavailable" && <span className="lab-unavailable-mark" aria-hidden="true">×</span>}
       {moveChoice && <span className="lab-marine-move-choice"><b>⇅</b><em>{moveChoice.label}</em></span>}
     </button>
   );
