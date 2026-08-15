@@ -558,7 +558,7 @@ function MissionBoard({ session, inspection, error, diagnosticNotice, rollNotice
 
         {locationCollapsed ? (
           <TacticalButton type="button" className="lab-hud-tray lab-location-tray inspectable" onTap={() => setLocationCollapsed(false)} onHold={() => onInspect(locationInspection)} aria-label="Expand current location">
-            <span>Location</span><strong>{currentLocation?.name ?? setupLocationName(componentDefinitionId(session, state.currentLocationInstanceId))}</strong><em>⌄</em>
+            <span>Location</span><strong>{currentLocation?.name ?? setupLocationName(componentDefinitionId(session, state.currentLocationInstanceId))}</strong><b><i>Left</i>{leftBlips}</b><b><i>Right</i>{rightBlips}</b><em>⌄</em>
           </TacticalButton>
         ) : (
           <div className="lab-location-frame">
