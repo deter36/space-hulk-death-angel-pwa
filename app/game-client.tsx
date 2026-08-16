@@ -187,7 +187,11 @@ function setupLocationName(id: string): string {
 }
 
 function teamMarineNames(team: TeamColor): string {
-  return data.definitions.marines.filter((marine) => marine.team === team).map((marine) => marine.name.replace("Brother ", "")).join(" · ");
+  return data.definitions.marines.filter((marine) => marine.team === team).map((marine) => shortMarineName(marine.name)).join(" · ");
+}
+
+function shortMarineName(name: string): string {
+  return name.trim().split(/\s+/).at(-1) ?? name;
 }
 
 function sourceInspection(session: EngineSession, sourceId: string): Inspection | null {
@@ -199,7 +203,7 @@ function sourceInspection(session: EngineSession, sourceId: string): Inspection 
   const marine = data.definitions.marines.find((item) => item.id === definitionId);
   if (marine) {
     const namedAction = marine.namedActionAbility ? data.definitions.actions.find((item) => item.team === marine.team && item.name === marine.namedActionAbility) : null;
-    return { eyebrow: `${marine.team} combat team`, title: marine.name, body: namedAction ? `${namedAction.name}: ${namedAction.sourceText}` : "No named Action-card ability.", meta: `Attack range ${marine.attackRange}` };
+    return { eyebrow: `${marine.team} combat team`, title: shortMarineName(marine.name), body: namedAction ? `${namedAction.name}: ${namedAction.sourceText}` : "No named Action-card ability.", meta: `Attack range ${marine.attackRange}` };
   }
   const location = data.definitions.locations.find((item) => item.id === definitionId);
   if (location) return { eyebrow: `Location ${location.tier}`, title: location.name, body: location.sourceText ?? "No special Location ability.", meta: `Blips: ${location.leftBlips} left · ${location.rightBlips} right${location.abilityTiming ? ` · ${location.abilityTiming}` : ""}` };
@@ -210,7 +214,8 @@ function sourceInspection(session: EngineSession, sourceId: string): Inspection 
 
 function marineDisplayName(session: EngineSession, marineId: string | undefined): string {
   if (!marineId) return "The selected Space Marine";
-  return data.definitions.marines.find((marine) => marine.id === componentDefinitionId(session, marineId))?.name ?? "The selected Space Marine";
+  const marine = data.definitions.marines.find((item) => item.id === componentDefinitionId(session, marineId));
+  return marine ? shortMarineName(marine.name) : "The selected Space Marine";
 }
 
 function decisionInstruction(session: EngineSession, decision: PendingDecision, selectedMoveMarineId: string | null, selectedStrategizeSwarmId: string | null, scoutingPreviewVisible: boolean): string {
@@ -444,8 +449,10 @@ function CombatHandoff({ session, animation }: { session: EngineSession; animati
 
 function TeamActionPreview({ team, onClose }: { team: TeamColor; onClose: () => void }) {
   const cards = data.definitions.actions.filter((action) => action.team === team).sort((left, right) => left.initiative - right.initiative);
+  const marines = data.definitions.marines.filter((marine) => marine.team === team);
   return <div className="team-preview-backdrop" role="presentation"><button type="button" className="team-preview-dismiss" aria-label="Close squad action-card review" onClick={onClose} /><section className={`team-preview team-${team.toLowerCase()}`} role="dialog" aria-modal="true" aria-label={`${team} squad action cards`}>
     <header><span>{team} squad</span><h2>Action cards</h2><button type="button" onClick={onClose} aria-label="Close squad action-card review">×</button></header>
+    <ul className="team-preview-marines">{marines.map((marine) => <li key={marine.id}><strong>{marine.name}</strong><span>Range {marine.attackRange}</span></li>)}</ul>
     <div>{cards.map((card) => <article key={card.id}><small>{formatActionType(card.type)}</small><em className="action-initiative" aria-label={`Initiative ${card.initiative}`}>{card.initiative}</em><strong>{card.name}</strong><p>{card.sourceText}</p></article>)}</div>
   </section></div>;
 }
@@ -812,7 +819,7 @@ function labRows(session: EngineSession): LabFormationRow[] {
     const marine = state.marines[slot.marineInstanceId];
     return {
       left: flank(positionIndex, "LEFT"),
-      marine: { name: marineDefinition?.name ?? slot.marineInstanceId, team: marineDefinition?.team ?? "GREY", facing: marine?.facing ?? "LEFT", supportTokens: marine?.support ?? 0 },
+      marine: { name: marineDefinition ? shortMarineName(marineDefinition.name) : slot.marineInstanceId, team: marineDefinition?.team ?? "GREY", facing: marine?.facing ?? "LEFT", supportTokens: marine?.support ?? 0 },
       right: flank(positionIndex, "RIGHT"),
     };
   });
@@ -863,7 +870,7 @@ function LiveFormationBoard({ session, boardAnimation, targetIds, selectedMoveMa
     const animation = boardAnimation?.marineAnimation;
     if (!marineId || !animation) return {};
     const definition = data.definitions.marines.find((item) => item.id === componentDefinitionId(session, marineId));
-    return definition ? { [definition.name]: animation } : {};
+    return definition ? { [shortMarineName(definition.name)]: animation } : {};
   }, [boardAnimation, session]);
   const swarmAnimationStates = useMemo(() => {
     const swarmId = boardAnimation?.swarmId;
@@ -925,7 +932,7 @@ function FormationRow({ session, positionIndex, targetIds, selectedMoveMarineId,
       <TacticalButton type="button" className={`marine-card inspectable team-${marineDefinition.team.toLowerCase()} ${tapOption || moveMarineAvailable ? "legal-target" : ""} ${selectedMoveMarineId === slot.marineInstanceId ? "is-move-selected" : ""}`} onTap={tapOption ? () => onChooseOption(tapOption.id) : moveMarineAvailable ? () => onSelectMoveMarine(slot.marineInstanceId) : undefined} onHold={() => onInspect(sourceInspection(session, slot.marineInstanceId)!)}>
         <span className="marine-facing" aria-label={`Facing ${marine.facing}`}>{marine.facing === "LEFT" ? "◀" : "▶"}</span>
         {marineDefinition.namedActionAbility && <span className="marine-ability" aria-label={`Special ability: ${marineDefinition.namedActionAbility}`}>★</span>}
-        <strong>{marineDefinition.name}</strong>
+        <strong>{shortMarineName(marineDefinition.name)}</strong>
         <span className="marine-stats"><b>◎ Range {marineDefinition.attackRange}</b><i>{marine.support ? `${"●".repeat(marine.support)} support tokens` : "No support tokens"}</i></span>
       </TacticalButton>
       <Flank session={session} positionIndex={positionIndex} side="RIGHT" strategizeSwarmIds={selectableStrategizeSwarms} selectedStrategizeSwarmId={selectedStrategizeSwarmId} onSelectStrategizeSwarm={onSelectStrategizeSwarm} onInspect={onInspect} onChooseOption={onChooseOption} />
