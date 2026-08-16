@@ -735,10 +735,10 @@ function MissionBoard({ session, boardAnimation, inspection, error, resolutionNo
           <>
             <div className="lab-location-frame">
               <div className="lab-blip-counter lab-blip-left"><span>Blips</span><strong>{leftBlips}</strong><em>Left</em></div>
-              <TacticalButton type="button" className="lab-location-card inspectable" onTap={() => setMissionInfoCollapsed(true)} onHold={() => onInspect(locationInspection)}>
+              <TacticalButton type="button" className="lab-location-card inspectable" onHold={() => onInspect(locationInspection)}>
                 <span>Current location <b>{currentLocation?.tier ?? "Setup"}</b></span>
                 <h2>{currentLocation?.name ?? setupLocationName(componentDefinitionId(session, state.currentLocationInstanceId))}</h2>
-                <strong>{locationInspection.meta ?? "Location"}</strong><p>{locationInspection.body}</p><em className="lab-panel-collapse-cue">Tap to minimize ⌃</em><i className="lab-hud-rivet lab-rivet-one" /><i className="lab-hud-rivet lab-rivet-two" />
+                <strong>{locationInspection.meta ?? "Location"}</strong><p>{locationInspection.body}</p><i className="lab-hud-rivet lab-rivet-one" /><i className="lab-hud-rivet lab-rivet-two" />
               </TacticalButton>
               <div className="lab-blip-counter lab-blip-right"><span>Blips</span><strong>{rightBlips}</strong><em>Right</em></div>
             </div>
