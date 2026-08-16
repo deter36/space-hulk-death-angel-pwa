@@ -442,8 +442,17 @@ function CombatHandoff({ session, animation }: { session: EngineSession; animati
   return null;
 }
 
+function TeamActionPreview({ team, onClose }: { team: TeamColor; onClose: () => void }) {
+  const cards = data.definitions.actions.filter((action) => action.team === team).sort((left, right) => left.initiative - right.initiative);
+  return <div className="team-preview-backdrop" role="presentation"><button type="button" className="team-preview-dismiss" aria-label="Close squad action-card review" onClick={onClose} /><section className={`team-preview team-${team.toLowerCase()}`} role="dialog" aria-modal="true" aria-label={`${team} squad action cards`}>
+    <header><span>{team} squad</span><h2>Action cards</h2><button type="button" onClick={onClose} aria-label="Close squad action-card review">×</button></header>
+    <div>{cards.map((card) => <article key={card.id}><small>{formatActionType(card.type)}</small><strong>{card.name}</strong><b>Initiative {card.initiative}</b><p>{card.sourceText}</p></article>)}</div>
+  </section></div>;
+}
+
 export default function GameClient() {
   const [selectedTeams, setSelectedTeams] = useState<TeamColor[]>([]);
+  const [teamPreview, setTeamPreview] = useState<TeamColor | null>(null);
   const [session, setSession] = useState<EngineSession | null>(null);
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -505,6 +514,7 @@ export default function GameClient() {
       const seed = `${gameId}:${selectedTeams.join("-")}`;
       const prepared = prepareUiSession(newEngineSession({ gameId, seed, teamColors: selectedTeams as [TeamColor, TeamColor, TeamColor] }, "PLAYER"));
       setSession(prepared.session);
+      setTeamPreview(null);
       setInspection(null);
       setError(prepared.error);
     } catch (caught) {
@@ -575,6 +585,7 @@ export default function GameClient() {
   const startNewMission = () => {
     globalThis.localStorage?.removeItem(SAVED_GAME_KEY);
     setSession(null);
+    setTeamPreview(null);
     setInspection(null);
     setSelectedTeams([]);
     setError(null);
@@ -596,16 +607,17 @@ export default function GameClient() {
             {TEAM_COLORS.map((team) => {
               const selected = selectedTeams.includes(team);
               return (
-                <button key={team} type="button" className={`team-choice team-${team.toLowerCase()}`} aria-pressed={selected} onClick={() => toggleTeam(team)}>
+                <TacticalButton key={team} type="button" className={`team-choice team-${team.toLowerCase()}`} aria-pressed={selected} onTap={() => toggleTeam(team)} onHold={() => setTeamPreview(team)}>
                   <span className="team-sigil" aria-hidden="true">{selected ? "✓" : "+"}</span>
                   <span><strong>{team}</strong><small>{teamMarineNames(team)}</small></span>
-                </button>
+                </TacticalButton>
               );
             })}
           </div>
           <div className="setup-footer"><span>{selectedTeams.length} / 3 selected</span><button type="button" className="primary-command" disabled={selectedTeams.length !== 3} onClick={startGame}>Begin mission</button></div>
           {error && <p className="error-message" role="alert">{error}</p>}
         </section>
+        {teamPreview && <TeamActionPreview team={teamPreview} onClose={() => setTeamPreview(null)} />}
       </main>
     );
   }
