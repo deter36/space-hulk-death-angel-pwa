@@ -68,6 +68,7 @@ type BoardAnimation = {
   marineId?: string;
   swarmAnimation?: "attack" | "death";
   swarmId?: string;
+  movingSwarmCells?: Record<string, "up" | "down" | "flank">;
 };
 
 type PendingRollResolution = { session: EngineSession };
@@ -193,7 +194,6 @@ function resolutionNoticesFrom(session: EngineSession, startingAt: number): Reso
   const spawned = transitions.flatMap((transition) => transition.randomInputs).filter((input) => input.kind === "DRAW" && (input.sourceId === "blip.left" || input.sourceId === "blip.right")).length;
   const moved = transitions.filter((transition) => transition.type === "SWARM_MOVED" || transition.type === "SWARM_FLANKED").length;
   let spawnNoticeAdded = false;
-  let movementNoticeAdded = false;
   const notices: ResolutionNotice[] = [];
   for (const transition of transitions) {
     const id = `transition.${transition.seq}`;
@@ -218,10 +218,7 @@ function resolutionNoticesFrom(session: EngineSession, startingAt: number): Reso
       spawnNoticeAdded = true;
       const terrainIds = transitions.filter((candidate) => candidate.type === "EVENT_TERRAIN_SPAWN_RESOLVED" && candidate.sourceId).map((candidate) => candidate.sourceId!);
       notices.push({ id, eyebrow: "Spawn activations", title: `${spawned} Genestealer${spawned === 1 ? "" : "s"} spawned`, body: "Both Event activations are shown on the highlighted Terrain positions.", meta: resolvingEvent?.activations.map((activation) => `${formatPhase(activation.severity)} ${formatPhase(activation.terrainColor)}`).join(" · "), presentation: "board", terrainIds });
-    } else if (!movementNoticeAdded && (transition.type === "SWARM_MOVED" || transition.type === "SWARM_FLANKED") && moved > 0) {
-      movementNoticeAdded = true;
-      notices.push({ id, eyebrow: "Genestealer movement", title: `${moved} swarm${moved === 1 ? "" : "s"} moved`, body: "Every swarm matching the Event movement icon has advanced or flanked. Merged swarms are now represented on the formation." });
-    } else if (transition.type === "EVENT_MOVEMENT_RESOLVED") notices.push({ id, eyebrow: "Movement complete", title: "Event movement resolved", body: "Resolve any end-of-Event effects, then check whether the squad must travel." });
+    } else if (transition.type === "EVENT_MOVEMENT_RESOLVED" && moved === 0) notices.push({ id, eyebrow: "Genestealer movement", title: "No swarms move", body: "No Genestealer swarm matches this Event card's movement icon." });
     else if (transition.type === "TRAVEL_STARTED") notices.push({ id, eyebrow: "Travel", title: "Travel begins", body: "Resolve Door effects and any required travel choices before revealing the next Location." });
     else if (transition.type === "CARD_DRAWN" && transition.sourceId === "location.deck") {
       const locationId = transition.randomInputs.find((input) => input.kind === "DRAW")?.cardId;
@@ -231,6 +228,23 @@ function resolutionNoticesFrom(session: EngineSession, startingAt: number): Reso
     else if (transition.type === "ROUND_ENDED") notices.push({ id, eyebrow: "", title: `Round ${session.state.round}`, body: "Choose a new action card for each active squad." });
   }
   return notices;
+}
+
+function eventMovementAnimationFrom(session: EngineSession, resolved: EngineSession, startingAt: number): BoardAnimation | null {
+  const transitions = resolved.transitions.slice(startingAt);
+  const movementTransitions = transitions.filter((transition) => transition.type === "SWARM_MOVED" || transition.type === "SWARM_FLANKED");
+  if (!movementTransitions.length) return null;
+  const eventDraw = transitions.find((transition) => transition.type === "CARD_DRAWN" && transition.sourceId === "event.deck");
+  const eventId = eventDraw?.randomInputs.find((input) => input.kind === "DRAW")?.cardId ?? session.state.eventRuntime?.eventCardId;
+  const event = eventId ? findEvent(componentDefinitionId(session, eventId)) : null;
+  if (!event?.movementIcon) return null;
+  const movingSwarmCells: Record<string, "up" | "down" | "flank"> = {};
+  for (const swarm of Object.values(session.state.swarms)) {
+    const hasMatchingIcon = swarm.cardIds.some((cardId) => session.state.genestealers[cardId]?.icon === event.movementIcon);
+    if (!hasMatchingIcon) continue;
+    movingSwarmCells[cellKey(swarm.positionIndex, swarm.side)] = event.movement === "FLANK" ? "flank" : swarm.side === "LEFT" ? "down" : "up";
+  }
+  return Object.keys(movingSwarmCells).length ? { movingSwarmCells } : null;
 }
 
 function pendingTargetIds(decision: PendingDecision | null): Set<string> {
@@ -439,6 +453,10 @@ function LiveActionSelection({ session, onChooseOption }: { session: EngineSessi
 }
 
 function CombatHandoff({ session, animation }: { session: EngineSession; animation: BoardAnimation | null }) {
+  if (animation?.movingSwarmCells) {
+    const count = Object.keys(animation.movingSwarmCells).length;
+    return <aside className="combat-handoff is-genestealer" aria-live="assertive"><span>Genestealer movement</span><strong>{count} swarm{count === 1 ? "" : "s"} {count === 1 ? "moves" : "move"} with this Event</strong></aside>;
+  }
   if (!animation?.swarmId) return null;
   const swarm = session.state.swarms[animation.swarmId];
   if (!swarm) return null;
@@ -545,6 +563,7 @@ export default function GameClient() {
       const prepared = prepareUiSession(submitSessionDecision(session, decision.id, optionId));
       const selectedOption = decision.legalOptions.find((option) => option.id === optionId);
       const notices = rollNoticesFrom(prepared.session, session.transitions.length, session.state, selectedOption);
+      const movementAnimation = eventMovementAnimationFrom(session, prepared.session, session.transitions.length);
       setResolutionNotices(resolutionNoticesFrom(prepared.session, session.transitions.length));
       if (decision.type === "ATTACK_SLAY") {
         const marineId = session.state.actionRuntime?.data.attackerId;
@@ -590,6 +609,8 @@ export default function GameClient() {
             : null;
         if (runtime && outcome) {
           playBoardAnimation({ marineId: runtime.defenderMarineId, marineAnimation: outcome }, 1400, () => setSession(prepared.session));
+        } else if (movementAnimation) {
+          playBoardAnimation(movementAnimation, 1150, () => setSession(prepared.session));
         } else setSession(prepared.session);
       }
       setInspection(null);
@@ -703,11 +724,21 @@ export default function GameClient() {
       return;
     }
     const duration = animation?.marineAnimation?.startsWith("gunJam") ? 1800 : 1400;
+    const movementAnimation = eventMovementAnimationFrom(resolve.session, finalSession, resolve.session.transitions.length);
     if (animation) {
       // The die result has been acknowledged. Remove its modal before the
       // consequence plays so the animation is the only thing in focus.
       setRollNotices([]);
       playBoardAnimation(animation, duration, () => {
+        setSession(finalSession);
+        setPendingRollResolution(null);
+      });
+    } else if (movementAnimation) {
+      // The roll is complete. Keep the pre-movement formation visible while
+      // the Event movement crosses it, then reveal the resolved board.
+      setSession(resolve.session);
+      setRollNotices([]);
+      playBoardAnimation(movementAnimation, 1150, () => {
         setSession(finalSession);
         setPendingRollResolution(null);
       });
@@ -951,7 +982,7 @@ function LiveFormationBoard({ session, boardAnimation, highlightedTerrainIds, ta
     if (option) onChooseOption(option.id);
   };
   const liveStyle = { "--lab-scale": "1", "--lab-viewport": "1180px" } as CSSProperties;
-  return <section className="live-sprite-board" style={liveStyle}><FormationBoard rows={rows} marineSpriteUrl="prototype-art/marine-idle.gif" marineDeathStripUrl="game-art/marine/death.png" marineDodgeStripUrl="game-art/marine/dodge.png" marineFireStripUrls={{ straight: "game-art/marine/fire-straight.png", up: "game-art/marine/fire-up.png", down: "game-art/marine/fire-down.png" }} marineJamStripUrls={{ straight: "game-art/marine/gun-jam-straight.png", up: "game-art/marine/gun-jam-up.png", down: "game-art/marine/gun-jam-down.png" }} alienSpriteUrl="prototype-art/alien-attack.gif" alienAttackStripUrl="game-art/genestealer/attack.png" alienDeathStripUrl="game-art/genestealer/death.png" alienIdleStripUrl="game-art/genestealer/idle.png" broodlordSpriteUrl="game-art/broodlord/idle.png" broodlordAttackStripUrl="game-art/broodlord/attack.png" broodlordDeathStripUrl="game-art/broodlord/death.png" marineAnimationStates={marineAnimationStates} swarmAnimationStates={swarmAnimationStates} marineStates={marineStates} marineMoveChoices={marineMoveChoices} overlayChoices={overlayChoices} swarmStates={swarmStates} terrainStates={terrainStates} selectedMarine={null} onSelectMarine={chooseMarine} onSelectSwarm={chooseSwarm} onSelectTerrain={chooseTerrain} onOverlayChoice={(choice) => chooseCellOption(choice.row, choice.side)} onMarineMoveChoice={(choice) => { const option = decision?.legalOptions.find((item) => item.payload.marineId === selectedMoveMarineId && item.payload.to === choice.row); if (option) onChooseOption(option.id); }} onInspect={(details) => onInspect({ eyebrow: details.eyebrow, title: details.title, body: details.body, meta: details.subtitle })} /></section>;
+  return <section className="live-sprite-board" style={liveStyle}><FormationBoard rows={rows} marineSpriteUrl="prototype-art/marine-idle.gif" marineDeathStripUrl="game-art/marine/death.png" marineDodgeStripUrl="game-art/marine/dodge.png" marineFireStripUrls={{ straight: "game-art/marine/fire-straight.png", up: "game-art/marine/fire-up.png", down: "game-art/marine/fire-down.png" }} marineJamStripUrls={{ straight: "game-art/marine/gun-jam-straight.png", up: "game-art/marine/gun-jam-up.png", down: "game-art/marine/gun-jam-down.png" }} alienSpriteUrl="prototype-art/alien-attack.gif" alienAttackStripUrl="game-art/genestealer/attack.png" alienDeathStripUrl="game-art/genestealer/death.png" alienIdleStripUrl="game-art/genestealer/idle.png" broodlordSpriteUrl="game-art/broodlord/idle.png" broodlordAttackStripUrl="game-art/broodlord/attack.png" broodlordDeathStripUrl="game-art/broodlord/death.png" movingSwarmCells={boardAnimation?.movingSwarmCells} marineAnimationStates={marineAnimationStates} swarmAnimationStates={swarmAnimationStates} marineStates={marineStates} marineMoveChoices={marineMoveChoices} overlayChoices={overlayChoices} swarmStates={swarmStates} terrainStates={terrainStates} selectedMarine={null} onSelectMarine={chooseMarine} onSelectSwarm={chooseSwarm} onSelectTerrain={chooseTerrain} onOverlayChoice={(choice) => chooseCellOption(choice.row, choice.side)} onMarineMoveChoice={(choice) => { const option = decision?.legalOptions.find((item) => item.payload.marineId === selectedMoveMarineId && item.payload.to === choice.row); if (option) onChooseOption(option.id); }} onInspect={(details) => onInspect({ eyebrow: details.eyebrow, title: details.title, body: details.body, meta: details.subtitle })} /></section>;
 }
 
 // Kept as a reference while the remaining card-level target choices are moved to the sprite board.
