@@ -208,6 +208,31 @@ function sourceInspection(session: EngineSession, sourceId: string): Inspection 
   return null;
 }
 
+function marineDisplayName(session: EngineSession, marineId: string | undefined): string {
+  if (!marineId) return "The selected Space Marine";
+  return data.definitions.marines.find((marine) => marine.id === componentDefinitionId(session, marineId))?.name ?? "The selected Space Marine";
+}
+
+function decisionInstruction(session: EngineSession, decision: PendingDecision, selectedMoveMarineId: string | null, selectedStrategizeSwarmId: string | null, scoutingPreviewVisible: boolean): string {
+  if (decision.promptKey === "event.rescue") return "Choose a slain Marine below. They will return at the bottom of the formation facing right.";
+  if (decision.type === "FORWARD_SCOUTING_ORDER" && !scoutingPreviewVisible) return "The event choice is minimized while you inspect the board. Return to Forward Scouting when ready.";
+  if (decision.type === "ATTACK_MARINE") return "Choose the highlighted Marine who will make this attack.";
+  if (decision.type === "ATTACK_TARGET") {
+    const marineId = decision.legalOptions[0]?.payload.marineId;
+    return `${marineDisplayName(session, typeof marineId === "string" ? marineId : undefined)} is attacking. Choose the highlighted Genestealer swarm.`;
+  }
+  if (decision.type === "ACTIVATE_TERRAIN") return "Choose the highlighted Terrain to activate with this squad's Move + Activate action.";
+  if (decision.type === "PLACE_SUPPORT") return "Choose the highlighted Marine or Terrain that will receive the Support Token.";
+  if (decision.type === "COUNTER_ATTACK_SLAY") return "Counter Attack succeeded. Choose the attacking Genestealer to slay.";
+  if (decision.type === "STRATEGIZE" && !selectedStrategizeSwarmId) return "Strategize: choose a highlighted swarm to move.";
+  if (decision.type === "STRATEGIZE") return "Choose the highlighted legal destination, or choose another swarm below.";
+  if (decision.type === "MOVE_MARINE" && !selectedMoveMarineId) return "Choose the highlighted Marine to move.";
+  if (decision.type === "MOVE_MARINE") return "Choose the highlighted destination for that Marine, or select another Marine.";
+  if (decision.type === "SET_FACING") return "Choose the left or right tile beside the highlighted Marine—even to keep its current facing.";
+  if (decision.legalOptions.some((option) => isDirectInputOption(decision, option))) return "Tap the highlighted board target. Hold any object briefly to read its rules.";
+  return "Choose an option below. The formation remains visible while you decide.";
+}
+
 function pendingTargetIds(decision: PendingDecision | null): Set<string> {
   const targets = new Set<string>();
   if (!decision) return targets;
@@ -279,7 +304,7 @@ function rollNoticesFrom(session: EngineSession, startingAt: number, priorState:
           ? "dodge"
           : null;
       const postRollAnimation: BoardAnimation | null = marineAttack && marineId
-        ? { marineId, marineAnimation: `${hit ? "fire" : "gunJam"}-${attackTrajectory(priorState, marineId, targetSwarmId)}` as BoardAnimation["marineAnimation"], ...(hit ? { swarmId: targetSwarmId, swarmAnimation: "death" as const } : {}) }
+        ? { marineId, swarmId: targetSwarmId, marineAnimation: `${hit ? "fire" : "gunJam"}-${attackTrajectory(priorState, marineId, targetSwarmId)}` as BoardAnimation["marineAnimation"], ...(hit ? { swarmAnimation: "death" as const } : {}) }
         : defense && marineId && defenseOutcome
           ? { marineId, marineAnimation: defenseOutcome }
           : null;
@@ -379,7 +404,7 @@ function LiveActionSelection({ session, onChooseOption }: { session: EngineSessi
               </button>;
             })}
           </div>
-          <button type="button" className="live-confirm-action" disabled={!pendingOption} onClick={() => { if (pendingOption) onChooseOption(pendingOption.id); }}>Select action</button>
+          <button type="button" className="live-confirm-action" disabled={!pendingOption} onClick={() => { if (pendingOption) { setExpandedTeam(null); setPendingActionId(null); onChooseOption(pendingOption.id); } }}>Select action</button>
         </div>
       )}
       <div className="live-action-dock-heading"><span>{choosingActions ? "Select squad actions" : selectionComplete ? "Initiative order" : "Combat team cards"}</span><b>{choosingActions ? `${selectedCards.length}/${state.activeTeams.length}` : selectionComplete ? `${Math.min(activeIndex + 1, orderedCards.length)}/${orderedCards.length}` : ""}</b></div>
@@ -400,6 +425,21 @@ function LiveActionSelection({ session, onChooseOption }: { session: EngineSessi
       </div>
     </section>
   );
+}
+
+function CombatHandoff({ session, animation }: { session: EngineSession; animation: BoardAnimation | null }) {
+  if (!animation?.swarmId) return null;
+  const swarm = session.state.swarms[animation.swarmId];
+  if (!swarm) return null;
+  const formationNumber = swarm.positionIndex + 1;
+  const targetMarineId = session.state.formation[swarm.positionIndex]?.marineInstanceId;
+  if (animation.swarmAnimation === "attack") {
+    return <aside className="combat-handoff is-genestealer" aria-live="assertive"><span>Genestealer attack</span><strong>Formation {formationNumber} · {swarm.side.toLowerCase()} flank → {marineDisplayName(session, targetMarineId)}</strong></aside>;
+  }
+  if (animation.marineAnimation?.startsWith("fire") || animation.marineAnimation?.startsWith("gunJam")) {
+    return <aside className="combat-handoff is-marine" aria-live="assertive"><span>Space Marine attack</span><strong>{marineDisplayName(session, animation.marineId)} → Genestealer swarm at formation {formationNumber} · {swarm.side.toLowerCase()} flank</strong></aside>;
+  }
+  return null;
 }
 
 export default function GameClient() {
@@ -703,6 +743,7 @@ function MissionBoard({ session, boardAnimation, inspection, error, rollNotice, 
         </TacticalButton>}
       </section>
 
+      <CombatHandoff session={session} animation={boardAnimation} />
       <LiveFormationBoard session={session} boardAnimation={boardAnimation} targetIds={targetIds} selectedMoveMarineId={selectedMoveMarineId} selectedStrategizeSwarmId={selectedStrategizeSwarmId} strategizeSwarmIds={strategizeSwarmSet} onChooseOption={onChooseOption} onInspect={onInspect} onSelectMoveMarine={(marineId) => { if (decision) setMoveSelection({ decisionId: decision.id, marineId }); }} onSelectStrategizeSwarm={(swarmId) => { if (decision) setStrategizeSelection({ decisionId: decision.id, swarmId }); }} />
 
       <LiveActionSelection session={session} onChooseOption={onChooseOption} />
@@ -714,7 +755,7 @@ function MissionBoard({ session, boardAnimation, inspection, error, rollNotice, 
             <div className="decision-heading"><span>{formatPhase(decision.type)}</span></div>
             {decisionAction && <div className="decision-source"><i />{decisionAction.team} · {decisionAction.name}</div>}
             {decisionRules && <div className="decision-rules"><strong>Artefact ability</strong><span>{decisionRules}</span></div>}
-            <p>{decision.promptKey === "event.rescue" ? "Choose a slain Marine below. They will return at the bottom of the formation facing right." : decision.type === "FORWARD_SCOUTING_ORDER" && !scoutingPreviewVisible ? "The event choice is minimized while you inspect the board. Return to Forward Scouting when ready." : decision.type === "STRATEGIZE" && !selectedStrategizeSwarmId ? "Choose a highlighted swarm to move." : decision.type === "STRATEGIZE" ? "Choose a highlighted legal destination, or choose another swarm below." : decision.type === "MOVE_MARINE" && !selectedMoveMarineId ? "Choose a highlighted Marine to move." : decision.type === "MOVE_MARINE" ? "Choose the highlighted destination for that Marine, or select another Marine." : decision.type === "SET_FACING" ? "Choose the left or right tile beside the highlighted Marine—even to keep its current facing." : decision.legalOptions.some((option) => isDirectInputOption(decision, option)) ? "Tap an available card or highlighted board target. Hold any object briefly to read its rules." : "Choose an option below. The formation remains visible while you decide."}</p>
+            <p>{decisionInstruction(session, decision, selectedMoveMarineId, selectedStrategizeSwarmId, scoutingPreviewVisible)}</p>
             {decision.type === "STRATEGIZE" && selectedStrategizeSwarmId && <button type="button" className="strategize-reset" onClick={() => setStrategizeSelection(null)}>Choose another swarm</button>}
             {decision.type !== "FORWARD_SCOUTING_ORDER" && decision.type !== "ATTACK_SLAY" && dockOptions.length > 0 && <div className="dock-options">{dockOptions.map((option) => { const presentation = presentedDecisionOption(decision, option); return <button key={option.id} type="button" onClick={() => onChooseOption(option.id)}><strong>{presentation.label}</strong>{presentation.preview && <small>{presentation.preview}</small>}</button>; })}</div>}
           </div>
