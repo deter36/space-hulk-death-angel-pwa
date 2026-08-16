@@ -18,9 +18,12 @@ export type LabFlank = {
 };
 
 export type LabMarine = {
+  ability?: string;
+  abilityText?: string;
   facing: Side;
   interaction?: "neutral" | "selectable" | "unavailable" | "targeted";
   name: string;
+  range?: number;
   supportTokens?: number;
   team: TeamColor;
 };

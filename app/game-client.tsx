@@ -806,10 +806,11 @@ function labRows(session: EngineSession): LabFormationRow[] {
   };
   return state.formation.map((slot, positionIndex) => {
     const marineDefinition = data.definitions.marines.find((item) => item.id === componentDefinitionId(session, slot.marineInstanceId));
+    const namedAction = marineDefinition?.namedActionAbility ? data.definitions.actions.find((item) => item.team === marineDefinition.team && item.name === marineDefinition.namedActionAbility) : undefined;
     const marine = state.marines[slot.marineInstanceId];
     return {
       left: flank(positionIndex, "LEFT"),
-      marine: { name: marineDefinition ? shortMarineName(marineDefinition.name) : slot.marineInstanceId, team: marineDefinition?.team ?? "GREY", facing: marine?.facing ?? "LEFT", supportTokens: marine?.support ?? 0 },
+      marine: { name: marineDefinition ? shortMarineName(marineDefinition.name) : slot.marineInstanceId, team: marineDefinition?.team ?? "GREY", facing: marine?.facing ?? "LEFT", range: marineDefinition?.attackRange, ability: namedAction?.name, abilityText: namedAction?.sourceText, supportTokens: marine?.support ?? 0 },
       right: flank(positionIndex, "RIGHT"),
     };
   });
