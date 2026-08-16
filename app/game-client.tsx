@@ -201,6 +201,11 @@ function resolutionNoticesFrom(session: EngineSession, startingAt: number): Reso
       const actionDefinition = data.definitions.actions.find((item) => item.id === componentDefinitionId(session, transition.sourceId!));
       if (action) notices.push({ id, eyebrow: action.eyebrow, title: action.title, body: action.body, meta: action.meta, team: actionDefinition?.team });
     }
+    else if (transition.type === "ATTACK_SEQUENCE_FINISHED" && transition.sourceId) {
+      const action = data.definitions.actions.find((item) => item.id === componentDefinitionId(session, transition.sourceId!));
+      const hasAttacker = transitions.some((candidate) => candidate.sourceId === transition.sourceId && candidate.type === "ATTACKER_SELECTED");
+      if (action?.type === "ATTACK" && !hasAttacker) notices.push({ id, eyebrow: `${action.team} squad · Attack`, title: action.name, body: "No eligible Genestealers are in range and facing for this squad. The attack action ends without a roll.", team: action.team });
+    }
     else if (transition.type === "CARD_DRAWN" && transition.sourceId === "event.deck") {
       const eventId = transition.randomInputs.find((input) => input.kind === "DRAW")?.cardId;
       const event = eventId ? findEvent(eventId) : null;
@@ -396,7 +401,7 @@ function LiveActionSelection({ session, onChooseOption }: { session: EngineSessi
   return (
     <section className={`live-action-dock ${expandedTeam ? "is-expanded" : ""}`} aria-label="Combat team action cards">
       {expandedTeam && choosingActions && (
-        <div className={`live-expanded-hand lab-team-${expandedTeam.toLowerCase()}`}>
+        <><button type="button" className="live-hand-dismiss" aria-label="Close action hand" onClick={() => setExpandedTeam(null)} /><div className={`live-expanded-hand lab-team-${expandedTeam.toLowerCase()}`}>
           <header><span>{expandedTeam} squad</span><strong>Choose an action</strong><button type="button" onClick={() => setExpandedTeam(null)} aria-label="Close action hand">×</button></header>
           <div className="live-full-action-grid">
             {expandedCards.map((card) => {
@@ -408,9 +413,8 @@ function LiveActionSelection({ session, onChooseOption }: { session: EngineSessi
             })}
           </div>
           <button type="button" className="live-confirm-action" disabled={!pendingOption} onClick={() => { if (pendingOption) { setExpandedTeam(null); setPendingActionId(null); onChooseOption(pendingOption.id); } }}>Select action</button>
-        </div>
+        </div></>
       )}
-      <div className="live-action-dock-heading"><span>{choosingActions ? "Select squad actions" : selectionComplete ? "Initiative order" : "Combat team cards"}</span><b>{choosingActions ? `${selectedCards.length}/${state.activeTeams.length}` : selectionComplete ? `${Math.min(activeIndex + 1, orderedCards.length)}/${orderedCards.length}` : ""}</b></div>
       <div className={`live-action-hands ${selectionComplete && !choosingActions ? "is-initiative-order" : ""}`}>
         {displayTeams.map((team, orderIndex) => {
           const cards = cardsByTeam[team] ?? [];

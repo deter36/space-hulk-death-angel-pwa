@@ -18,7 +18,7 @@ export function movementDecision(state: GameState, actionId: string): PendingDec
   const remaining = state.teams[action.team].marineInstanceIds.filter((id) => state.marines[id] && !runtime.movedMarineIds.includes(id));
   if (!remaining.length) return null;
   const reorganize = action.handlerId === "action.reorganize";
-  const options: PendingDecision["legalOptions"] = [{ id: "finish", label: "Finish movement", payload: { finish: true }, canonicalEffectPreview: null }];
+  const options: PendingDecision["legalOptions"] = [{ id: "finish", label: "End movement", payload: { finish: true }, canonicalEffectPreview: null }];
   for (const marineId of remaining) {
     const from = formationIndex(state, marineId);
     const destinations = reorganize
