@@ -17,7 +17,7 @@ import {
 } from "@/src/engine";
 import type { GenestealerIcon, Side, TeamColor } from "@/src/data/types";
 import { EngineSessionStallError, settleEngineSession } from "@/src/ui-adapter/session-settler";
-import { COMBAT_DIE_FACES, combatDieFace, type CombatDieValue } from "@/src/ui-adapter/combat-die";
+import { combatDieFace } from "@/src/ui-adapter/combat-die";
 import { isOffBoardMarineOption, presentedDecisionOption } from "@/src/ui-adapter/decision-presentation";
 import { strategizeDestinationOption, strategizeSwarmIds } from "@/src/ui-adapter/strategize-selection";
 import FormationBoard, { cellKey, type LabOverlayChoice, type LabTargetState } from "@/src/ui-lab/formation-board";
@@ -74,23 +74,6 @@ function isRollFollowUp(decision: PendingDecision | null): decision is PendingDe
   return Boolean(decision && ["ATTACK_REROLL", "DEFENSE_REROLL", "EVENT_ATTACK_REROLL"].includes(decision.type));
 }
 
-type RollLanding = {
-  bounceX: string;
-  bounceY: string;
-  midOneX: string;
-  midOneY: string;
-  midTwoX: string;
-  midTwoY: string;
-  spinBounce: string;
-  spinMidOne: string;
-  spinMidTwo: string;
-  spinStart: string;
-  startX: string;
-  startY: string;
-  x: number;
-  y: number;
-};
-
 const data = dataJson as unknown as GameDatabase;
 const TEAM_COLORS: TeamColor[] = ["GREEN", "YELLOW", "BLUE", "RED", "PURPLE", "GREY"];
 const ICON_GLYPHS: Record<GenestealerIcon, string> = { HEAD: "◉", TAIL: "⌁", CLAW: "ϟ", TONGUE: "⌇" };
@@ -132,45 +115,6 @@ function formatPhase(phase: string): string {
 function formatActionType(type: string): string {
   if (type === "MOVE_ACTIVATE") return "Move + Activate";
   return formatPhase(type);
-}
-
-function rollLanding(id: string): RollLanding {
-  let hash = 2166136261;
-  for (const character of id) {
-    hash ^= character.charCodeAt(0);
-    hash = Math.imul(hash, 16777619);
-  }
-  let randomState = hash >>> 0;
-  const random = () => {
-    randomState += 0x6d2b79f5;
-    let value = randomState;
-    value = Math.imul(value ^ (value >>> 15), value | 1);
-    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
-    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
-  };
-  const x = Math.round(14 + random() * 72);
-  const y = Math.round(18 + random() * 57);
-  const edge = Math.floor(random() * 4);
-  const startX = edge === 0 ? `calc(-${x}vw - 140px)` : edge === 1 ? `calc(${100 - x}vw + 140px)` : `${Math.round((random() - .5) * 86)}vw`;
-  const startY = edge === 2 ? `calc(-${y}vh - 140px)` : edge === 3 ? `calc(${100 - y}vh + 140px)` : `${Math.round((random() - .5) * 70)}vh`;
-  const spinDirection = random() > .5 ? 1 : -1;
-  const spin = spinDirection * Math.round(680 + random() * 440);
-  return {
-    x,
-    y,
-    startX,
-    startY,
-    midOneX: `${Math.round((random() - .5) * 66)}vw`,
-    midOneY: `${Math.round((random() - .5) * 52)}vh`,
-    midTwoX: `${Math.round((random() - .5) * 34)}vw`,
-    midTwoY: `${Math.round(-8 - random() * 17)}vh`,
-    bounceX: `${Math.round((random() - .5) * 13)}vw`,
-    bounceY: `${Math.round(4 + random() * 8)}vh`,
-    spinStart: `${spin}deg`,
-    spinMidOne: `${Math.round(spin * .62)}deg`,
-    spinMidTwo: `${Math.round(spin * .29)}deg`,
-    spinBounce: `${Math.round(spin * .08)}deg`,
-  };
 }
 
 function componentDefinitionId(session: EngineSession, instanceId: string): string {
@@ -1065,73 +1009,37 @@ function ForwardScoutingPreview({ session, decision, onChooseOption, onViewBoard
 
 function RollResult({ decision, notice, onProceed }: { decision: PendingDecision | null; notice: RollNotice; onProceed: (optionId?: string) => void }) {
   const finalFace = combatDieFace(notice.value);
-  const landing = useMemo(() => rollLanding(notice.id), [notice.id]);
-  const landingStyle = {
-    "--die-x": `${landing.x}%`,
-    "--die-y": `${landing.y}%`,
-    "--die-start-x": landing.startX,
-    "--die-start-y": landing.startY,
-    "--die-mid-one-x": landing.midOneX,
-    "--die-mid-one-y": landing.midOneY,
-    "--die-mid-two-x": landing.midTwoX,
-    "--die-mid-two-y": landing.midTwoY,
-    "--die-bounce-x": landing.bounceX,
-    "--die-bounce-y": landing.bounceY,
-    "--die-spin-start": landing.spinStart,
-    "--die-spin-mid-one": landing.spinMidOne,
-    "--die-spin-mid-two": landing.spinMidTwo,
-    "--die-spin-bounce": landing.spinBounce,
-  } as CSSProperties;
   const reduceMotion = useMemo(() => globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false, []);
-  const rollInterval = useRef<ReturnType<typeof globalThis.setInterval> | null>(null);
   const settleTimer = useRef<ReturnType<typeof globalThis.setTimeout> | null>(null);
   const [rolling, setRolling] = useState(!reduceMotion);
-  const [displayValue, setDisplayValue] = useState<CombatDieValue>(reduceMotion ? finalFace.value : 0);
-  const displayFace = combatDieFace(displayValue);
 
-  const clearRollTimers = () => {
-    if (rollInterval.current !== null) globalThis.clearInterval(rollInterval.current);
+  const clearRollTimer = () => {
     if (settleTimer.current !== null) globalThis.clearTimeout(settleTimer.current);
-    rollInterval.current = null;
     settleTimer.current = null;
   };
 
   const settleRoll = () => {
-    clearRollTimers();
-    setDisplayValue(finalFace.value);
+    clearRollTimer();
     setRolling(false);
   };
 
   useEffect(() => {
-    const clearTimers = () => {
-      if (rollInterval.current !== null) globalThis.clearInterval(rollInterval.current);
-      if (settleTimer.current !== null) globalThis.clearTimeout(settleTimer.current);
-      rollInterval.current = null;
-      settleTimer.current = null;
-    };
-    if (reduceMotion) return clearTimers;
-
-    let frame = 0;
-    rollInterval.current = globalThis.setInterval(() => {
-      frame = (frame + 1) % COMBAT_DIE_FACES.length;
-      setDisplayValue(COMBAT_DIE_FACES[frame].value);
-    }, 110);
+    if (reduceMotion) return clearRollTimer;
     settleTimer.current = globalThis.setTimeout(() => {
-      clearTimers();
-      setDisplayValue(finalFace.value);
+      clearRollTimer();
       setRolling(false);
     }, 1680);
-    return clearTimers;
-  }, [finalFace.value, reduceMotion]);
+    return clearRollTimer;
+  }, [notice.id, reduceMotion]);
 
   return (
     <div className="roll-backdrop" role="presentation">
       <section className={`roll-result ${rolling ? "is-rolling" : "is-settled"}`} role="dialog" aria-modal="true" aria-labelledby="roll-title">
         <span>{notice.reroll ? "Die rerolled" : "Die rolled"}</span>
         <h2 id="roll-title">{notice.title}</h2>
-        <div className="roll-stage" style={landingStyle} aria-live="polite">
-          <div className="roll-face" data-rolling={rolling || undefined} data-skull={displayFace.skull || undefined} aria-label={rolling ? "Combat die rolling" : `Combat die result ${finalFace.value}${finalFace.skull ? ", skull" : ""}`}>
-            <strong>{displayFace.value}</strong>{displayFace.skull && <i aria-hidden="true">☠︎</i>}
+        <div className="roll-stage" aria-live="polite">
+          <div className="roll-face" data-rolling={rolling || undefined} data-skull={!rolling && finalFace.skull || undefined} aria-label={rolling ? "Combat die rolling" : `Combat die result ${finalFace.value}${finalFace.skull ? ", skull" : ""}`}>
+            <strong>{rolling ? "?" : finalFace.value}</strong>{!rolling && finalFace.skull && <i aria-hidden="true">☠︎</i>}
           </div>
         </div>
         <p>{rolling ? "Rolling…" : finalFace.skull ? `${finalFace.value} · Skull result` : `Result: ${finalFace.value}`}</p>
