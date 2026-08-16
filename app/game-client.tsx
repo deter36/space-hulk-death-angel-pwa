@@ -70,6 +70,10 @@ type BoardAnimation = {
 
 type PendingRollResolution = { session: EngineSession };
 
+function isRollFollowUp(decision: PendingDecision | null): decision is PendingDecision {
+  return Boolean(decision && ["ATTACK_REROLL", "DEFENSE_REROLL", "EVENT_ATTACK_REROLL"].includes(decision.type));
+}
+
 type RollLanding = {
   bounceX: string;
   bounceY: string;
@@ -565,28 +569,56 @@ export default function GameClient() {
     );
   }
 
-  const proceedRoll = () => {
+  const proceedRoll = (optionId?: string) => {
     const notice = rollNotices[0];
     const resolve = pendingRollResolution;
     if (!notice || !resolve) { setRollNotices((current) => current.slice(1)); return; }
-    const animation = notice.postRollAnimation;
+    const rollDecision = resolve.session.state.pendingDecision;
+    let finalSession = resolve.session;
+    let animation = notice.postRollAnimation;
+    try {
+      if (optionId && isRollFollowUp(rollDecision)) {
+        const prepared = prepareUiSession(submitSessionDecision(resolve.session, rollDecision.id, optionId));
+        const selectedOption = rollDecision.legalOptions.find((option) => option.id === optionId);
+        const rerollNotices = rollNoticesFrom(prepared.session, resolve.session.transitions.length, resolve.session.state, selectedOption);
+        if (rerollNotices.length) {
+          setPendingRollResolution({ session: prepared.session });
+          setRollNotices(rerollNotices);
+          setError(prepared.error);
+          return;
+        }
+        finalSession = prepared.session;
+        if (!animation && resolve.session.state.genestealerAttackRuntime) {
+          const runtime = resolve.session.state.genestealerAttackRuntime;
+          const transitions = prepared.session.transitions.slice(resolve.session.transitions.length);
+          const outcome = transitions.some((transition) => transition.type === "MARINE_SLAIN") ? "death"
+            : transitions.some((transition) => transition.type === "GENESTEALER_ATTACK_MISSED") ? "dodge" : null;
+          if (outcome) animation = { marineId: runtime.defenderMarineId, marineAnimation: outcome };
+        }
+        setError(prepared.error);
+      }
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "That die choice could not be resolved.");
+      return;
+    }
     const duration = animation?.marineAnimation?.startsWith("gunJam") ? 1800 : 1400;
     if (animation) {
       // The die result has been acknowledged. Remove its modal before the
       // consequence plays so the animation is the only thing in focus.
       setRollNotices([]);
       playBoardAnimation(animation, duration, () => {
-        setSession(resolve.session);
+        setSession(finalSession);
         setPendingRollResolution(null);
       });
     } else {
-      setSession(resolve.session);
+      setSession(finalSession);
       setPendingRollResolution(null);
       setRollNotices([]);
     }
   };
 
-  return <MissionBoard session={session} boardAnimation={boardAnimation} inspection={inspection} error={error} rollNotice={rollNotices[0] ?? null} onDismissRoll={proceedRoll} onInspect={setInspection} onChooseOption={resolveDecision} onUndo={undoOne} onDownloadSave={downloadSave} onDismissInspection={() => setInspection(null)} onNewMission={startNewMission} />;
+  const rollDecision = isRollFollowUp(pendingRollResolution?.session.state.pendingDecision ?? null) ? pendingRollResolution?.session.state.pendingDecision ?? null : null;
+  return <MissionBoard session={session} boardAnimation={boardAnimation} inspection={inspection} error={error} rollNotice={rollNotices[0] ?? null} rollDecision={rollDecision} onDismissRoll={proceedRoll} onInspect={setInspection} onChooseOption={resolveDecision} onUndo={undoOne} onDownloadSave={downloadSave} onDismissInspection={() => setInspection(null)} onNewMission={startNewMission} />;
 }
 
 type MissionBoardProps = {
@@ -595,16 +627,17 @@ type MissionBoardProps = {
   inspection: Inspection | null;
   error: string | null;
   rollNotice: RollNotice | null;
+  rollDecision: PendingDecision | null;
   onInspect: (inspection: Inspection) => void;
   onChooseOption: (optionId: string) => void;
   onUndo: () => void;
   onDownloadSave: () => void;
   onDismissInspection: () => void;
-  onDismissRoll: () => void;
+  onDismissRoll: (optionId?: string) => void;
   onNewMission: () => void;
 };
 
-function MissionBoard({ session, boardAnimation, inspection, error, rollNotice, onInspect, onChooseOption, onUndo, onDownloadSave, onDismissInspection, onDismissRoll, onNewMission }: MissionBoardProps) {
+function MissionBoard({ session, boardAnimation, inspection, error, rollNotice, rollDecision, onInspect, onChooseOption, onUndo, onDownloadSave, onDismissInspection, onDismissRoll, onNewMission }: MissionBoardProps) {
   const [moveSelection, setMoveSelection] = useState<{ decisionId: string; marineId: string } | null>(null);
   const [strategizeSelection, setStrategizeSelection] = useState<{ decisionId: string; swarmId: string } | null>(null);
   const [scoutingPreviewVisible, setScoutingPreviewVisible] = useState(true);
@@ -696,7 +729,7 @@ function MissionBoard({ session, boardAnimation, inspection, error, rollNotice, 
       {decision?.type === "FORWARD_SCOUTING_ORDER" && (scoutingPreviewVisible
         ? <ForwardScoutingPreview session={session} decision={decision} onChooseOption={onChooseOption} onViewBoard={() => setScoutingPreviewVisible(false)} />
         : <button type="button" className="scouting-return" onClick={() => setScoutingPreviewVisible(true)}><span aria-hidden="true">↩</span><strong>Forward Scouting</strong><small>Return to event choice</small></button>)}
-      {rollNotice && <RollResult key={rollNotice.id} notice={rollNotice} onProceed={onDismissRoll} />}
+      {rollNotice && <RollResult key={rollNotice.id} notice={rollNotice} decision={rollDecision} onProceed={onDismissRoll} />}
     </main>
   );
 }
@@ -935,7 +968,7 @@ function ForwardScoutingPreview({ session, decision, onChooseOption, onViewBoard
   );
 }
 
-function RollResult({ notice, onProceed }: { notice: RollNotice; onProceed: () => void }) {
+function RollResult({ decision, notice, onProceed }: { decision: PendingDecision | null; notice: RollNotice; onProceed: (optionId?: string) => void }) {
   const finalFace = combatDieFace(notice.value);
   const landing = useMemo(() => rollLanding(notice.id), [notice.id]);
   const landingStyle = {
@@ -1007,7 +1040,7 @@ function RollResult({ notice, onProceed }: { notice: RollNotice; onProceed: () =
           </div>
         </div>
         <p>{rolling ? "Rolling…" : finalFace.skull ? `${finalFace.value} · Skull result` : `Result: ${finalFace.value}`}</p>
-        <button type="button" onClick={rolling ? settleRoll : onProceed}>{rolling ? "Skip roll" : "Proceed"}</button>
+        {rolling ? <button type="button" onClick={settleRoll}>Skip roll</button> : decision ? <div className="roll-result-actions"><span>Keep this result or spend Support to reroll?</span>{decision.legalOptions.map((option) => <button key={option.id} type="button" onClick={() => onProceed(option.id)}>{option.payload.reroll === true ? "Reroll" : "Keep result"}</button>)}</div> : <button type="button" onClick={() => onProceed()}>Proceed</button>}
       </section>
     </div>
   );
