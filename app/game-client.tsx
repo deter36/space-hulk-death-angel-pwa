@@ -1009,6 +1009,9 @@ function ForwardScoutingPreview({ session, decision, onChooseOption, onViewBoard
 
 function RollResult({ decision, notice, onProceed }: { decision: PendingDecision | null; notice: RollNotice; onProceed: (optionId?: string) => void }) {
   const finalFace = combatDieFace(notice.value);
+  const cubeStyle = {
+    "--die-final": ({ 0: "rotateX(-90deg) rotateY(0deg)", 1: "rotateX(0deg) rotateY(-90deg)", 2: "rotateX(0deg) rotateY(0deg)", 3: "rotateX(90deg) rotateY(0deg)", 4: "rotateX(0deg) rotateY(90deg)", 5: "rotateX(0deg) rotateY(180deg)" } as const)[finalFace.value],
+  } as CSSProperties;
   const reduceMotion = useMemo(() => globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false, []);
   const settleTimer = useRef<ReturnType<typeof globalThis.setTimeout> | null>(null);
   const [rolling, setRolling] = useState(!reduceMotion);
@@ -1038,8 +1041,8 @@ function RollResult({ decision, notice, onProceed }: { decision: PendingDecision
         <span>{notice.reroll ? "Die rerolled" : "Die rolled"}</span>
         <h2 id="roll-title">{notice.title}</h2>
         <div className="roll-stage" aria-live="polite">
-          <div className="roll-face" data-rolling={rolling || undefined} data-skull={!rolling && finalFace.skull || undefined} aria-label={rolling ? "Combat die rolling" : `Combat die result ${finalFace.value}${finalFace.skull ? ", skull" : ""}`}>
-            <strong>{rolling ? "?" : finalFace.value}</strong>{!rolling && finalFace.skull && <i aria-hidden="true">☠︎</i>}
+          <div className="roll-cube" style={cubeStyle} data-rolling={rolling || undefined} aria-label={rolling ? "Combat die rolling" : `Combat die result ${finalFace.value}${finalFace.skull ? ", skull" : ""}`}>
+            {([2, 5, 1, 4, 3, 0] as const).map((value, index) => { const face = combatDieFace(value); return <span key={value} className={["face-front", "face-back", "face-right", "face-left", "face-top", "face-bottom"][index]}><strong>{value}</strong>{face.skull && <i aria-hidden="true">💀︎</i>}</span>; })}
           </div>
         </div>
         <p>{rolling ? "Rolling…" : finalFace.skull ? `${finalFace.value} · Skull result` : `Result: ${finalFace.value}`}</p>
