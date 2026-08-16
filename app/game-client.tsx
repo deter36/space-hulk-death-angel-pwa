@@ -69,6 +69,7 @@ type BoardAnimation = {
 };
 
 type PendingRollResolution = { session: EngineSession };
+type ResolutionNotice = { id: string; eyebrow: string; title: string; body: string; meta?: string };
 
 function isRollFollowUp(decision: PendingDecision | null): decision is PendingDecision {
   return Boolean(decision && ["ATTACK_REROLL", "DEFENSE_REROLL", "EVENT_ATTACK_REROLL"].includes(decision.type));
@@ -180,6 +181,46 @@ function decisionInstruction(session: EngineSession, decision: PendingDecision, 
   if (decision.type === "SET_FACING") return "Choose the left or right tile beside the highlighted Marine—even to keep its current facing.";
   if (decision.legalOptions.some((option) => isDirectInputOption(decision, option))) return "Tap the highlighted board target. Hold any object briefly to read its rules.";
   return "Choose an option below. The formation remains visible while you decide.";
+}
+
+function resolutionNoticesFrom(session: EngineSession, startingAt: number): ResolutionNotice[] {
+  const transitions = session.transitions.slice(startingAt);
+  const spawned = transitions.flatMap((transition) => transition.randomInputs).filter((input) => input.kind === "DRAW" && (input.sourceId === "blip.left" || input.sourceId === "blip.right")).length;
+  const moved = transitions.filter((transition) => transition.type === "SWARM_MOVED" || transition.type === "SWARM_FLANKED").length;
+  let spawnNoticeAdded = false;
+  let movementNoticeAdded = false;
+  const notices: ResolutionNotice[] = [];
+  for (const transition of transitions) {
+    const id = `transition.${transition.seq}`;
+    if (transition.type === "PHASE_ENDED" && transition.sourceId === "RESOLVE_ACTIONS") notices.push({ id, eyebrow: "Phase transition", title: "Genestealer attacks", body: "The selected squad actions are complete. Resolve each engaged Genestealer swarm in order." });
+    else if (transition.type === "PHASE_ENDED" && transition.sourceId === "GENESTEALER_ATTACK") notices.push({ id, eyebrow: "Phase transition", title: "Event phase", body: "Genestealer attacks are complete. Draw and resolve the next Event card." });
+    else if (transition.type === "ACTION_STARTED" && transition.sourceId) {
+      const action = sourceInspection(session, transition.sourceId);
+      if (action) notices.push({ id, eyebrow: `${action.eyebrow} · Action begins`, title: action.title, body: action.body, meta: action.meta });
+    } else if (transition.type === "ACTION_COMPLETED") notices.push({ id, eyebrow: "Action complete", title: "Action resolved", body: "The next action will begin in initiative order, or the Genestealer attack phase will start." });
+    else if (transition.type === "EVENT_STARTED") notices.push({ id, eyebrow: "Phase transition", title: "Event phase begins", body: "Draw the next Event card. Its special text resolves before both spawn activations and movement." });
+    else if (transition.type === "CARD_DRAWN" && transition.sourceId === "event.deck") {
+      const eventId = transition.randomInputs.find((input) => input.kind === "DRAW")?.cardId;
+      const event = eventId ? findEvent(eventId) : null;
+      if (event) notices.push({ id, eyebrow: event.copyIndex ? `Event reveal · copy ${event.copyIndex}` : "Event reveal", title: event.name, body: event.sourceText, meta: `${event.activations.map((activation) => `${formatPhase(activation.severity)} ${formatPhase(activation.terrainColor)}`).join(" · ")} · ${event.movementIcon ? `${ICON_LABELS[event.movementIcon]} ${event.movement?.toLowerCase() ?? "movement"}` : "No movement"}` });
+    } else if (transition.type === "EVENT_DECISION_RESOLVED") notices.push({ id, eyebrow: "Event choice resolved", title: "Event effect applied", body: "Continue resolving the Event card from this updated formation." });
+    else if (transition.type === "EVENT_SPECIAL_RESOLVED") notices.push({ id, eyebrow: "Event text complete", title: "Proceed to spawning", body: "Resolve both printed spawn activations together before Genestealer movement." });
+    else if (!spawnNoticeAdded && transition.type === "CARD_DRAWN" && (transition.sourceId === "blip.left" || transition.sourceId === "blip.right") && spawned > 0) {
+      spawnNoticeAdded = true;
+      notices.push({ id, eyebrow: "Spawn activations", title: `${spawned} Genestealer${spawned === 1 ? "" : "s"} spawned`, body: "Both Event activation boxes have been resolved. Review the new swarms before their movement step." });
+    } else if (!movementNoticeAdded && (transition.type === "SWARM_MOVED" || transition.type === "SWARM_FLANKED") && moved > 0) {
+      movementNoticeAdded = true;
+      notices.push({ id, eyebrow: "Genestealer movement", title: `${moved} swarm${moved === 1 ? "" : "s"} moved`, body: "Every swarm matching the Event movement icon has advanced or flanked. Merged swarms are now represented on the formation." });
+    } else if (transition.type === "EVENT_MOVEMENT_RESOLVED") notices.push({ id, eyebrow: "Movement complete", title: "Event movement resolved", body: "Resolve any end-of-Event effects, then check whether the squad must travel." });
+    else if (transition.type === "TRAVEL_STARTED") notices.push({ id, eyebrow: "Travel", title: "Travel begins", body: "Resolve Door effects and any required travel choices before revealing the next Location." });
+    else if (transition.type === "CARD_DRAWN" && transition.sourceId === "location.deck") {
+      const locationId = transition.randomInputs.find((input) => input.kind === "DRAW")?.cardId;
+      const location = locationId ? sourceInspection(session, locationId) : null;
+      if (location) notices.push({ id, eyebrow: "New location", title: location.title, body: location.body, meta: location.meta });
+    } else if (transition.type === "TRAVEL_COMPLETED") notices.push({ id, eyebrow: "Travel complete", title: "Location entered", body: "Resolve any upon-entering Location effect before returning to the Event phase." });
+    else if (transition.type === "ROUND_ENDED") notices.push({ id, eyebrow: "Round complete", title: `Round ${session.state.round} begins`, body: "The Event is complete. Choose a new action card for each active squad." });
+  }
+  return notices;
 }
 
 function pendingTargetIds(decision: PendingDecision | null): Set<string> {
@@ -408,6 +449,7 @@ export default function GameClient() {
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [rollNotices, setRollNotices] = useState<RollNotice[]>([]);
+  const [resolutionNotices, setResolutionNotices] = useState<ResolutionNotice[]>([]);
   const [pendingRollResolution, setPendingRollResolution] = useState<PendingRollResolution | null>(null);
   const [boardAnimation, setBoardAnimation] = useState<BoardAnimation | null>(null);
   const [restoreComplete, setRestoreComplete] = useState(false);
@@ -466,6 +508,7 @@ export default function GameClient() {
       const prepared = prepareUiSession(newEngineSession({ gameId, seed, teamColors: selectedTeams as [TeamColor, TeamColor, TeamColor] }, "PLAYER"));
       setSession(prepared.session);
       setTeamPreview(null);
+      setResolutionNotices([]);
       setInspection(null);
       setError(prepared.error);
     } catch (caught) {
@@ -480,6 +523,7 @@ export default function GameClient() {
       const prepared = prepareUiSession(submitSessionDecision(session, decision.id, optionId));
       const selectedOption = decision.legalOptions.find((option) => option.id === optionId);
       const notices = rollNoticesFrom(prepared.session, session.transitions.length, session.state, selectedOption);
+      setResolutionNotices(resolutionNoticesFrom(prepared.session, session.transitions.length));
       if (notices.length) {
         setPendingRollResolution({ session: prepared.session });
         const preRollAnimation = notices[0]?.preRollAnimation;
@@ -513,6 +557,7 @@ export default function GameClient() {
     setError(prepared.error);
     setInspection(null);
     setRollNotices([]);
+    setResolutionNotices([]);
     setPendingRollResolution(null);
     clearBoardAnimationTimer();
     setBoardAnimation(null);
@@ -541,6 +586,7 @@ export default function GameClient() {
     setSelectedTeams([]);
     setError(null);
     setRollNotices([]);
+    setResolutionNotices([]);
     setPendingRollResolution(null);
     clearBoardAnimationTimer();
     setBoardAnimation(null);
@@ -622,7 +668,7 @@ export default function GameClient() {
   };
 
   const rollDecision = isRollFollowUp(pendingRollResolution?.session.state.pendingDecision ?? null) ? pendingRollResolution?.session.state.pendingDecision ?? null : null;
-  return <MissionBoard session={session} boardAnimation={boardAnimation} inspection={inspection} error={error} rollNotice={rollNotices[0] ?? null} rollDecision={rollDecision} onDismissRoll={proceedRoll} onInspect={setInspection} onChooseOption={resolveDecision} onUndo={undoOne} onDownloadSave={downloadSave} onDismissInspection={() => setInspection(null)} onNewMission={startNewMission} />;
+  return <MissionBoard session={session} boardAnimation={boardAnimation} inspection={inspection} error={error} resolutionNotice={rollNotices.length ? null : resolutionNotices[0] ?? null} rollNotice={rollNotices[0] ?? null} rollDecision={rollDecision} onDismissResolutionNotice={() => setResolutionNotices((current) => current.slice(1))} onDismissRoll={proceedRoll} onInspect={setInspection} onChooseOption={resolveDecision} onUndo={undoOne} onDownloadSave={downloadSave} onDismissInspection={() => setInspection(null)} onNewMission={startNewMission} />;
 }
 
 type MissionBoardProps = {
@@ -630,9 +676,11 @@ type MissionBoardProps = {
   boardAnimation: BoardAnimation | null;
   inspection: Inspection | null;
   error: string | null;
+  resolutionNotice: ResolutionNotice | null;
   rollNotice: RollNotice | null;
   rollDecision: PendingDecision | null;
   onInspect: (inspection: Inspection) => void;
+  onDismissResolutionNotice: () => void;
   onChooseOption: (optionId: string) => void;
   onUndo: () => void;
   onDownloadSave: () => void;
@@ -641,7 +689,7 @@ type MissionBoardProps = {
   onNewMission: () => void;
 };
 
-function MissionBoard({ session, boardAnimation, inspection, error, rollNotice, rollDecision, onInspect, onChooseOption, onUndo, onDownloadSave, onDismissInspection, onDismissRoll, onNewMission }: MissionBoardProps) {
+function MissionBoard({ session, boardAnimation, inspection, error, resolutionNotice, rollNotice, rollDecision, onInspect, onChooseOption, onUndo, onDownloadSave, onDismissInspection, onDismissResolutionNotice, onDismissRoll, onNewMission }: MissionBoardProps) {
   const [moveSelection, setMoveSelection] = useState<{ decisionId: string; marineId: string } | null>(null);
   const [strategizeSelection, setStrategizeSelection] = useState<{ decisionId: string; swarmId: string } | null>(null);
   const [scoutingPreviewVisible, setScoutingPreviewVisible] = useState(true);
@@ -731,6 +779,7 @@ function MissionBoard({ session, boardAnimation, inspection, error, rollNotice, 
       </section>
 
       {inspection && <InspectionDrawer inspection={inspection} onClose={onDismissInspection} />}
+      {resolutionNotice && <ResolutionNoticeOverlay notice={resolutionNotice} onProceed={onDismissResolutionNotice} />}
       {decision?.type === "FORWARD_SCOUTING_ORDER" && (scoutingPreviewVisible
         ? <ForwardScoutingPreview session={session} decision={decision} onChooseOption={onChooseOption} onViewBoard={() => setScoutingPreviewVisible(false)} />
         : <button type="button" className="scouting-return" onClick={() => setScoutingPreviewVisible(true)}><span aria-hidden="true">↩</span><strong>Forward Scouting</strong><small>Return to event choice</small></button>)}
@@ -946,6 +995,12 @@ function InspectionDrawer({ inspection, onClose }: { inspection: Inspection; onC
       </aside>
     </div>
   );
+}
+
+function ResolutionNoticeOverlay({ notice, onProceed }: { notice: ResolutionNotice; onProceed: () => void }) {
+  return <div className="resolution-notice-backdrop" role="presentation"><section className="resolution-notice" role="dialog" aria-modal="true" aria-labelledby={`resolution-${notice.id}`}>
+    <span>{notice.eyebrow}</span><h2 id={`resolution-${notice.id}`}>{notice.title}</h2>{notice.meta && <strong>{notice.meta}</strong>}<p>{notice.body}</p><button type="button" onClick={onProceed}>Proceed</button>
+  </section></div>;
 }
 
 function SlaySwarmOverlay({ decision, onChooseOption, session }: { decision: PendingDecision; onChooseOption: (optionId: string) => void; session: EngineSession }) {
