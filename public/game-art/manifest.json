@@ -193,6 +193,30 @@
           "totalDurationMs": 1000,
           "loop": true,
           "retainLastFrame": false
+        },
+        "attack": {
+          "state": "attack",
+          "trajectory": null,
+          "src": "/game-art/broodlord/attack.png",
+          "frameWidth": 124,
+          "frameHeight": 124,
+          "frameCount": 9,
+          "frameDurationMs": 200,
+          "totalDurationMs": 1800,
+          "loop": false,
+          "retainLastFrame": false
+        },
+        "death": {
+          "state": "death",
+          "trajectory": null,
+          "src": "/game-art/broodlord/death.png",
+          "frameWidth": 124,
+          "frameHeight": 124,
+          "frameCount": 7,
+          "frameDurationMs": 200,
+          "totalDurationMs": 1400,
+          "loop": false,
+          "retainLastFrame": true
         }
       }
     }

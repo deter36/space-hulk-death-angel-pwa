@@ -36,6 +36,8 @@ ANIMATIONS = (
     AnimationSpec("genestealer", "attack", "Genestealer", "Alien attack.gif", "attack.png", False),
     AnimationSpec("genestealer", "death", "Genestealer", "alien shot.gif", "death.png", False, True),
     AnimationSpec("broodlord", "idle", "Genestealer", "broodlord idle.gif", "idle.png", True),
+    AnimationSpec("broodlord", "attack", "Genestealer", "broodlord attack.gif", "attack.png", False),
+    AnimationSpec("broodlord", "death", "Genestealer", "broodlord shot.gif", "death.png", False, True),
 )
 
 ANCHORS = {
