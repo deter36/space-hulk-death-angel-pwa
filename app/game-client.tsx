@@ -693,8 +693,7 @@ function MissionBoard({ session, boardAnimation, inspection, error, resolutionNo
   const [moveSelection, setMoveSelection] = useState<{ decisionId: string; marineId: string } | null>(null);
   const [strategizeSelection, setStrategizeSelection] = useState<{ decisionId: string; swarmId: string } | null>(null);
   const [scoutingPreviewVisible, setScoutingPreviewVisible] = useState(true);
-  const [locationCollapsed, setLocationCollapsed] = useState(false);
-  const [eventCollapsed, setEventCollapsed] = useState(false);
+  const [missionInfoCollapsed, setMissionInfoCollapsed] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   const { state } = session;
   const decision = state.pendingDecision;
@@ -728,30 +727,28 @@ function MissionBoard({ session, boardAnimation, inspection, error, resolutionNo
           <div className="live-hud-menu"><button type="button" aria-label="Open game menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((current) => !current)}>☰</button>{menuOpen && <div className="live-hud-menu-panel"><button type="button" disabled={!undoStatus.allowed} onClick={() => { onUndo(); setMenuOpen(false); }}><strong>↶ Undo</strong><small>{undoStatus.allowed ? `${undoStatus.availableSteps} step${undoStatus.availableSteps === 1 ? "" : "s"} available` : undoStatus.unavailableReason === "RANDOMNESS_BARRIER" ? "Locked by random result" : undoStatus.unavailableReason === "HIDDEN_INFORMATION_BARRIER" ? "Locked by card reveal" : "No reversible step"}</small></button><button type="button" onClick={() => { onDownloadSave(); setMenuOpen(false); }}><strong>⇩ Download save</strong><small>Export this game’s diagnostics</small></button><button type="button" className="is-danger" onClick={() => { if (globalThis.confirm("End this mission and return to team selection?")) { onNewMission(); setMenuOpen(false); } }}><strong>New mission</strong><small>End the current game</small></button></div>}</div>
         </div>
 
-        {locationCollapsed ? (
-          <TacticalButton type="button" className="lab-hud-tray lab-location-tray inspectable" onTap={() => setLocationCollapsed(false)} onHold={() => onInspect(locationInspection)} aria-label="Expand current location">
-            <span>Location</span><strong>{currentLocation?.name ?? setupLocationName(componentDefinitionId(session, state.currentLocationInstanceId))}</strong><b><i>Left</i>{leftBlips}</b><b><i>Right</i>{rightBlips}</b><em>⌄</em>
+        {missionInfoCollapsed ? (
+          <TacticalButton type="button" className="lab-hud-tray lab-mission-tray inspectable" onTap={() => setMissionInfoCollapsed(false)} onHold={() => onInspect(locationInspection)} aria-label="Expand mission information">
+            <span>Mission info</span><div className="lab-mission-tray-copy"><strong>{currentLocation?.name ?? setupLocationName(componentDefinitionId(session, state.currentLocationInstanceId))}</strong>{lastEvent && <small>Event · {lastEvent.name}</small>}</div><b><i>Left</i>{leftBlips}</b><b><i>Right</i>{rightBlips}</b><em>⌄</em>
           </TacticalButton>
         ) : (
-          <div className="lab-location-frame">
-            <div className="lab-blip-counter lab-blip-left"><span>Blips</span><strong>{leftBlips}</strong><em>Left</em></div>
-            <TacticalButton type="button" className="lab-location-card inspectable" onTap={() => setLocationCollapsed(true)} onHold={() => onInspect(locationInspection)}>
-              <span>Current location <b>{currentLocation?.tier ?? "Setup"}</b></span>
-              <h2>{currentLocation?.name ?? setupLocationName(componentDefinitionId(session, state.currentLocationInstanceId))}</h2>
-              <strong>{locationInspection.meta ?? "Location"}</strong><p>{locationInspection.body}</p><em className="lab-panel-collapse-cue">Tap to minimize ⌃</em><i className="lab-hud-rivet lab-rivet-one" /><i className="lab-hud-rivet lab-rivet-two" />
-            </TacticalButton>
-            <div className="lab-blip-counter lab-blip-right"><span>Blips</span><strong>{rightBlips}</strong><em>Right</em></div>
-          </div>
-        )}
+          <>
+            <div className="lab-location-frame">
+              <div className="lab-blip-counter lab-blip-left"><span>Blips</span><strong>{leftBlips}</strong><em>Left</em></div>
+              <TacticalButton type="button" className="lab-location-card inspectable" onTap={() => setMissionInfoCollapsed(true)} onHold={() => onInspect(locationInspection)}>
+                <span>Current location <b>{currentLocation?.tier ?? "Setup"}</b></span>
+                <h2>{currentLocation?.name ?? setupLocationName(componentDefinitionId(session, state.currentLocationInstanceId))}</h2>
+                <strong>{locationInspection.meta ?? "Location"}</strong><p>{locationInspection.body}</p><em className="lab-panel-collapse-cue">Tap to minimize ⌃</em><i className="lab-hud-rivet lab-rivet-one" /><i className="lab-hud-rivet lab-rivet-two" />
+              </TacticalButton>
+              <div className="lab-blip-counter lab-blip-right"><span>Blips</span><strong>{rightBlips}</strong><em>Right</em></div>
+            </div>
 
-        {lastEvent && lastEventId && <TacticalButton type="button" className={`lab-event-card inspectable ${eventCollapsed ? "is-collapsed" : ""}`} onTap={() => setEventCollapsed((current) => !current)} onHold={() => onInspect(sourceInspection(session, lastEventId)!)}>
-          <div className="lab-event-heading"><span>{state.phase === "EVENT" ? "Event resolving" : "Current event"}{lastEvent.movement ? <i>{lastEvent.movement}</i> : null}</span><h3>{lastEvent.name}</h3><em className="lab-panel-collapse-cue">Tap to minimize ⌃</em></div>
-          <p>{lastEvent.sourceText}</p>
-          <div className="lab-event-data" aria-label="Event spawn and movement data">
-            {lastEvent.activations.map((activation, index) => <span key={`${activation.terrainColor}.${index}`}><i className={`lab-spawn-dot is-${activation.terrainColor.toLowerCase()}`} />{formatPhase(activation.severity)}</span>)}
-            {lastEvent.movementIcon && <span className="lab-icon-readout">{ICON_GLYPHS[lastEvent.movementIcon]} {ICON_LABELS[lastEvent.movementIcon]}</span>}<span className="lab-tray-chevron">{eventCollapsed ? "⌄" : "⌃"}</span>
-          </div>
-        </TacticalButton>}
+            {lastEvent && lastEventId && <TacticalButton type="button" className="lab-event-card lab-event-card-simple inspectable" onTap={() => setMissionInfoCollapsed(true)} onHold={() => onInspect(sourceInspection(session, lastEventId)!)}>
+              <div className="lab-event-heading"><span>{state.phase === "EVENT" ? "Event resolving" : "Current event"}</span><h3>{lastEvent.name}</h3><em className="lab-panel-collapse-cue">Tap to minimize ⌃</em></div>
+              <p>{lastEvent.sourceText}</p>
+            </TacticalButton>}
+          </>
+        )}
       </section>
 
       <CombatHandoff session={session} animation={boardAnimation} />
