@@ -1134,7 +1134,7 @@ function RollResult({ decision, notice, onProceed }: { decision: PendingDecision
 
   return (
     <div className="roll-backdrop" role="presentation">
-      <section className={`roll-result is-${notice.placement} ${rolling ? "is-rolling" : "is-settled"}`} role="dialog" aria-modal="true" aria-labelledby="roll-title">
+      <section className={`roll-result is-${notice.placement} ${decision ? "has-follow-up" : ""} ${rolling ? "is-rolling" : "is-settled"}`} role="dialog" aria-modal="true" aria-labelledby="roll-title">
         <span>{notice.reroll ? "Die rerolled" : "Die rolled"}</span>
         <h2 id="roll-title">{notice.title}</h2>
         <div className="roll-stage" aria-live="polite">
