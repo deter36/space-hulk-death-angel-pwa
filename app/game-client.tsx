@@ -729,7 +729,7 @@ function MissionBoard({ session, boardAnimation, inspection, error, resolutionNo
 
         {missionInfoCollapsed ? (
           <TacticalButton type="button" className="lab-hud-tray lab-mission-tray inspectable" onTap={() => setMissionInfoCollapsed(false)} onHold={() => onInspect(locationInspection)} aria-label="Expand mission information">
-            <span>Mission info</span><div className="lab-mission-tray-copy"><strong>{currentLocation?.name ?? setupLocationName(componentDefinitionId(session, state.currentLocationInstanceId))}</strong>{lastEvent && <small>Event · {lastEvent.name}</small>}</div><b><i>Left</i>{leftBlips}</b><b><i>Right</i>{rightBlips}</b><em>⌄</em>
+            <b><i>Left blips</i>{leftBlips}</b><div className="lab-mission-tray-copy"><strong>{currentLocation?.name ?? setupLocationName(componentDefinitionId(session, state.currentLocationInstanceId))}</strong>{lastEvent && <small>Event · {lastEvent.name}</small>}</div><b><i>Right blips</i>{rightBlips}</b><em>⌄</em>
           </TacticalButton>
         ) : (
           <>
