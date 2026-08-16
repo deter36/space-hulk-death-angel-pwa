@@ -140,7 +140,7 @@ function Marine({ animation, deathStripUrl, dodgeStripUrl, fireStripUrls, jamStr
 export default function FormationBoard({ alienAttackStripUrl, alienDeathStripUrl, alienIdleStripUrl, alienSpriteUrl, broodlordAttackStripUrl, broodlordDeathStripUrl, broodlordSpriteUrl, collapsingMarine, marineAnimationStates = {}, marineDeathStripUrl, marineDodgeStripUrl, marineFireStripUrls, marineJamStripUrls, marineSpriteUrl, marineMoveChoices = [], moveSlots = [], movingSwarmCell, marineStates = {}, onInspect, onMarineMoveChoice, onMoveSlot, onOverlayChoice, onSelectMarine, onSelectSwarm, onSelectTerrain, overlayChoices = [], rows, selectedMarine, swarmAnimationStates = {}, swarmStates = {}, terrainStates = {} }: FormationBoardProps) {
   const renderMoveSlot = (slot: number) => moveSlots.includes(slot) ? <button type="button" className="lab-move-slot" onClick={() => onMoveSlot?.(slot)}><span>Move here</span></button> : null;
   return (
-    <section className="lab-board" aria-label="Formation geometry preview"><div className="lab-board-labels"><span>Left threat</span><span>Formation</span><span>Right threat</span></div><div className="lab-formation">
+    <section className="lab-board" aria-label="Formation geometry preview"><div className="lab-formation">
       {rows.map((row, index) => {
         const leftOverlay = overlayChoices.find((choice) => choice.row === index && choice.side === "LEFT");
         const rightOverlay = overlayChoices.find((choice) => choice.row === index && choice.side === "RIGHT");
