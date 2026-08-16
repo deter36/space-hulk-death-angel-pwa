@@ -71,7 +71,7 @@ type BoardAnimation = {
 };
 
 type PendingRollResolution = { session: EngineSession };
-type ResolutionNotice = { id: string; eyebrow: string; title: string; body: string; meta?: string; team?: TeamColor };
+type ResolutionNotice = { id: string; eyebrow: string; title: string; body: string; meta?: string; team?: TeamColor; presentation?: "modal" | "board"; terrainIds?: string[] };
 
 function isRollFollowUp(decision: PendingDecision | null): decision is PendingDecision {
   return Boolean(decision && ["ATTACK_REROLL", "DEFENSE_REROLL", "EVENT_ATTACK_REROLL"].includes(decision.type));
@@ -187,6 +187,9 @@ function decisionInstruction(session: EngineSession, decision: PendingDecision, 
 
 function resolutionNoticesFrom(session: EngineSession, startingAt: number): ResolutionNotice[] {
   const transitions = session.transitions.slice(startingAt);
+  const eventDraw = transitions.find((transition) => transition.type === "CARD_DRAWN" && transition.sourceId === "event.deck");
+  const eventId = eventDraw?.randomInputs.find((input) => input.kind === "DRAW")?.cardId;
+  const resolvingEvent = eventId ? findEvent(eventId) : null;
   const spawned = transitions.flatMap((transition) => transition.randomInputs).filter((input) => input.kind === "DRAW" && (input.sourceId === "blip.left" || input.sourceId === "blip.right")).length;
   const moved = transitions.filter((transition) => transition.type === "SWARM_MOVED" || transition.type === "SWARM_FLANKED").length;
   let spawnNoticeAdded = false;
@@ -213,7 +216,8 @@ function resolutionNoticesFrom(session: EngineSession, startingAt: number): Reso
     }
     else if (!spawnNoticeAdded && transition.type === "CARD_DRAWN" && (transition.sourceId === "blip.left" || transition.sourceId === "blip.right") && spawned > 0) {
       spawnNoticeAdded = true;
-      notices.push({ id, eyebrow: "Spawn activations", title: `${spawned} Genestealer${spawned === 1 ? "" : "s"} spawned`, body: "Both Event activation boxes have been resolved. Review the new swarms before their movement step." });
+      const terrainIds = transitions.filter((candidate) => candidate.type === "EVENT_TERRAIN_SPAWN_RESOLVED" && candidate.sourceId).map((candidate) => candidate.sourceId!);
+      notices.push({ id, eyebrow: "Spawn activations", title: `${spawned} Genestealer${spawned === 1 ? "" : "s"} spawned`, body: "Both Event activations are shown on the highlighted Terrain positions.", meta: resolvingEvent?.activations.map((activation) => `${formatPhase(activation.severity)} ${formatPhase(activation.terrainColor)}`).join(" · "), presentation: "board", terrainIds });
     } else if (!movementNoticeAdded && (transition.type === "SWARM_MOVED" || transition.type === "SWARM_FLANKED") && moved > 0) {
       movementNoticeAdded = true;
       notices.push({ id, eyebrow: "Genestealer movement", title: `${moved} swarm${moved === 1 ? "" : "s"} moved`, body: "Every swarm matching the Event movement icon has advanced or flanked. Merged swarms are now represented on the formation." });
@@ -800,7 +804,7 @@ function MissionBoard({ session, boardAnimation, inspection, error, resolutionNo
       </section>
 
       <CombatHandoff session={session} animation={boardAnimation} />
-      <LiveFormationBoard session={session} boardAnimation={boardAnimation} targetIds={targetIds} selectedMoveMarineId={selectedMoveMarineId} selectedStrategizeSwarmId={selectedStrategizeSwarmId} strategizeSwarmIds={strategizeSwarmSet} onChooseOption={onChooseOption} onInspect={onInspect} onSelectMoveMarine={(marineId) => { if (decision) setMoveSelection({ decisionId: decision.id, marineId }); }} onSelectStrategizeSwarm={(swarmId) => { if (decision) setStrategizeSelection({ decisionId: decision.id, swarmId }); }} />
+      <LiveFormationBoard session={session} boardAnimation={boardAnimation} highlightedTerrainIds={new Set(resolutionNotice?.terrainIds ?? [])} targetIds={targetIds} selectedMoveMarineId={selectedMoveMarineId} selectedStrategizeSwarmId={selectedStrategizeSwarmId} strategizeSwarms={strategizeSwarmSet} onChooseOption={onChooseOption} onInspect={onInspect} onSelectMoveMarine={(marineId) => { if (decision) setMoveSelection({ decisionId: decision.id, marineId }); }} onSelectStrategizeSwarm={(swarmId) => { if (decision) setStrategizeSelection({ decisionId: decision.id, swarmId }); }} />
 
       <LiveActionSelection session={session} onChooseOption={onChooseOption} />
 
@@ -824,7 +828,7 @@ function MissionBoard({ session, boardAnimation, inspection, error, resolutionNo
       </section>
 
       {inspection && <InspectionDrawer inspection={inspection} onClose={onDismissInspection} />}
-      {resolutionNotice && <ResolutionNoticeOverlay notice={resolutionNotice} onProceed={onDismissResolutionNotice} />}
+      {resolutionNotice?.presentation === "board" ? <BoardResolutionNotice notice={resolutionNotice} onProceed={onDismissResolutionNotice} /> : resolutionNotice && <ResolutionNoticeOverlay notice={resolutionNotice} onProceed={onDismissResolutionNotice} />}
       {decision?.type === "FORWARD_SCOUTING_ORDER" && (scoutingPreviewVisible
         ? <ForwardScoutingPreview session={session} decision={decision} onChooseOption={onChooseOption} onViewBoard={() => setScoutingPreviewVisible(false)} />
         : <button type="button" className="scouting-return" onClick={() => setScoutingPreviewVisible(true)}><span aria-hidden="true">↩</span><strong>Forward Scouting</strong><small>Return to event choice</small></button>)}
@@ -864,7 +868,7 @@ function labRows(session: EngineSession): LabFormationRow[] {
   });
 }
 
-function LiveFormationBoard({ session, boardAnimation, targetIds, selectedMoveMarineId, selectedStrategizeSwarmId, strategizeSwarmIds: selectableStrategizeSwarms, onChooseOption, onInspect, onSelectMoveMarine, onSelectStrategizeSwarm }: { session: EngineSession; boardAnimation: BoardAnimation | null; targetIds: Set<string>; selectedMoveMarineId: string | null; selectedStrategizeSwarmId: string | null; strategizeSwarmIds: Set<string>; onChooseOption: (optionId: string) => void; onInspect: (inspection: Inspection) => void; onSelectMoveMarine: (marineId: string) => void; onSelectStrategizeSwarm: (swarmId: string) => void }) {
+function LiveFormationBoard({ session, boardAnimation, highlightedTerrainIds, targetIds, selectedMoveMarineId, selectedStrategizeSwarmId, strategizeSwarms: selectableStrategizeSwarms, onChooseOption, onInspect, onSelectMoveMarine, onSelectStrategizeSwarm }: { session: EngineSession; boardAnimation: BoardAnimation | null; highlightedTerrainIds: Set<string>; targetIds: Set<string>; selectedMoveMarineId: string | null; selectedStrategizeSwarmId: string | null; strategizeSwarms: Set<string>; onChooseOption: (optionId: string) => void; onInspect: (inspection: Inspection) => void; onSelectMoveMarine: (marineId: string) => void; onSelectStrategizeSwarm: (swarmId: string) => void }) {
   const { state } = session;
   const decision = state.pendingDecision;
   const rows = useMemo(() => labRows(session), [session]);
@@ -902,8 +906,8 @@ function LiveFormationBoard({ session, boardAnimation, targetIds, selectedMoveMa
   }))), [decision, selectedStrategizeSwarmId, selectableStrategizeSwarms, state.formation, targetIds]);
   const terrainStates = useMemo<Record<string, LabTargetState>>(() => Object.fromEntries(state.formation.flatMap((slot, positionIndex) => (["LEFT", "RIGHT"] as const).map((side) => {
     const terrainId = slot.terrainInstanceIds[side][0];
-    return [cellKey(positionIndex, side), terrainId && targetIds.has(terrainId) ? "targeted" : "neutral"];
-  }))), [state.formation, targetIds]);
+    return [cellKey(positionIndex, side), terrainId && (targetIds.has(terrainId) || highlightedTerrainIds.has(terrainId)) ? "targeted" : "neutral"];
+  }))), [highlightedTerrainIds, state.formation, targetIds]);
   const marineAnimationStates = useMemo(() => {
     const marineId = boardAnimation?.marineId;
     const animation = boardAnimation?.marineAnimation;
@@ -1047,6 +1051,10 @@ function ResolutionNoticeOverlay({ notice, onProceed }: { notice: ResolutionNoti
   return <div className="resolution-notice-backdrop" role="presentation"><section className={`resolution-notice ${notice.team ? `team-${notice.team.toLowerCase()}` : ""}`} role="dialog" aria-modal="true" aria-labelledby={`resolution-${notice.id}`}>
     <span>{notice.eyebrow}</span><h2 id={`resolution-${notice.id}`}>{notice.title}</h2>{notice.meta && <strong>{notice.meta}</strong>}<p>{notice.body}</p><button type="button" onClick={onProceed}>Proceed</button>
   </section></div>;
+}
+
+function BoardResolutionNotice({ notice, onProceed }: { notice: ResolutionNotice; onProceed: () => void }) {
+  return <aside className="board-resolution-notice" aria-live="assertive"><span>{notice.eyebrow}</span><strong>{notice.title}</strong>{notice.meta && <em>{notice.meta}</em>}<p>{notice.body}</p><button type="button" onClick={onProceed}>Proceed to movement</button></aside>;
 }
 
 function SlaySwarmOverlay({ decision, onChooseOption, session }: { decision: PendingDecision; onChooseOption: (optionId: string) => void; session: EngineSession }) {
