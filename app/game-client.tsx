@@ -359,7 +359,7 @@ function LiveActionSelection({ session, onChooseOption }: { session: EngineSessi
 
   const openTeam = (team: TeamColor) => {
     if (!choosingActions || state.teams[team].chosenActionInstanceId) return;
-    setExpandedTeam(team);
+    setExpandedTeam((current) => current === team ? null : team);
     setPendingActionId(null);
   };
   const pendingOption = pendingActionId ? uniquePayloadOption(decision, "actionId", pendingActionId) : null;
