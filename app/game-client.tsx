@@ -400,7 +400,7 @@ function LiveActionSelection({ session, onChooseOption }: { session: EngineSessi
               const option = uniquePayloadOption(decision, "actionId", card.instanceId);
               const unavailable = !option;
               return <button type="button" key={card.instanceId} className={`live-full-action-card lab-team-${card.team.toLowerCase()} ${pendingActionId === card.instanceId ? "is-pending" : ""} ${unavailable ? "is-unavailable" : ""}`} disabled={unavailable} onClick={() => setPendingActionId(card.instanceId)}>
-                <small>{formatActionType(card.type)}</small><strong>{card.name}</strong><b>Initiative {card.initiative}</b><p>{card.sourceText}</p>{unavailable && <i aria-hidden="true">×</i>}
+                <small>{formatActionType(card.type)}</small><em className="action-initiative" aria-label={`Initiative ${card.initiative}`}>{card.initiative}</em><strong>{card.name}</strong><p>{card.sourceText}</p>{unavailable && <i aria-hidden="true">×</i>}
               </button>;
             })}
           </div>
@@ -416,7 +416,7 @@ function LiveActionSelection({ session, onChooseOption }: { session: EngineSessi
           const resolutionState = !choosingActions && activeIndex >= 0 ? orderIndex < activeIndex ? "is-completed" : orderIndex === activeIndex ? "is-active" : "is-upcoming" : "";
           return <button key={team} type="button" className={`live-action-team-slot lab-team-${team.toLowerCase()} ${selected ? "has-selection" : ""} ${resolutionState}`} onClick={() => openTeam(team)} disabled={!choosingActions || Boolean(selected)}>
             <span className="live-action-team-name">{team}</span>
-            {selected ? <span className="live-chosen-action"><small>{formatActionType(selected.type)} · {selected.initiative}</small><strong>{selected.name}</strong></span> : <span className="live-mini-hand">{cards.map((card, index) => {
+            {selected ? <span className="live-chosen-action"><small>{formatActionType(selected.type)}</small><em className="action-initiative" aria-label={`Initiative ${selected.initiative}`}>{selected.initiative}</em><strong>{selected.name}</strong></span> : <span className="live-mini-hand">{cards.map((card, index) => {
               const unavailable = !uniquePayloadOption(decision, "actionId", card.instanceId);
               return <span key={card.instanceId} className={`live-mini-action-card ${unavailable ? "is-unavailable" : ""}`} style={{ "--card-index": index } as CSSProperties}><b>{card.type === "MOVE_ACTIVATE" ? "Move" : formatActionType(card.type)}</b></span>;
             })}</span>}
@@ -446,7 +446,7 @@ function TeamActionPreview({ team, onClose }: { team: TeamColor; onClose: () => 
   const cards = data.definitions.actions.filter((action) => action.team === team).sort((left, right) => left.initiative - right.initiative);
   return <div className="team-preview-backdrop" role="presentation"><button type="button" className="team-preview-dismiss" aria-label="Close squad action-card review" onClick={onClose} /><section className={`team-preview team-${team.toLowerCase()}`} role="dialog" aria-modal="true" aria-label={`${team} squad action cards`}>
     <header><span>{team} squad</span><h2>Action cards</h2><button type="button" onClick={onClose} aria-label="Close squad action-card review">×</button></header>
-    <div>{cards.map((card) => <article key={card.id}><small>{formatActionType(card.type)}</small><strong>{card.name}</strong><b>Initiative {card.initiative}</b><p>{card.sourceText}</p></article>)}</div>
+    <div>{cards.map((card) => <article key={card.id}><small>{formatActionType(card.type)}</small><em className="action-initiative" aria-label={`Initiative ${card.initiative}`}>{card.initiative}</em><strong>{card.name}</strong><p>{card.sourceText}</p></article>)}</div>
   </section></div>;
 }
 
