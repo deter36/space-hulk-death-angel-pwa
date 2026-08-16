@@ -716,7 +716,7 @@ function MissionBoard({ session, boardAnimation, inspection, error, rollNotice, 
             {decisionRules && <div className="decision-rules"><strong>Artefact ability</strong><span>{decisionRules}</span></div>}
             <p>{decision.promptKey === "event.rescue" ? "Choose a slain Marine below. They will return at the bottom of the formation facing right." : decision.type === "FORWARD_SCOUTING_ORDER" && !scoutingPreviewVisible ? "The event choice is minimized while you inspect the board. Return to Forward Scouting when ready." : decision.type === "STRATEGIZE" && !selectedStrategizeSwarmId ? "Choose a highlighted swarm to move." : decision.type === "STRATEGIZE" ? "Choose a highlighted legal destination, or choose another swarm below." : decision.type === "MOVE_MARINE" && !selectedMoveMarineId ? "Choose a highlighted Marine to move." : decision.type === "MOVE_MARINE" ? "Choose the highlighted destination for that Marine, or select another Marine." : decision.type === "SET_FACING" ? "Choose the left or right tile beside the highlighted Marine—even to keep its current facing." : decision.legalOptions.some((option) => isDirectInputOption(decision, option)) ? "Tap an available card or highlighted board target. Hold any object briefly to read its rules." : "Choose an option below. The formation remains visible while you decide."}</p>
             {decision.type === "STRATEGIZE" && selectedStrategizeSwarmId && <button type="button" className="strategize-reset" onClick={() => setStrategizeSelection(null)}>Choose another swarm</button>}
-            {decision.type !== "FORWARD_SCOUTING_ORDER" && dockOptions.length > 0 && <div className="dock-options">{dockOptions.map((option) => { const presentation = presentedDecisionOption(decision, option); return <button key={option.id} type="button" onClick={() => onChooseOption(option.id)}><strong>{presentation.label}</strong>{presentation.preview && <small>{presentation.preview}</small>}</button>; })}</div>}
+            {decision.type !== "FORWARD_SCOUTING_ORDER" && decision.type !== "ATTACK_SLAY" && dockOptions.length > 0 && <div className="dock-options">{dockOptions.map((option) => { const presentation = presentedDecisionOption(decision, option); return <button key={option.id} type="button" onClick={() => onChooseOption(option.id)}><strong>{presentation.label}</strong>{presentation.preview && <small>{presentation.preview}</small>}</button>; })}</div>}
           </div>
         ) : state.status === "IN_PROGRESS" ? (
           <div className="mission-result engine-paused"><strong>Engine paused</strong><span>Download a save from the game menu before ending this mission.</span></div>
@@ -730,6 +730,7 @@ function MissionBoard({ session, boardAnimation, inspection, error, rollNotice, 
       {decision?.type === "FORWARD_SCOUTING_ORDER" && (scoutingPreviewVisible
         ? <ForwardScoutingPreview session={session} decision={decision} onChooseOption={onChooseOption} onViewBoard={() => setScoutingPreviewVisible(false)} />
         : <button type="button" className="scouting-return" onClick={() => setScoutingPreviewVisible(true)}><span aria-hidden="true">↩</span><strong>Forward Scouting</strong><small>Return to event choice</small></button>)}
+      {decision?.type === "ATTACK_SLAY" && <SlaySwarmOverlay session={session} decision={decision} onChooseOption={onChooseOption} />}
       {rollNotice && <RollResult key={rollNotice.id} notice={rollNotice} decision={rollDecision} onProceed={onDismissRoll} />}
     </main>
   );
@@ -939,6 +940,39 @@ function InspectionDrawer({ inspection, onClose }: { inspection: Inspection; onC
         <button type="button" className="inspection-close" onClick={onClose} aria-label="Close card details">×</button>
         <span className="inspection-eyebrow">{inspection.eyebrow}</span><h2 id="inspection-title">{inspection.title}</h2>{inspection.meta && <p className="inspection-meta">{inspection.meta}</p>}<p className="inspection-body">{inspection.body}</p>
       </aside>
+    </div>
+  );
+}
+
+function SlaySwarmOverlay({ decision, onChooseOption, session }: { decision: PendingDecision; onChooseOption: (optionId: string) => void; session: EngineSession }) {
+  const groups = new Map<string, DecisionOption[]>();
+  let stopOption: DecisionOption | null = null;
+  for (const option of decision.legalOptions) {
+    if (option.payload.stop === true) { stopOption = option; continue; }
+    const swarmId = option.payload.swarmId;
+    if (typeof swarmId !== "string") continue;
+    groups.set(swarmId, [...(groups.get(swarmId) ?? []), option]);
+  }
+  return (
+    <div className="slay-swarm-backdrop" role="presentation">
+      <section className="slay-swarm-overlay" role="dialog" aria-modal="true" aria-labelledby="slay-swarm-title">
+        <header><span>Attack confirmed</span><h2 id="slay-swarm-title">Choose a Genestealer to slay</h2><p>Tap its icon in the zoomed swarm.</p></header>
+        {[...groups.entries()].map(([swarmId, options]) => {
+          const swarm = session.state.swarms[swarmId];
+          const location = swarm ? `Formation ${swarm.positionIndex + 1} · ${swarm.side.toLowerCase()}` : "Target swarm";
+          return <section key={swarmId} className="slay-swarm-group" aria-label={`${location} swarm`}>
+            <div className="slay-swarm-zoom"><i aria-hidden="true" /><span>{location}</span><b>{options.length} target{options.length === 1 ? "" : "s"}</b></div>
+            <div className="slay-icon-grid">{options.map((option) => {
+              const cardId = option.payload.cardId;
+              const isBroodlord = typeof cardId === "string" && Boolean(session.state.swarms[swarmId]?.broodLordIds.includes(cardId));
+              const icon = typeof cardId === "string" ? session.state.genestealers[cardId]?.icon : undefined;
+              const label = isBroodlord ? "Brood Lord" : icon ? ICON_LABELS[icon] : "Genestealer";
+              return <button key={option.id} type="button" className={isBroodlord ? "is-broodlord" : ""} onClick={() => onChooseOption(option.id)} aria-label={`Slay ${label}`}><i aria-hidden="true">{isBroodlord ? "♛" : icon ? ICON_GLYPHS[icon] : "◉"}</i><strong>{label}</strong><small>Slay</small></button>;
+            })}</div>
+          </section>;
+        })}
+        {stopOption && <button type="button" className="slay-stop" onClick={() => onChooseOption(stopOption.id)}>Stop slaying</button>}
+      </section>
     </div>
   );
 }
