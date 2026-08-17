@@ -61,6 +61,7 @@ type RollNotice = {
   skull: boolean;
   title: string;
   reroll: boolean;
+  transitionSeq: number;
 };
 
 type BoardAnimation = {
@@ -72,7 +73,8 @@ type BoardAnimation = {
 };
 
 type PendingRollResolution = { session: EngineSession };
-type ResolutionNotice = { id: string; eyebrow: string; title: string; body: string; meta?: string; team?: TeamColor; presentation?: "modal" | "board"; terrainIds?: string[] };
+type ResolutionNotice = { id: string; eyebrow: string; title: string; body: string; meta?: string; team?: TeamColor; presentation?: "modal" | "board" | "movement"; terrainIds?: string[] };
+type MovementPresentation = { id: string; sourceSession: EngineSession; resolvedSession: EngineSession; animation: BoardAnimation };
 
 function isRollFollowUp(decision: PendingDecision | null): decision is PendingDecision {
   return Boolean(decision && ["ATTACK_REROLL", "DEFENSE_REROLL", "EVENT_ATTACK_REROLL"].includes(decision.type));
@@ -186,14 +188,15 @@ function decisionInstruction(session: EngineSession, decision: PendingDecision, 
   return "Choose an option below. The formation remains visible while you decide.";
 }
 
-function resolutionNoticesFrom(session: EngineSession, startingAt: number): ResolutionNotice[] {
-  const transitions = session.transitions.slice(startingAt);
+function resolutionNoticesFrom(session: EngineSession, startingAt: number, throughTransitionSeq?: number): ResolutionNotice[] {
+  const transitions = session.transitions.slice(startingAt).filter((transition) => throughTransitionSeq === undefined || transition.seq <= throughTransitionSeq);
   const eventDraw = transitions.find((transition) => transition.type === "CARD_DRAWN" && transition.sourceId === "event.deck");
   const eventId = eventDraw?.randomInputs.find((input) => input.kind === "DRAW")?.cardId;
   const resolvingEvent = eventId ? findEvent(eventId) : null;
   const spawned = transitions.flatMap((transition) => transition.randomInputs).filter((input) => input.kind === "DRAW" && (input.sourceId === "blip.left" || input.sourceId === "blip.right")).length;
   const moved = transitions.filter((transition) => transition.type === "SWARM_MOVED" || transition.type === "SWARM_FLANKED").length;
   let spawnNoticeAdded = false;
+  let movementNoticeAdded = false;
   const notices: ResolutionNotice[] = [];
   for (const transition of transitions) {
     const id = `transition.${transition.seq}`;
@@ -218,6 +221,9 @@ function resolutionNoticesFrom(session: EngineSession, startingAt: number): Reso
       spawnNoticeAdded = true;
       const terrainIds = transitions.filter((candidate) => candidate.type === "EVENT_TERRAIN_SPAWN_RESOLVED" && candidate.sourceId).map((candidate) => candidate.sourceId!);
       notices.push({ id, eyebrow: "Spawn activations", title: `${spawned} Genestealer${spawned === 1 ? "" : "s"} spawned`, body: "Both Event activations are shown on the highlighted Terrain positions.", meta: resolvingEvent?.activations.map((activation) => `${formatPhase(activation.severity)} ${formatPhase(activation.terrainColor)}`).join(" · "), presentation: "board", terrainIds });
+    } else if (!movementNoticeAdded && (transition.type === "SWARM_MOVED" || transition.type === "SWARM_FLANKED") && moved > 0) {
+      movementNoticeAdded = true;
+      notices.push({ id, eyebrow: "Genestealer movement", title: `${moved} swarm${moved === 1 ? "" : "s"} moving`, body: "The formation stays visible while every matching swarm advances or flanks.", presentation: "movement" });
     } else if (transition.type === "EVENT_MOVEMENT_RESOLVED" && moved === 0) notices.push({ id, eyebrow: "Genestealer movement", title: "No swarms move", body: "No Genestealer swarm matches this Event card's movement icon." });
     else if (transition.type === "TRAVEL_STARTED") notices.push({ id, eyebrow: "Travel", title: "Travel begins", body: "Resolve Door effects and any required travel choices before revealing the next Location." });
     else if (transition.type === "CARD_DRAWN" && transition.sourceId === "location.deck") {
@@ -245,6 +251,12 @@ function eventMovementAnimationFrom(session: EngineSession, resolved: EngineSess
     movingSwarmCells[cellKey(swarm.positionIndex, swarm.side)] = event.movement === "FLANK" ? "flank" : swarm.side === "LEFT" ? "down" : "up";
   }
   return Object.keys(movingSwarmCells).length ? { movingSwarmCells } : null;
+}
+
+function eventMovementPresentationFrom(session: EngineSession, resolved: EngineSession, startingAt: number): MovementPresentation | null {
+  const movementTransition = resolved.transitions.slice(startingAt).find((transition) => transition.type === "SWARM_MOVED" || transition.type === "SWARM_FLANKED");
+  const animation = eventMovementAnimationFrom(session, resolved, startingAt);
+  return movementTransition && animation ? { id: `transition.${movementTransition.seq}`, sourceSession: session, resolvedSession: resolved, animation } : null;
 }
 
 function pendingTargetIds(decision: PendingDecision | null): Set<string> {
@@ -342,6 +354,7 @@ function rollNoticesFrom(session: EngineSession, startingAt: number, priorState:
         skull: Boolean(input.dieSkull),
         title: inspection?.title ?? (input.sourceId.startsWith("swarm.") ? "Genestealer attack" : "Combat die"),
         reroll: transition.type === "DIE_REROLLED",
+        transitionSeq: transition.seq,
       };
     }));
 }
@@ -492,8 +505,12 @@ export default function GameClient() {
   const [pendingRollResolution, setPendingRollResolution] = useState<PendingRollResolution | null>(null);
   const [boardAnimation, setBoardAnimation] = useState<BoardAnimation | null>(null);
   const [slayChoiceAnimating, setSlayChoiceAnimating] = useState(false);
+  const [rollIntroId, setRollIntroId] = useState<string | null>(null);
   const [restoreComplete, setRestoreComplete] = useState(false);
   const animationTimer = useRef<ReturnType<typeof globalThis.setTimeout> | null>(null);
+  const movementPresentations = useRef(new Map<string, MovementPresentation>());
+  const activeMovementPresentation = useRef<string | null>(null);
+  const playedRollIntros = useRef(new Set<string>());
 
   const clearBoardAnimationTimer = () => {
     if (animationTimer.current !== null) globalThis.clearTimeout(animationTimer.current);
@@ -509,6 +526,43 @@ export default function GameClient() {
       onComplete();
     }, duration);
   };
+
+  useEffect(() => {
+    const notice = resolutionNotices[0];
+    if (!notice || notice.presentation !== "movement" || activeMovementPresentation.current) return;
+    const presentation = movementPresentations.current.get(notice.id);
+    if (!presentation) {
+      setResolutionNotices((current) => current.slice(1));
+      return;
+    }
+    activeMovementPresentation.current = notice.id;
+    setSession(presentation.sourceSession);
+    if (animationTimer.current !== null) globalThis.clearTimeout(animationTimer.current);
+    setBoardAnimation(presentation.animation);
+    animationTimer.current = globalThis.setTimeout(() => {
+      animationTimer.current = null;
+      setBoardAnimation(null);
+      setSession(presentation.resolvedSession);
+      movementPresentations.current.delete(notice.id);
+      activeMovementPresentation.current = null;
+      setResolutionNotices((current) => current[0]?.id === notice.id ? current.slice(1) : current);
+    }, 1150);
+  }, [resolutionNotices]);
+
+  useEffect(() => {
+    const notice = rollNotices[0];
+    if (!notice?.preRollAnimation || resolutionNotices.length || rollIntroId || playedRollIntros.current.has(notice.id)) return;
+    playedRollIntros.current.add(notice.id);
+    setRollIntroId(notice.id);
+    const swarm = notice.preRollAnimation.swarmId ? session?.state.swarms[notice.preRollAnimation.swarmId] : null;
+    if (animationTimer.current !== null) globalThis.clearTimeout(animationTimer.current);
+    setBoardAnimation(notice.preRollAnimation);
+    animationTimer.current = globalThis.setTimeout(() => {
+      animationTimer.current = null;
+      setBoardAnimation(null);
+      setRollIntroId(null);
+    }, swarm?.broodLordIds.length ? 1800 : 1000);
+  }, [resolutionNotices.length, rollIntroId, rollNotices, session]);
 
   useEffect(() => {
     const restoreTimer = globalThis.setTimeout(() => {
@@ -563,8 +617,9 @@ export default function GameClient() {
       const prepared = prepareUiSession(submitSessionDecision(session, decision.id, optionId));
       const selectedOption = decision.legalOptions.find((option) => option.id === optionId);
       const notices = rollNoticesFrom(prepared.session, session.transitions.length, session.state, selectedOption);
-      const movementAnimation = eventMovementAnimationFrom(session, prepared.session, session.transitions.length);
-      setResolutionNotices(resolutionNoticesFrom(prepared.session, session.transitions.length));
+      const movementPresentation = eventMovementPresentationFrom(session, prepared.session, session.transitions.length);
+      if (movementPresentation) movementPresentations.current.set(movementPresentation.id, movementPresentation);
+      setResolutionNotices(resolutionNoticesFrom(prepared.session, session.transitions.length, notices[0]?.transitionSeq));
       if (decision.type === "ATTACK_SLAY") {
         const marineId = session.state.actionRuntime?.data.attackerId;
         const swarmId = selectedOption?.payload.swarmId;
@@ -594,11 +649,7 @@ export default function GameClient() {
       }
       if (notices.length) {
         setPendingRollResolution({ session: prepared.session });
-        const preRollAnimation = notices[0]?.preRollAnimation;
-        if (preRollAnimation) {
-          const swarm = preRollAnimation.swarmId ? session.state.swarms[preRollAnimation.swarmId] : null;
-          playBoardAnimation(preRollAnimation, swarm?.broodLordIds.length ? 1800 : 1000, () => setRollNotices(notices));
-        } else setRollNotices(notices);
+        setRollNotices(notices);
       } else {
         const runtime = session.state.genestealerAttackRuntime;
         const newTransitions = prepared.session.transitions.slice(session.transitions.length);
@@ -609,8 +660,6 @@ export default function GameClient() {
             : null;
         if (runtime && outcome) {
           playBoardAnimation({ marineId: runtime.defenderMarineId, marineAnimation: outcome }, 1400, () => setSession(prepared.session));
-        } else if (movementAnimation) {
-          playBoardAnimation(movementAnimation, 1150, () => setSession(prepared.session));
         } else setSession(prepared.session);
       }
       setInspection(null);
@@ -630,8 +679,12 @@ export default function GameClient() {
     setResolutionNotices([]);
     setPendingRollResolution(null);
     setSlayChoiceAnimating(false);
+    setRollIntroId(null);
     clearBoardAnimationTimer();
     setBoardAnimation(null);
+    movementPresentations.current.clear();
+    activeMovementPresentation.current = null;
+    playedRollIntros.current.clear();
   };
 
   const downloadSave = () => {
@@ -660,8 +713,12 @@ export default function GameClient() {
     setResolutionNotices([]);
     setPendingRollResolution(null);
     setSlayChoiceAnimating(false);
+    setRollIntroId(null);
     clearBoardAnimationTimer();
     setBoardAnimation(null);
+    movementPresentations.current.clear();
+    activeMovementPresentation.current = null;
+    playedRollIntros.current.clear();
   };
 
   if (!restoreComplete) return <main className="restore-shell"><span>Restoring mission state…</span></main>;
@@ -710,6 +767,8 @@ export default function GameClient() {
           return;
         }
         finalSession = prepared.session;
+        const movementPresentation = eventMovementPresentationFrom(resolve.session, prepared.session, resolve.session.transitions.length);
+        if (movementPresentation) movementPresentations.current.set(movementPresentation.id, movementPresentation);
         if (!animation && resolve.session.state.genestealerAttackRuntime) {
           const runtime = resolve.session.state.genestealerAttackRuntime;
           const transitions = prepared.session.transitions.slice(resolve.session.transitions.length);
@@ -724,7 +783,9 @@ export default function GameClient() {
       return;
     }
     const duration = animation?.marineAnimation?.startsWith("gunJam") ? 1800 : 1400;
-    const movementAnimation = eventMovementAnimationFrom(resolve.session, finalSession, resolve.session.transitions.length);
+    const deferredNotices = resolutionNoticesFrom(finalSession, notice.transitionSeq);
+    const deferredMovementPresentation = eventMovementPresentationFrom(session, finalSession, session.transitions.length);
+    if (deferredMovementPresentation) movementPresentations.current.set(deferredMovementPresentation.id, deferredMovementPresentation);
     if (animation) {
       // The die result has been acknowledged. Remove its modal before the
       // consequence plays so the animation is the only thing in focus.
@@ -732,25 +793,18 @@ export default function GameClient() {
       playBoardAnimation(animation, duration, () => {
         setSession(finalSession);
         setPendingRollResolution(null);
-      });
-    } else if (movementAnimation) {
-      // The roll is complete. Keep the pre-movement formation visible while
-      // the Event movement crosses it, then reveal the resolved board.
-      setSession(resolve.session);
-      setRollNotices([]);
-      playBoardAnimation(movementAnimation, 1150, () => {
-        setSession(finalSession);
-        setPendingRollResolution(null);
+        setResolutionNotices((current) => [...current, ...deferredNotices]);
       });
     } else {
       setSession(finalSession);
       setPendingRollResolution(null);
       setRollNotices([]);
+      setResolutionNotices((current) => [...current, ...deferredNotices]);
     }
   };
 
   const rollDecision = isRollFollowUp(pendingRollResolution?.session.state.pendingDecision ?? null) ? pendingRollResolution?.session.state.pendingDecision ?? null : null;
-  return <MissionBoard session={session} boardAnimation={boardAnimation} inspection={inspection} error={error} resolutionNotice={rollNotices.length ? null : resolutionNotices[0] ?? null} rollNotice={rollNotices[0] ?? null} rollDecision={rollDecision} slayChoiceAnimating={slayChoiceAnimating} onDismissResolutionNotice={() => setResolutionNotices((current) => current.slice(1))} onDismissRoll={proceedRoll} onInspect={setInspection} onChooseOption={resolveDecision} onUndo={undoOne} onDownloadSave={downloadSave} onDismissInspection={() => setInspection(null)} onNewMission={startNewMission} />;
+  return <MissionBoard session={session} boardAnimation={boardAnimation} inspection={inspection} error={error} resolutionNotice={resolutionNotices[0] ?? null} rollNotice={resolutionNotices.length || rollIntroId ? null : rollNotices[0] ?? null} rollDecision={rollDecision} slayChoiceAnimating={slayChoiceAnimating} onDismissResolutionNotice={() => setResolutionNotices((current) => current.slice(1))} onDismissRoll={proceedRoll} onInspect={setInspection} onChooseOption={resolveDecision} onUndo={undoOne} onDownloadSave={downloadSave} onDismissInspection={() => setInspection(null)} onNewMission={startNewMission} />;
 }
 
 type MissionBoardProps = {
@@ -859,7 +913,7 @@ function MissionBoard({ session, boardAnimation, inspection, error, resolutionNo
       </section>
 
       {inspection && <InspectionDrawer inspection={inspection} onClose={onDismissInspection} />}
-      {resolutionNotice?.presentation === "board" ? <BoardResolutionNotice notice={resolutionNotice} onProceed={onDismissResolutionNotice} /> : resolutionNotice && <ResolutionNoticeOverlay notice={resolutionNotice} onProceed={onDismissResolutionNotice} />}
+      {resolutionNotice?.presentation === "board" ? <BoardResolutionNotice notice={resolutionNotice} onProceed={onDismissResolutionNotice} /> : resolutionNotice?.presentation === "movement" ? null : resolutionNotice && <ResolutionNoticeOverlay notice={resolutionNotice} onProceed={onDismissResolutionNotice} />}
       {decision?.type === "FORWARD_SCOUTING_ORDER" && (scoutingPreviewVisible
         ? <ForwardScoutingPreview session={session} decision={decision} onChooseOption={onChooseOption} onViewBoard={() => setScoutingPreviewVisible(false)} />
         : <button type="button" className="scouting-return" onClick={() => setScoutingPreviewVisible(true)}><span aria-hidden="true">↩</span><strong>Forward Scouting</strong><small>Return to event choice</small></button>)}
