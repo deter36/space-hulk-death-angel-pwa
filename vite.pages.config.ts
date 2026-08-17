@@ -25,6 +25,7 @@ export default defineConfig({
         gameView: fileURLToPath(new URL("./pages/ui-lab/game-view/index.html", import.meta.url)),
         swarmAnimation: fileURLToPath(new URL("./pages/ui-lab/swarm-animation/index.html", import.meta.url)),
         swarmMovement: fileURLToPath(new URL("./pages/ui-lab/swarm-movement/index.html", import.meta.url)),
+        travel: fileURLToPath(new URL("./pages/ui-lab/travel/index.html", import.meta.url)),
         terrainConcepts: fileURLToPath(new URL("./pages/ui-lab/terrain-concepts/index.html", import.meta.url)),
       },
     },
