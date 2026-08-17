@@ -6,7 +6,7 @@ import { INTERACTION_SCENARIO } from "./formation-fixtures";
 import type { LabFormationRow } from "./formation-types";
 import "./ui-lab.css";
 
-type TravelStage = "ready" | "retreat" | "march" | "crossfade" | "arrive" | "complete";
+type TravelStage = "ready" | "retreat" | "crossfade" | "arrive" | "complete";
 
 const terrainSpriteUrls = {
   Door: "../../game-art/terrain/door-v1.png",
@@ -29,7 +29,6 @@ function arrivalRows(): LabFormationRow[] {
 const status: Record<TravelStage, string> = {
   ready: "Travel is ready",
   retreat: "Genestealers withdraw",
-  march: "Strike Force advancing",
   crossfade: "Passing into the next location",
   arrive: "Threats close in",
   complete: "Location 2 entered",
@@ -46,10 +45,9 @@ export default function TravelDemo({ assetBase }: { assetBase: string }) {
     if (stage !== "ready" && stage !== "complete") return;
     clearTimers();
     setStage("retreat");
-    schedule("march", 900);
-    schedule("crossfade", 2250);
-    schedule("arrive", 2700);
-    schedule("complete", 3800);
+    schedule("crossfade", 2550);
+    schedule("arrive", 3000);
+    schedule("complete", 4450);
   };
   const reset = () => { clearTimers(); setStage("ready"); };
   const arrived = stage === "arrive" || stage === "complete";
