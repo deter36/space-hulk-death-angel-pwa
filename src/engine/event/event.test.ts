@@ -102,7 +102,7 @@ describe("Event phase", () => {
     expect(result.state.pendingDecision?.type).toBe("EVENT_TEAM");
     const team = result.state.pendingDecision!.legalOptions[0].payload.team as string;
     result = submit(result, result.state.pendingDecision!.legalOptions[0].id);
-    while (result.state.pendingDecision?.type === "EVENT_SPAWN_PRIORITY") result = submit(result, result.state.pendingDecision.legalOptions[0].id);
+    while (["EVENT_SPAWN_PRIORITY", "EVENT_MOVEMENT_ACK"].includes(result.state.pendingDecision?.type ?? "")) result = submit(result, result.state.pendingDecision!.legalOptions[0].id);
     expect(result.state.round).toBe(2);
     while (result.state.pendingDecision?.type === "CHOOSE_ACTION" && result.state.pendingDecision.sourceId !== `team.${team.toLowerCase()}`) result = submit(result, result.state.pendingDecision.legalOptions[0].id);
     expect(result.state.pendingDecision?.sourceId).toBe(`team.${team.toLowerCase()}`);

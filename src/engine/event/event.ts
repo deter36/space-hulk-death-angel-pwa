@@ -179,7 +179,7 @@ function slayDecision(state: GameState, purpose: string, swarmIds: string[], rem
 }
 
 export function handlesEventDecision(type: string): boolean {
-  return ["EVENT_MARINE", "EVENT_SWARM", "EVENT_BLIP", "EVENT_TEAM", "EVENT_COUNT", "EVENT_SLAY", "EVENT_ATTACK", "EVENT_ATTACK_REROLL", "EVENT_ATTACK_SLAY", "EVENT_SPAWN_PRIORITY", "ENTER_FORMATION_SUPPORT"].includes(type);
+  return ["EVENT_MARINE", "EVENT_SWARM", "EVENT_BLIP", "EVENT_TEAM", "EVENT_COUNT", "EVENT_SLAY", "EVENT_ATTACK", "EVENT_ATTACK_REROLL", "EVENT_ATTACK_SLAY", "EVENT_SPAWN_PRIORITY", "EVENT_MOVEMENT_ACK", "ENTER_FORMATION_SUPPORT"].includes(type);
 }
 
 export function applyEventDecision(state: GameState, pending: PendingDecision, option: Option, decisionRecord: DecisionRecord): TransitionRecord {
@@ -254,6 +254,8 @@ export function applyEventDecision(state: GameState, pending: PendingDecision, o
       if (runtime.data.attackPurpose !== "overwatch") runtime.data.specialResolved = true;
     } else if (pending.type === "EVENT_SPAWN_PRIORITY") {
       runtime.spawnTerrainIds = (option.payload.order as string).split(",").filter(Boolean); runtime.data.spawnPerTerrain = Number(option.payload.spawnPerTerrain); state.eventStep = "ACTIVATION_SPAWN";
+    } else if (pending.type === "EVENT_MOVEMENT_ACK") {
+      runtime.data.movementAcknowledged = true;
     }
   }, { playerDecision: decisionRecord });
 }
@@ -445,6 +447,10 @@ export function advanceEvent(state: GameState, transitions: TransitionRecord[]):
   }
   if (state.eventStep === "MOVEMENT_PREP") {
     const event = eventDefinition(currentCard(state)); const queue = event.movementIcon ? Object.values(state.swarms).filter((swarm) => swarmActivates(state, swarm, event.movementIcon!)).sort((a, b) => a.positionIndex - b.positionIndex || a.side.localeCompare(b.side) || a.id.localeCompare(b.id)).map((swarm) => swarm.id) : [];
+    if (queue.length && runtime.data.movementAcknowledged !== true) {
+      request(state, makeDecision(state, "EVENT_MOVEMENT_ACK", currentCard(state), "event.movement", [{ id: "begin", label: `Move ${queue.length} Genestealer swarm${queue.length === 1 ? "" : "s"}`, payload: { count: queue.length, movement: event.movement ?? "MOVE" }, canonicalEffectPreview: "Begin Event movement" }]), transitions);
+      return false;
+    }
     transitions.push(commitTransition(state, "EVENT_MOVEMENT_STARTED", currentCard(state), () => { runtime.movementQueue = queue; state.eventStep = "MOVEMENT"; })); return true;
   }
   if (state.eventStep === "MOVEMENT") {

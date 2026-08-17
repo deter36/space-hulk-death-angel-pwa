@@ -181,6 +181,11 @@ function decisionInstruction(session: EngineSession, decision: PendingDecision, 
   if (decision.type === "COUNTER_ATTACK_SLAY") return "Counter Attack succeeded. Choose the attacking Genestealer to slay.";
   if (decision.type === "DOOR_TRAVEL_SLAY") return "Door support is ready. Choose a highlighted swarm, then choose the Genestealer to slay—or end the Door ability.";
   if (decision.type === "PLACE_ARTEFACT") return "Choose a highlighted empty flank to place the Artefact from the Location card.";
+  if (decision.type === "EVENT_MOVEMENT_ACK") {
+    const count = Number(decision.legalOptions[0]?.payload.count ?? 0);
+    const movement = String(decision.legalOptions[0]?.payload.movement ?? "MOVE").toLowerCase();
+    return `${count} Genestealer swarm${count === 1 ? " is" : "s are"} ready to ${movement}. Begin movement to watch the board resolve.`;
+  }
   if (decision.type === "STRATEGIZE" && !selectedStrategizeSwarmId) return "Strategize: choose a highlighted swarm to move.";
   if (decision.type === "STRATEGIZE") return "Choose the highlighted legal destination, or choose another swarm below.";
   if (decision.type === "MOVE_MARINE" && !selectedMoveMarineId) return "Choose the highlighted Marine to move.";
@@ -903,7 +908,7 @@ function MissionBoard({ session, boardAnimation, inspection, error, resolutionNo
         {state.activeDie && <DiePanel value={state.activeDie.modifiedValue} skull={state.activeDie.skull} purpose={state.activeDie.purpose} rerolls={state.activeDie.rerolls.length} />}
         {decision ? (
           <div className={`dock-decision ${decisionAction ? `team-context team-${decisionAction.team.toLowerCase()}` : ""}`}>
-            <div className="decision-heading"><span>{formatPhase(decision.type)}</span></div>
+            <div className="decision-heading"><span>{decision.type === "EVENT_MOVEMENT_ACK" ? "Genestealer movement" : formatPhase(decision.type)}</span></div>
             {decisionAction && <div className="decision-source"><i />{decisionAction.team} · {decisionAction.name}</div>}
             {decisionRules && <div className="decision-rules"><strong>Artefact ability</strong><span>{decisionRules}</span></div>}
             <p>{decisionInstruction(session, decision, selectedMoveMarineId, selectedStrategizeSwarmId, scoutingPreviewVisible)}</p>

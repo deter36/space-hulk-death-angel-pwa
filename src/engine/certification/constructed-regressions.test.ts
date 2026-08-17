@@ -49,8 +49,11 @@ describe("v1.4 constructed certification regressions", () => {
     state.roundEffects.push({ id: "cert.reg1.overwatch", sourceId: "action.red.overwatch", startTiming: "ACTION_RESOLVED", expiryTiming: "END_OF_ROUND", targetIds: targets, mergePropagation: "NONE", data: { handlerId: "action.overwatch" } });
 
     let result = advanceAutomatic(state);
-    expect(result.state.pendingDecision?.type).toBe("EVENT_ATTACK");
+    expect(result.state.pendingDecision?.type).toBe("EVENT_MOVEMENT_ACK");
     expect(result.state.travelRuntime).toBeNull();
+    expect(result.state.eventStep).toBe("MOVEMENT_PREP");
+    result = submitDecision(result.state, result.state.pendingDecision!.id, "begin");
+    expect(result.state.pendingDecision?.type).toBe("EVENT_ATTACK");
     expect(result.state.eventStep).toBe("END_EFFECTS");
     result = submitDecision(result.state, result.state.pendingDecision!.id, "finish");
     const types = result.transitions.map((transition) => transition.type);
