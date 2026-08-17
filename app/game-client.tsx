@@ -242,8 +242,7 @@ function resolutionNoticesFrom(session: EngineSession, startingAt: number, throu
       const locationId = transition.randomInputs.find((input) => input.kind === "DRAW")?.cardId;
       const location = locationId ? sourceInspection(session, locationId) : null;
       if (location) notices.push({ id, eyebrow: "New location", title: location.title, body: location.body, meta: location.meta });
-    } else if (transition.type === "TRAVEL_COMPLETED") notices.push({ id, eyebrow: "Travel complete", title: "Location entered", body: "Resolve any upon-entering Location effect before returning to the Event phase." });
-    else if (transition.type === "ROUND_ENDED") notices.push({ id, eyebrow: "", title: `Round ${session.state.round}`, body: "Choose a new action card for each active squad." });
+    } else if (transition.type === "ROUND_ENDED") notices.push({ id, eyebrow: "", title: `Round ${session.state.round}`, body: "Choose a new action card for each active squad." });
   }
   return notices;
 }
