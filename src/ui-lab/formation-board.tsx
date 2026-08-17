@@ -144,7 +144,7 @@ function Marine({ animation, deathStripUrl, dodgeStripUrl, fireStripUrls, jamStr
 
 export default function FormationBoard({ alienAttackStripUrl, alienDeathStripUrl, alienIdleStripUrl, alienSpriteUrl, broodlordAttackStripUrl, broodlordDeathStripUrl, broodlordSpriteUrl, collapsingMarine, locationProgress, marineAnimationStates = {}, marineDeathStripUrl, marineDodgeStripUrl, marineFireStripUrls, marineJamStripUrls, marineSpriteUrl, marineMoveChoices = [], moveSlots = [], movingSwarmCell, movingSwarmCells = {}, marineStates = {}, onInspect, onMarineMoveChoice, onMoveSlot, onOverlayChoice, onSelectMarine, onSelectSwarm, onSelectTerrain, overlayChoices = [], rows, selectedMarine, swarmAnimationStates = {}, swarmStates = {}, terrainStates = {}, terrainSpriteUrls = {} }: FormationBoardProps) {
   const renderMoveSlot = (slot: number) => moveSlots.includes(slot) ? <button type="button" className="lab-move-slot" onClick={() => onMoveSlot?.(slot)}><span>Move here</span></button> : null;
-  const route = ["4", "3", "2", "ENTRY"];
+  const route = ["4", "3", "2", "1"];
   return (
     <section className="lab-board" aria-label="Formation geometry preview">{locationProgress && <div className="lab-location-route" aria-hidden="true">{["left", "right"].map((side) => <div key={side} className={`lab-location-route-${side}`}>{route.map((tier) => <span key={tier} className={tier === locationProgress ? "is-current" : ""}>{tier}</span>)}</div>)}</div>}<div className="lab-formation">
       {rows.map((row, index) => {
