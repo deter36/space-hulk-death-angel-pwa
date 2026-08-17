@@ -4,6 +4,7 @@ export type LabTerrain = {
   color: "GREEN" | "YELLOW" | "ORANGE" | "RED";
   interaction?: "selectable" | "selected" | "targeted";
   name: string;
+  supportTokens?: number;
 };
 
 export type LabSwarm = {
@@ -15,6 +16,7 @@ export type LabSwarm = {
 export type LabFlank = {
   swarm?: LabSwarm;
   terrain?: LabTerrain;
+  terrains?: LabTerrain[];
 };
 
 export type LabMarine = {

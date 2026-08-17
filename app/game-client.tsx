@@ -181,6 +181,7 @@ function decisionInstruction(session: EngineSession, decision: PendingDecision, 
   if (decision.type === "COUNTER_ATTACK_SLAY") return "Counter Attack succeeded. Choose the attacking Genestealer to slay.";
   if (decision.type === "DOOR_TRAVEL_SLAY") return "Door support is ready. Choose a highlighted swarm, then choose the Genestealer to slay—or end the Door ability.";
   if (decision.type === "ATTACK_SLAY" && session.state.actionStep === "HEROIC_CHARGE_SLAY") return "Heroic Charge: choose a highlighted swarm, then choose one Genestealer to slay—or end the ability.";
+  if (decision.type === "INTIMIDATION_PICK") return "Intimidation: choose a highlighted swarm, then choose the Genestealer to return to the Blip pile.";
   if (decision.type === "EVENT_SLAY") return decision.legalOptions[0]?.payload.purpose === "for-my-battle-brothers"
     ? "For My Battle Brothers!: choose a highlighted engaged swarm, then choose the Genestealer to slay."
     : "Choose a highlighted swarm, then choose the Genestealer to slay.";
@@ -349,8 +350,10 @@ function rollNoticesFrom(session: EngineSession, startingAt: number, priorState:
           : null;
       const defenseSwarm = defense ? priorState.swarms[input.sourceId] : undefined;
       const defenseStrength = defenseSwarm ? defenseSwarm.cardIds.length + defenseSwarm.broodLordIds.length : 0;
+      const deadAimSpecial = input.sourceId === "action.green.dead-aim" && input.dieValue === 4;
       const outcome = marineAttack
-        ? hit ? "Hit" : "Miss"
+        ? deadAimSpecial ? "Special hit · Dead Aim: slay up to 3 Genestealers."
+          : hit ? "Hit" : "Miss"
         : defense
           ? defenseOutcome === "death" ? "Marine slain" : defenseOutcome === "dodge" ? "Dodged" : input.dieValue! > defenseStrength ? "Dodged" : "Marine slain"
           : `Result ${input.dieValue}`;
@@ -853,8 +856,12 @@ function MissionBoard({ session, boardAnimation, inspection, error, resolutionNo
   const selectedDoorSwarmId = doorSwarmSelection && doorSwarmSelection.decisionId === decision?.id && decision?.type === "DOOR_TRAVEL_SLAY" ? doorSwarmSelection.swarmId : null;
   const heroicChargeSlay = decision?.type === "ATTACK_SLAY" && state.actionStep === "HEROIC_CHARGE_SLAY";
   const selectedHeroicChargeSwarmId = heroicChargeSwarmSelection && heroicChargeSwarmSelection.decisionId === decision?.id && heroicChargeSlay ? heroicChargeSwarmSelection.swarmId : null;
-  const selectedEventSlaySwarmId = eventSlaySwarmSelection && eventSlaySwarmSelection.decisionId === decision?.id && decision?.type === "EVENT_SLAY" ? eventSlaySwarmSelection.swarmId : null;
-  const targetIds = useMemo(() => decision?.type === "STRATEGIZE" ? new Set<string>() : pendingTargetIds(decision), [decision]);
+  const selectedEventSlaySwarmId = eventSlaySwarmSelection && eventSlaySwarmSelection.decisionId === decision?.id && (decision?.type === "EVENT_SLAY" || decision?.type === "INTIMIDATION_PICK") ? eventSlaySwarmSelection.swarmId : null;
+  const targetIds = useMemo(() => {
+    const ids = decision?.type === "STRATEGIZE" ? new Set<string>() : pendingTargetIds(decision);
+    if (decision?.type === "INTIMIDATION_PICK") for (const swarm of Object.values(state.swarms)) if (swarm.cardIds.some((cardId) => decision.legalOptions.some((option) => option.payload.cardId === cardId))) ids.add(swarm.id);
+    return ids;
+  }, [decision, state.swarms]);
   const currentLocation = data.definitions.locations.find((item) => item.id === componentDefinitionId(session, state.currentLocationInstanceId));
   const locationInspection = sourceInspection(session, state.currentLocationInstanceId) ?? { eyebrow: "Setup location", title: setupLocationName(componentDefinitionId(session, state.currentLocationInstanceId)), body: "Starting location for the solo mission.", meta: "Void Lock" };
   const leftBlips = state.orderedSources["blip.left"]?.length ?? 0;
@@ -868,7 +875,7 @@ function MissionBoard({ session, boardAnimation, inspection, error, resolutionNo
     ? option.payload.skip === true
     : decision.type === "GENESTEALER_ATTACK_ACK"
       ? true
-    : decision.type === "DOOR_TRAVEL_SLAY" || heroicChargeSlay || decision.type === "EVENT_SLAY"
+    : decision.type === "DOOR_TRAVEL_SLAY" || heroicChargeSlay || decision.type === "EVENT_SLAY" || decision.type === "INTIMIDATION_PICK"
       ? option.payload.stop === true
       : isOffBoardMarineOption(option, formationMarineIds) || !isDirectInputOption(decision, option)) ?? [];
   const orderedDockOptions = decision?.type === "STEALTH_FIRST"
@@ -947,7 +954,7 @@ function MissionBoard({ session, boardAnimation, inspection, error, resolutionNo
       {decision?.type === "ATTACK_SLAY" && !heroicChargeSlay && !slayChoiceAnimating && <SlaySwarmOverlay session={session} decision={decision} onChooseOption={onChooseOption} />}
       {heroicChargeSlay && selectedHeroicChargeSwarmId && <SlaySwarmOverlay session={session} decision={decision!} swarmId={selectedHeroicChargeSwarmId} onChooseOption={onChooseOption} />}
       {decision?.type === "DOOR_TRAVEL_SLAY" && selectedDoorSwarmId && <SlaySwarmOverlay session={session} decision={decision} swarmId={selectedDoorSwarmId} onChooseOption={onChooseOption} />}
-      {decision?.type === "EVENT_SLAY" && selectedEventSlaySwarmId && <SlaySwarmOverlay session={session} decision={decision} swarmId={selectedEventSlaySwarmId} onChooseOption={onChooseOption} />}
+      {(decision?.type === "EVENT_SLAY" || decision?.type === "INTIMIDATION_PICK") && selectedEventSlaySwarmId && <SlaySwarmOverlay session={session} decision={decision} swarmId={selectedEventSlaySwarmId} onChooseOption={onChooseOption} />}
       {rollNotice && <RollResult key={rollNotice.id} notice={rollNotice} decision={rollDecision} onProceed={onDismissRoll} />}
     </main>
   );
@@ -961,13 +968,16 @@ function labRows(session: EngineSession): LabFormationRow[] {
   const { state } = session;
   const flank = (positionIndex: number, side: Side) => {
     const slot = state.formation[positionIndex];
-    const terrainId = slot.terrainInstanceIds[side][0];
-    const terrainDefinition = terrainId ? data.definitions.terrain.find((item) => item.id === componentDefinitionId(session, terrainId)) : undefined;
+    const terrains = slot.terrainInstanceIds[side].flatMap((terrainId) => {
+      const definition = data.definitions.terrain.find((item) => item.id === componentDefinitionId(session, terrainId));
+      return definition ? [{ name: definition.name, color: labSpawnColor(definition.spawnColor), supportTokens: state.terrain[terrainId]?.support ?? 0 }] : [];
+    });
     const swarms = slot.swarmIds[side].map((swarmId) => state.swarms[swarmId]).filter((swarm): swarm is NonNullable<typeof swarm> => Boolean(swarm));
     const icons = swarms.flatMap((swarm) => swarm.cardIds.map((cardId) => state.genestealers[cardId]?.icon).filter((icon): icon is GenestealerIcon => Boolean(icon)));
     const broodLords = swarms.reduce((total, swarm) => total + swarm.broodLordIds.length, 0);
     return {
-      terrain: terrainDefinition ? { name: terrainDefinition.name, color: labSpawnColor(terrainDefinition.spawnColor) } : undefined,
+      terrain: terrains[0],
+      terrains,
       swarm: icons.length || broodLords ? { icons, broodLords: broodLords || undefined } : undefined,
     };
   };
@@ -1026,7 +1036,7 @@ function LiveFormationBoard({ session, boardAnimation, highlightedTerrainIds, ta
     const attacking = Boolean(swarmId && swarmId === boardAnimation?.swarmId && boardAnimation?.swarmAnimation === "attack");
     const doorSelectable = decision?.type === "DOOR_TRAVEL_SLAY" && Boolean(swarmId && targetIds.has(swarmId));
     const heroicChargeSelectable = heroicChargeSlay && Boolean(swarmId && targetIds.has(swarmId));
-    const eventSlaySelectable = decision?.type === "EVENT_SLAY" && Boolean(swarmId && targetIds.has(swarmId));
+    const eventSlaySelectable = (decision?.type === "EVENT_SLAY" || decision?.type === "INTIMIDATION_PICK") && Boolean(swarmId && targetIds.has(swarmId));
     return [cellKey(positionIndex, side), attacking ? "targeted" : selected || selectedDoorSwarmId === swarmId || selectedHeroicChargeSwarmId === swarmId || selectedEventSlaySwarmId === swarmId ? "selected" : selectable || doorSelectable || heroicChargeSelectable || eventSlaySelectable ? "selectable" : targeted ? "targeted" : "neutral"];
   }))), [boardAnimation, decision, heroicChargeSlay, selectedDoorSwarmId, selectedEventSlaySwarmId, selectedHeroicChargeSwarmId, selectedStrategizeSwarmId, selectableStrategizeSwarms, state.formation, targetIds]);
   const terrainStates = useMemo<Record<string, LabTargetState>>(() => Object.fromEntries(state.formation.flatMap((slot, positionIndex) => (["LEFT", "RIGHT"] as const).map((side) => {
@@ -1067,7 +1077,7 @@ function LiveFormationBoard({ session, boardAnimation, highlightedTerrainIds, ta
     if (decision.type === "STRATEGIZE" && !selectedStrategizeSwarmId && selectableStrategizeSwarms.has(swarmId)) { onSelectStrategizeSwarm(swarmId); return; }
     if (decision.type === "DOOR_TRAVEL_SLAY" && targetIds.has(swarmId)) { onSelectDoorSwarm(swarmId); return; }
     if (heroicChargeSlay && targetIds.has(swarmId)) { onSelectHeroicChargeSwarm(swarmId); return; }
-    if (decision.type === "EVENT_SLAY" && targetIds.has(swarmId)) { onSelectEventSlaySwarm(swarmId); return; }
+    if ((decision.type === "EVENT_SLAY" || decision.type === "INTIMIDATION_PICK") && targetIds.has(swarmId)) { onSelectEventSlaySwarm(swarmId); return; }
     const option = uniquePayloadOption(decision, "swarmId", swarmId);
     if (option) onChooseOption(option.id);
   };
@@ -1086,7 +1096,7 @@ function LiveFormationBoard({ session, boardAnimation, highlightedTerrainIds, ta
     if (option) onChooseOption(option.id);
   };
   const liveStyle = { "--lab-scale": "1", "--lab-viewport": "1180px" } as CSSProperties;
-  return <section className="live-sprite-board" style={liveStyle}><FormationBoard rows={rows} marineSpriteUrl="prototype-art/marine-idle.gif" marineDeathStripUrl="game-art/marine/death.png" marineDodgeStripUrl="game-art/marine/dodge.png" marineFireStripUrls={{ straight: "game-art/marine/fire-straight.png", up: "game-art/marine/fire-up.png", down: "game-art/marine/fire-down.png" }} marineJamStripUrls={{ straight: "game-art/marine/gun-jam-straight.png", up: "game-art/marine/gun-jam-up.png", down: "game-art/marine/gun-jam-down.png" }} alienSpriteUrl="prototype-art/alien-attack.gif" alienAttackStripUrl="game-art/genestealer/attack.png" alienDeathStripUrl="game-art/genestealer/death.png" alienIdleStripUrl="game-art/genestealer/idle.png" broodlordSpriteUrl="game-art/broodlord/idle.png" broodlordAttackStripUrl="game-art/broodlord/attack.png" broodlordDeathStripUrl="game-art/broodlord/death.png" movingSwarmCells={boardAnimation?.movingSwarmCells} marineAnimationStates={marineAnimationStates} swarmAnimationStates={swarmAnimationStates} marineStates={marineStates} marineMoveChoices={marineMoveChoices} overlayChoices={overlayChoices} swarmStates={swarmStates} terrainStates={terrainStates} selectedMarine={null} onSelectMarine={chooseMarine} onSelectSwarm={chooseSwarm} onSelectTerrain={chooseTerrain} onOverlayChoice={(choice) => chooseCellOption(choice.row, choice.side)} onMarineMoveChoice={(choice) => { const option = decision?.legalOptions.find((item) => item.payload.marineId === selectedMoveMarineId && item.payload.to === choice.row); if (option) onChooseOption(option.id); }} onInspect={(details) => onInspect({ eyebrow: details.eyebrow, title: details.title, body: details.body, meta: details.subtitle })} /></section>;
+  return <section className="live-sprite-board" style={liveStyle}><FormationBoard rows={rows} marineSpriteUrl="prototype-art/marine-idle.gif" marineDeathStripUrl="game-art/marine/death.png" marineDodgeStripUrl="game-art/marine/dodge.png" marineFireStripUrls={{ straight: "game-art/marine/fire-straight.png", up: "game-art/marine/fire-up.png", down: "game-art/marine/fire-down.png" }} marineJamStripUrls={{ straight: "game-art/marine/gun-jam-straight.png", up: "game-art/marine/gun-jam-up.png", down: "game-art/marine/gun-jam-down.png" }} alienSpriteUrl="prototype-art/alien-attack.gif" alienAttackStripUrl="game-art/genestealer/attack.png" alienDeathStripUrl="game-art/genestealer/death.png" alienIdleStripUrl="game-art/genestealer/idle.png" broodlordSpriteUrl="game-art/broodlord/idle.png" broodlordAttackStripUrl="game-art/broodlord/attack.png" broodlordDeathStripUrl="game-art/broodlord/death.png" terrainSpriteUrls={{ Corridor: "game-art/terrain/corridor-v1.png", Artefact: "game-art/terrain/artefact-v1.png", "Control Panel": "game-art/terrain/control-panel-v1.png", Door: "game-art/terrain/door-v1.png", "Promethium Tank": "game-art/terrain/promethium-tank-v1.png", "Dark Corner": "game-art/terrain/dark-corner-v1.png", "Spore Chimney": "game-art/terrain/spore-chimney-v1.png", "Ventilation Duct": "game-art/terrain/ventilation-duct-v1.png" }} movingSwarmCells={boardAnimation?.movingSwarmCells} marineAnimationStates={marineAnimationStates} swarmAnimationStates={swarmAnimationStates} marineStates={marineStates} marineMoveChoices={marineMoveChoices} overlayChoices={overlayChoices} swarmStates={swarmStates} terrainStates={terrainStates} selectedMarine={null} onSelectMarine={chooseMarine} onSelectSwarm={chooseSwarm} onSelectTerrain={chooseTerrain} onOverlayChoice={(choice) => chooseCellOption(choice.row, choice.side)} onMarineMoveChoice={(choice) => { const option = decision?.legalOptions.find((item) => item.payload.marineId === selectedMoveMarineId && item.payload.to === choice.row); if (option) onChooseOption(option.id); }} onInspect={(details) => onInspect({ eyebrow: details.eyebrow, title: details.title, body: details.body, meta: details.subtitle })} /></section>;
 }
 
 // Kept as a reference while the remaining card-level target choices are moved to the sprite board.
@@ -1197,17 +1207,19 @@ function SlaySwarmOverlay({ decision, onChooseOption, session, swarmId: onlySwar
   let stopOption: DecisionOption | null = null;
   for (const option of decision.legalOptions) {
     if (option.payload.stop === true) { stopOption = option; continue; }
-    const swarmId = option.payload.swarmId;
+    const swarmId = typeof option.payload.swarmId === "string" ? option.payload.swarmId : decision.type === "INTIMIDATION_PICK"
+      ? Object.values(session.state.swarms).find((swarm) => swarm.cardIds.includes(option.payload.cardId as string))?.id
+      : undefined;
     if (typeof swarmId !== "string") continue;
     groups.set(swarmId, [...(groups.get(swarmId) ?? []), option]);
   }
   const doorAbility = decision.type === "DOOR_TRAVEL_SLAY";
   const heroicCharge = decision.type === "ATTACK_SLAY" && session.state.actionStep === "HEROIC_CHARGE_SLAY";
-  const eventEffect = decision.type === "EVENT_SLAY";
+  const eventEffect = decision.type === "EVENT_SLAY" || decision.type === "INTIMIDATION_PICK";
   return (
     <div className="slay-swarm-backdrop" role="presentation">
       <section className="slay-swarm-overlay" role="dialog" aria-modal="true" aria-labelledby="slay-swarm-title">
-        <header><span>{doorAbility ? "Door support" : heroicCharge ? "Heroic Charge" : eventEffect ? "Event effect" : "Attack confirmed"}</span><h2 id="slay-swarm-title">Choose a Genestealer to slay</h2><p>{doorAbility || heroicCharge || eventEffect ? "Choose one Genestealer from the selected swarm." : "Tap its icon in the zoomed swarm."}</p></header>
+        <header><span>{doorAbility ? "Door support" : heroicCharge ? "Heroic Charge" : decision.type === "INTIMIDATION_PICK" ? "Intimidation" : eventEffect ? "Event effect" : "Attack confirmed"}</span><h2 id="slay-swarm-title">{decision.type === "INTIMIDATION_PICK" ? "Choose a Genestealer to intimidate" : "Choose a Genestealer to slay"}</h2><p>{doorAbility || heroicCharge || eventEffect ? "Choose one Genestealer from the selected swarm." : "Tap its icon in the zoomed swarm."}</p></header>
         {[...groups.entries()].filter(([swarmId]) => !onlySwarmId || swarmId === onlySwarmId).map(([swarmId, options]) => {
           const swarm = session.state.swarms[swarmId];
           const location = swarm ? `Formation ${swarm.positionIndex + 1} · ${swarm.side.toLowerCase()}` : "Target swarm";
