@@ -77,11 +77,12 @@ function useMobileBoardScale(): number {
   const calculate = () => {
     const viewportHeight = globalThis.visualViewport?.height ?? globalThis.innerHeight;
     const viewportWidth = globalThis.visualViewport?.width ?? globalThis.innerWidth;
-    // Six 104px rows plus board chrome must share the screen with the compact
-    // mission tray and the persistent action cards. Keep touch targets usable.
-    const heightScale = (viewportHeight - 160) / 650;
+    // The live board receives the space left by the HUD and card tray. This
+    // conservative allowance keeps the six-lane board inside short mobile
+    // viewports without stretching any individual asset.
+    const heightScale = (viewportHeight - 225) / 650;
     const widthScale = viewportWidth / 390;
-    return Math.max(0.72, Math.min(1, heightScale, widthScale));
+    return Math.max(0.62, Math.min(1, heightScale, widthScale));
   };
   const [scale, setScale] = useState(0.84);
   useEffect(() => {
