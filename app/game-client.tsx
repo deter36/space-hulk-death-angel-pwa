@@ -855,7 +855,7 @@ export default function GameClient() {
       return;
     }
     setResolutionNotices((current) => current.slice(1));
-  }} onDismissRoll={proceedRoll} onInspect={setInspection} onChooseOption={resolveDecision} onUndo={undoOne} onDownloadSave={downloadSave} onDismissInspection={() => setInspection(null)} onNewMission={startNewMission} />;
+  }} onDismissRoll={proceedRoll} onInspect={setInspection} onChooseOption={resolveDecision} onUndo={undoOne} onDownloadSave={downloadSave} onDismissInspection={() => setInspection(null)} onNewMission={startNewMission} onStartTutorial={startTutorial} />;
 }
 
 type MissionBoardProps = {
@@ -876,9 +876,10 @@ type MissionBoardProps = {
   onDismissInspection: () => void;
   onDismissRoll: (optionId?: string) => void;
   onNewMission: () => void;
+  onStartTutorial: () => void;
 };
 
-function MissionBoard({ session, tutorial, boardAnimation, inspection, error, resolutionNotice, rollNotice, rollDecision, slayChoiceAnimating, onInspect, onChooseOption, onUndo, onDownloadSave, onDismissInspection, onDismissResolutionNotice, onDismissRoll, onNewMission }: MissionBoardProps) {
+function MissionBoard({ session, tutorial, boardAnimation, inspection, error, resolutionNotice, rollNotice, rollDecision, slayChoiceAnimating, onInspect, onChooseOption, onUndo, onDownloadSave, onDismissInspection, onDismissResolutionNotice, onDismissRoll, onNewMission, onStartTutorial }: MissionBoardProps) {
   const [moveSelection, setMoveSelection] = useState<{ decisionId: string; marineId: string } | null>(null);
   const [strategizeSelection, setStrategizeSelection] = useState<{ decisionId: string; swarmId: string } | null>(null);
   const [doorSwarmSelection, setDoorSwarmSelection] = useState<{ decisionId: string; swarmId: string } | null>(null);
@@ -937,7 +938,7 @@ function MissionBoard({ session, tutorial, boardAnimation, inspection, error, re
           <div className="live-hud-stats"><span>Marines <b>{livingMarines}/6</b></span><span>Support <b><i>●</i>{state.supportSupply}</b></span></div>
           <div className="lab-hud-cycle"><span>Round</span><strong>{String(state.round).padStart(2, "0")}</strong></div>
           <div className="lab-hud-phase"><span>Current phase</span><strong>{formatPhase(state.phase)}</strong></div>
-          <div className="live-hud-menu"><button type="button" aria-label="Open game menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((current) => !current)}>☰</button>{menuOpen && <div className="live-hud-menu-panel"><button type="button" disabled={!undoStatus.allowed} onClick={() => { onUndo(); setMenuOpen(false); }}><strong>↶ Undo</strong><small>{undoStatus.allowed ? `${undoStatus.availableSteps} step${undoStatus.availableSteps === 1 ? "" : "s"} available` : undoStatus.unavailableReason === "RANDOMNESS_BARRIER" ? "Locked by random result" : undoStatus.unavailableReason === "HIDDEN_INFORMATION_BARRIER" ? "Locked by card reveal" : "No reversible step"}</small></button><button type="button" onClick={() => { onDownloadSave(); setMenuOpen(false); }}><strong>⇩ Download save</strong><small>Export this game’s diagnostics</small></button><button type="button" className="is-danger" onClick={() => { if (globalThis.confirm("End this mission and return to team selection?")) { onNewMission(); setMenuOpen(false); } }}><strong>New mission</strong><small>End the current game</small></button></div>}</div>
+          <div className="live-hud-menu"><button type="button" aria-label="Open game menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((current) => !current)}>☰</button>{menuOpen && <div className="live-hud-menu-panel"><button type="button" disabled={!undoStatus.allowed} onClick={() => { onUndo(); setMenuOpen(false); }}><strong>↶ Undo</strong><small>{undoStatus.allowed ? `${undoStatus.availableSteps} step${undoStatus.availableSteps === 1 ? "" : "s"} available` : undoStatus.unavailableReason === "RANDOMNESS_BARRIER" ? "Locked by random result" : undoStatus.unavailableReason === "HIDDEN_INFORMATION_BARRIER" ? "Locked by card reveal" : "No reversible step"}</small></button><button type="button" onClick={() => { onDownloadSave(); setMenuOpen(false); }}><strong>⇩ Download save</strong><small>Export this game’s diagnostics</small></button><button type="button" onClick={() => { if (globalThis.confirm("Start the guided tutorial? This replaces the current session.")) { onStartTutorial(); setMenuOpen(false); } }}><strong>◈ Guided tutorial</strong><small>Learn the game in a fixed beginner scenario</small></button><button type="button" className="is-danger" onClick={() => { if (globalThis.confirm("End this mission and return to team selection?")) { onNewMission(); setMenuOpen(false); } }}><strong>New mission</strong><small>End the current game</small></button></div>}</div>
         </div>
 
         {missionInfoCollapsed ? (
