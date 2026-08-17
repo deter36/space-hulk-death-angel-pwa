@@ -280,7 +280,7 @@ function resolutionNoticesFrom(session: EngineSession, startingAt: number, throu
     else if (!spawnNoticeAdded && transition.type === "CARD_DRAWN" && (transition.sourceId === "blip.left" || transition.sourceId === "blip.right") && spawned > 0) {
       spawnNoticeAdded = true;
       const terrainIds = transitions.filter((candidate) => candidate.type === "EVENT_TERRAIN_SPAWN_RESOLVED" && candidate.sourceId).map((candidate) => candidate.sourceId!);
-      notices.push({ id, eyebrow: "Spawn activations", title: `${spawned} Genestealer${spawned === 1 ? "" : "s"} spawned`, body: "Both Event activations are shown on the brightly highlighted Terrain positions.", meta: resolvingEvent?.activations.map((activation) => `${formatPhase(activation.severity)} ${formatPhase(activation.terrainColor)}`).join(" · "), terrainIds });
+      notices.push({ id, eyebrow: "Spawn activations", title: `${spawned} Genestealer${spawned === 1 ? "" : "s"} spawned`, body: "Both Event activations are shown on the brightly highlighted Terrain positions.", meta: resolvingEvent?.activations.map((activation) => `${formatPhase(activation.severity)} ${formatPhase(activation.terrainColor)}`).join(" · "), presentation: "board", terrainIds });
     } else if (!movementNoticeAdded && (transition.type === "SWARM_MOVED" || transition.type === "SWARM_FLANKED") && moved > 0) {
       movementNoticeAdded = true;
       notices.push({ id, eyebrow: "Genestealer movement", title: `${moved} swarm${moved === 1 ? "" : "s"} moving`, body: "The formation stays visible while every matching swarm advances or flanks.", presentation: "movement" });
@@ -972,6 +972,9 @@ function MissionBoard({ session, tutorial, boardAnimation, inspection, error, re
       <LiveActionSelection session={session} onChooseOption={onChooseOption} />
 
       {!choosingActions && <section className="command-dock" aria-live="polite">
+        {resolutionNotice?.presentation === "board" ? (
+          <SpawnResolutionTray notice={resolutionNotice} onProceed={onDismissResolutionNotice} />
+        ) : <>
         {state.activeDie && <DiePanel value={state.activeDie.modifiedValue} skull={state.activeDie.skull} purpose={state.activeDie.purpose} rerolls={state.activeDie.rerolls.length} />}
         {decision ? (
           <div className={`dock-decision ${decisionAction ? `team-context team-${decisionAction.team.toLowerCase()}` : ""}`}>
@@ -988,10 +991,11 @@ function MissionBoard({ session, tutorial, boardAnimation, inspection, error, re
           <div className="mission-result"><strong>{state.status === "VICTORY" ? "Mission accomplished" : "Squad eliminated"}</strong><button type="button" onClick={onNewMission}>Start new mission</button></div>
         )}
         {error && <p className="error-message" role="alert">{error}</p>}
+        </>}
       </section>}
 
       {inspection && <InspectionDrawer inspection={inspection} onClose={onDismissInspection} />}
-      {resolutionNotice?.presentation === "movement" ? null : resolutionNotice && <ResolutionNoticeOverlay notice={resolutionNotice} onProceed={onDismissResolutionNotice} />}
+      {resolutionNotice?.presentation === "movement" || resolutionNotice?.presentation === "board" ? null : resolutionNotice && <ResolutionNoticeOverlay notice={resolutionNotice} onProceed={onDismissResolutionNotice} />}
       {decision?.type === "FORWARD_SCOUTING_ORDER" && (scoutingPreviewVisible
         ? <ForwardScoutingPreview session={session} decision={decision} onChooseOption={onChooseOption} onViewBoard={() => setScoutingPreviewVisible(false)} />
         : <button type="button" className="scouting-return" onClick={() => setScoutingPreviewVisible(true)}><span aria-hidden="true">↩</span><strong>Forward Scouting</strong><small>Return to event choice</small></button>)}
@@ -1241,6 +1245,10 @@ function ResolutionNoticeOverlay({ notice, onProceed }: { notice: ResolutionNoti
   return <div className="resolution-notice-backdrop" role="presentation"><section className={`resolution-notice ${notice.team ? `team-${notice.team.toLowerCase()}` : ""}`} role="dialog" aria-modal="true" aria-labelledby={`resolution-${notice.id}`}>
     <span>{notice.eyebrow}</span><h2 id={`resolution-${notice.id}`}>{notice.title}</h2>{notice.meta && <strong>{notice.meta}</strong>}<p>{notice.body}</p><button type="button" onClick={onProceed}>Proceed</button>
   </section></div>;
+}
+
+function SpawnResolutionTray({ notice, onProceed }: { notice: ResolutionNotice; onProceed: () => void }) {
+  return <div className="dock-decision spawn-resolution-tray"><div className="decision-heading"><span>{notice.eyebrow}</span></div><strong>{notice.title}</strong>{notice.meta && <small>{notice.meta}</small>}<p>{notice.body}</p><div className="dock-options"><button type="button" onClick={onProceed}><strong>Proceed to movement</strong></button></div></div>;
 }
 
 function SlaySwarmOverlay({ decision, onChooseOption, session, swarmId: onlySwarmId }: { decision: PendingDecision; onChooseOption: (optionId: string) => void; session: EngineSession; swarmId?: string }) {
