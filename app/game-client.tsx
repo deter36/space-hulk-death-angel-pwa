@@ -631,7 +631,8 @@ export default function GameClient() {
       const notices = rollNoticesFrom(prepared.session, session.transitions.length, session.state, selectedOption);
       const movementPresentation = decision.type === "EVENT_MOVEMENT_ACK" ? eventMovementPresentationFrom(session, prepared.session, session.transitions.length) : null;
       if (movementPresentation) movementPresentations.current.set(movementPresentation.id, movementPresentation);
-      const resolutionNotices = resolutionNoticesFrom(prepared.session, session.transitions.length, notices[0]?.transitionSeq);
+      const resolutionNotices = resolutionNoticesFrom(prepared.session, session.transitions.length, notices[0]?.transitionSeq)
+        .filter((notice) => prepared.session.state.pendingDecision?.type !== "FORWARD_SCOUTING_ORDER" || notice.eyebrow !== "Event reveal");
       if (decision.type === "ATTACK_SLAY") {
         const marineId = session.state.actionRuntime?.data.attackerId;
         const swarmId = selectedOption?.payload.swarmId;
