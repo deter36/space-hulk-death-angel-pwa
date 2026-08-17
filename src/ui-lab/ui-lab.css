@@ -134,7 +134,7 @@ button, input, select { font: inherit; }
 .lab-choice-red { border-color: var(--lab-team-red); border-left-color: var(--lab-team-red); background: linear-gradient(90deg, #351815, #101816); }.lab-choice-red span { color: #ff8a84; }
 .lab-choice-purple { border-color: var(--lab-team-purple); border-left-color: var(--lab-team-purple); background: linear-gradient(90deg, #2c1734, #101816); }.lab-choice-purple span { color: var(--lab-team-purple); }
 .lab-terrain { z-index: 9; margin: 0; padding: 0; color: inherit; cursor: default; pointer-events: none; appearance: none; }.lab-terrain > span { pointer-events: auto; }.lab-terrain.is-selectable > span { cursor: pointer; }.lab-terrain.is-selectable, .lab-terrain.is-targeted { z-index: 12; pointer-events: auto; cursor: pointer; box-shadow: inset 0 0 0 3px #4edfff, 0 0 15px #4edfff99; animation: lab-board-pulse 1.25s ease-in-out infinite; }.lab-terrain.is-selected { box-shadow: inset 0 0 0 3px var(--lab-signal), 0 0 18px #c8df45aa; }
-.lab-flank.is-engaged .lab-terrain:not(.is-selectable):not(.is-targeted) { z-index: 1; }
+.lab-flank.is-engaged .lab-terrain:not(.is-selectable):not(.is-targeted), .lab-flank.is-engaged .lab-terrain.is-targeted { z-index: 1; }
 .live-action-dock { position: relative; z-index: 20; width: min(100%, 760px); margin: 10px auto 0; border: 1px solid #536159; background: #0a100df2; box-shadow: 0 -6px 20px #0009; }
 .live-action-dock-heading { display: flex; align-items: center; gap: 7px; min-height: 26px; padding: 5px 8px; border-bottom: 1px solid #35423a; color: #98a69e; font-size: .5rem; letter-spacing: .08em; text-transform: uppercase; }
 .live-action-dock-heading > span { flex: 1; }.live-action-dock-heading b { color: var(--lab-signal); }
