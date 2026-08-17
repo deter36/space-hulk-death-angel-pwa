@@ -953,7 +953,7 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
     : null;
 
   return (
-    <main className="mission-shell">
+    <main className={`mission-shell ${choosingActions ? "is-choosing-actions" : ""}`}>
       <section className="lab-hud" aria-label="Mission status">
         <div className="lab-hud-command">
           <div className="live-hud-stats"><span>Marines <b>{livingMarines}/6</b></span><span>Support <b><i>●</i>{state.supportSupply}</b></span></div>
