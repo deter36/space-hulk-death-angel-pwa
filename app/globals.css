@@ -188,3 +188,10 @@ button:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
 .scouting-backdrop, .slay-swarm-backdrop { background: #06100873; backdrop-filter: none; }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }.roll-cube[data-rolling] { animation: none !important; } }
+
+/* During action selection, the cards are the interface—not a second boxed panel. */
+.live-action-dock.is-choosing { border: 0; background: transparent; box-shadow: none; }
+.live-action-dock.is-choosing .live-action-hands { min-height: 78px; background: transparent; }
+.live-action-dock.is-choosing .live-action-team-slot { min-height: 78px; border: 0; padding: 8px 2px 2px; background: transparent; }
+.live-action-dock.is-choosing .live-action-team-slot.is-active { box-shadow: none; animation: none !important; }
+.live-action-dock.is-choosing .live-action-team-name { top: 1px; text-shadow: 0 1px 3px #000; }

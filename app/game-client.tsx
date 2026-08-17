@@ -449,7 +449,7 @@ function LiveActionSelection({ session, onChooseOption }: { session: EngineSessi
   const expandedCards = expandedTeam ? cardsByTeam[expandedTeam] ?? [] : [];
 
   return (
-    <section className={`live-action-dock ${expandedTeam ? "is-expanded" : ""}`} aria-label="Combat team action cards">
+    <section className={`live-action-dock ${choosingActions ? "is-choosing" : ""} ${expandedTeam ? "is-expanded" : ""}`} aria-label="Combat team action cards">
       {expandedTeam && choosingActions && (
         <><button type="button" className="live-hand-dismiss" aria-label="Close action hand" onClick={() => setExpandedTeam(null)} /><div className={`live-expanded-hand lab-team-${expandedTeam.toLowerCase()}`}>
           <header><span>{expandedTeam} squad</span><strong>Choose an action</strong><button type="button" onClick={() => setExpandedTeam(null)} aria-label="Close action hand">×</button></header>
@@ -826,6 +826,7 @@ function MissionBoard({ session, boardAnimation, inspection, error, resolutionNo
   const [menuOpen, setMenuOpen] = useState(false);
   const { state } = session;
   const decision = state.pendingDecision;
+  const choosingActions = decision?.type === "CHOOSE_ACTION";
   const selectedMoveMarineId = moveSelection && moveSelection.decisionId === decision?.id ? moveSelection.marineId : null;
   const strategizeSwarms = useMemo(() => strategizeSwarmIds(decision), [decision]);
   const strategizeSwarmSet = useMemo(() => new Set(strategizeSwarms), [strategizeSwarms]);
@@ -904,7 +905,7 @@ function MissionBoard({ session, boardAnimation, inspection, error, resolutionNo
 
       <LiveActionSelection session={session} onChooseOption={onChooseOption} />
 
-      <section className="command-dock" aria-live="polite">
+      {!choosingActions && <section className="command-dock" aria-live="polite">
         {state.activeDie && <DiePanel value={state.activeDie.modifiedValue} skull={state.activeDie.skull} purpose={state.activeDie.purpose} rerolls={state.activeDie.rerolls.length} />}
         {decision ? (
           <div className={`dock-decision ${decisionAction ? `team-context team-${decisionAction.team.toLowerCase()}` : ""}`}>
@@ -921,7 +922,7 @@ function MissionBoard({ session, boardAnimation, inspection, error, resolutionNo
           <div className="mission-result"><strong>{state.status === "VICTORY" ? "Mission accomplished" : "Squad eliminated"}</strong><button type="button" onClick={onNewMission}>Start new mission</button></div>
         )}
         {error && <p className="error-message" role="alert">{error}</p>}
-      </section>
+      </section>}
 
       {inspection && <InspectionDrawer inspection={inspection} onClose={onDismissInspection} />}
       {resolutionNotice?.presentation === "board" ? <BoardResolutionNotice notice={resolutionNotice} onProceed={onDismissResolutionNotice} /> : resolutionNotice?.presentation === "movement" ? null : resolutionNotice && <ResolutionNoticeOverlay notice={resolutionNotice} onProceed={onDismissResolutionNotice} />}
