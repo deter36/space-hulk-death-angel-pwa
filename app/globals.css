@@ -205,3 +205,7 @@ button:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
 .lab-terrain-support { top: 2px; bottom: auto; border: 0; border-radius: 0; padding: 0; background: transparent; color: #58dc7b; font-size: .72rem; letter-spacing: 2px; line-height: 1; text-shadow: 0 0 5px #58dc7b; }
 .lab-flank-left .lab-terrain-support { right: auto; left: 52%; }
 .lab-flank-right .lab-terrain-support { right: 52%; left: auto; }
+
+.tutorial-command { display: grid; gap: 3px; width: calc(100% - 28px); margin: 0 14px 14px; border: 1px solid #72c5e5; border-left: 5px solid #72c5e5; padding: 11px 13px; background: linear-gradient(90deg, #14313b, #151c18); color: #eef8f7; cursor: pointer; text-align: left; }
+.tutorial-command strong { color: #a8edff; font-size: .74rem; letter-spacing: .08em; text-transform: uppercase; }.tutorial-command small { color: #c3d5d0; font-size: .58rem; }
+.tutorial-coach { display: grid; gap: 3px; margin: 7px 9px; border: 1px solid #72c5e5; border-left: 5px solid #72c5e5; padding: 8px 10px; background: linear-gradient(90deg, #102d36f2, #0d1611f2); box-shadow: 0 5px 16px #0008; color: #edf7f3; }.tutorial-coach > span { color: #8ae7ff; font-size: .5rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }.tutorial-coach strong { font-size: .7rem; text-transform: uppercase; }.tutorial-coach p { margin: 0; color: #d5e1dc; font-size: .61rem; line-height: 1.35; }

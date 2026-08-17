@@ -63,6 +63,8 @@ type RollNotice = {
   transitionSeq: number;
 };
 
+type PlayMode = "STANDARD" | "TUTORIAL";
+
 type BoardAnimation = {
   marineAnimation?: "death" | "dodge" | "fire-straight" | "fire-up" | "fire-down" | "gunJam-straight" | "gunJam-up" | "gunJam-down";
   marineId?: string;
@@ -183,6 +185,24 @@ function sourceInspection(session: EngineSession, sourceId: string): Inspection 
   const event = findEvent(sourceId);
   if (event) return { eyebrow: event.copyIndex ? `Event · copy ${event.copyIndex}` : "Event", title: event.name, body: event.sourceText, meta: event.movementIcon ? `${ICON_LABELS[event.movementIcon]} · ${event.movement ?? "movement"}` : undefined };
   return null;
+}
+
+function tutorialGuidance(session: EngineSession): { eyebrow: string; title: string; body: string } {
+  const decision = session.state.pendingDecision;
+  const round = session.state.round;
+  const chapter = round === 1 ? "Round 1 · Guided" : round === 2 ? "Round 2 · Coached" : "Round 3 · Open play";
+  if (round === 1 && decision?.type === "CHOOSE_ACTION") return { eyebrow: chapter, title: "Choose your squad actions", body: "Tap a hand of cards, read all three options, and select one card for each squad. This round introduces Support, Move + Activate, and Attack." };
+  if (round === 1 && decision?.type === "ATTACK_MARINE") return { eyebrow: chapter, title: "Choose an attacker", body: "Tap a highlighted Marine, then choose a highlighted swarm in range. The die will determine whether the attack hits." };
+  if (round === 1 && decision?.type === "ATTACK_TARGET") return { eyebrow: chapter, title: "Choose a target swarm", body: "Only highlighted swarms are legal targets. Tap one to make the attack." };
+  if (round === 1 && decision?.type === "GENESTEALER_ATTACK_ACK") return { eyebrow: chapter, title: "Defend the formation", body: "This swarm attacks its paired Marine. Proceed to roll, then watch the dodge or death result." };
+  if (round === 1 && session.state.phase === "EVENT") return { eyebrow: chapter, title: "Resolve the Event", body: "Read the entire card first. Effects, spawning, and Genestealer movement all resolve in sequence." };
+  if (round === 2) return { eyebrow: chapter, title: "Choose with a little coaching", body: "You have full control this round. Check card text, range, support tokens, and terrain before committing an action." };
+  return { eyebrow: chapter, title: "Command the strike force", body: "Play freely. When the squad reaches a travel opportunity, the tutorial will call out how location travel changes the board." };
+}
+
+function TutorialCoach({ session }: { session: EngineSession }) {
+  const guidance = tutorialGuidance(session);
+  return <aside className="tutorial-coach" aria-live="polite"><span>{guidance.eyebrow}</span><strong>{guidance.title}</strong><p>{guidance.body}</p></aside>;
 }
 
 function marineDisplayName(session: EngineSession, marineId: string | undefined): string {
@@ -520,6 +540,7 @@ function TeamActionPreview({ team, onClose }: { team: TeamColor; onClose: () => 
 
 export default function GameClient() {
   const [selectedTeams, setSelectedTeams] = useState<TeamColor[]>([]);
+  const [playMode, setPlayMode] = useState<PlayMode>("STANDARD");
   const [teamPreview, setTeamPreview] = useState<TeamColor | null>(null);
   const [session, setSession] = useState<EngineSession | null>(null);
   const [inspection, setInspection] = useState<Inspection | null>(null);
@@ -608,12 +629,27 @@ export default function GameClient() {
       const seed = `${gameId}:${selectedTeams.join("-")}`;
       const prepared = prepareUiSession(newEngineSession({ gameId, seed, teamColors: selectedTeams as [TeamColor, TeamColor, TeamColor] }, "PLAYER"));
       setSession(prepared.session);
+      setPlayMode("STANDARD");
       setTeamPreview(null);
       setResolutionNotices([]);
       setInspection(null);
       setError(prepared.error);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "The mission could not be started.");
+    }
+  };
+
+  const startTutorial = () => {
+    try {
+      const prepared = prepareUiSession(newEngineSession({ gameId: "tutorial-v1", seed: "tutorial-v1.green-blue-red", teamColors: ["GREEN", "BLUE", "RED"] }, "PLAYER"));
+      setSession(prepared.session);
+      setPlayMode("TUTORIAL");
+      setTeamPreview(null);
+      setResolutionNotices([]);
+      setInspection(null);
+      setError(prepared.error);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "The tutorial could not be started.");
     }
   };
 
@@ -714,6 +750,7 @@ export default function GameClient() {
   const startNewMission = () => {
     globalThis.localStorage?.removeItem(SAVED_GAME_KEY);
     setSession(null);
+    setPlayMode("STANDARD");
     setTeamPreview(null);
     setInspection(null);
     setSelectedTeams([]);
@@ -748,6 +785,7 @@ export default function GameClient() {
             })}
           </div>
           <div className="setup-footer"><span>{selectedTeams.length} / 3 selected</span><button type="button" className="primary-command" disabled={selectedTeams.length !== 3} onClick={startGame}>Begin mission</button></div>
+          <button type="button" className="tutorial-command" onClick={startTutorial}><strong>Guided tutorial</strong><small>Learn the round flow in a fixed beginner scenario.</small></button>
           {error && <p className="error-message" role="alert">{error}</p>}
         </section>
         {teamPreview && <TeamActionPreview team={teamPreview} onClose={() => setTeamPreview(null)} />}
@@ -809,7 +847,7 @@ export default function GameClient() {
   };
 
   const rollDecision = isRollFollowUp(pendingRollResolution?.session.state.pendingDecision ?? null) ? pendingRollResolution?.session.state.pendingDecision ?? null : null;
-  return <MissionBoard session={session} boardAnimation={boardAnimation} inspection={inspection} error={error} resolutionNotice={resolutionNotices[0] ?? null} rollNotice={resolutionNotices.length ? null : rollNotices[0] ?? null} rollDecision={rollDecision} slayChoiceAnimating={slayChoiceAnimating} onDismissResolutionNotice={() => {
+  return <MissionBoard tutorial={playMode === "TUTORIAL"} session={session} boardAnimation={boardAnimation} inspection={inspection} error={error} resolutionNotice={resolutionNotices[0] ?? null} rollNotice={resolutionNotices.length ? null : rollNotices[0] ?? null} rollDecision={rollDecision} slayChoiceAnimating={slayChoiceAnimating} onDismissResolutionNotice={() => {
     const notice = resolutionNotices[0];
     if (notice?.eyebrow === "Event reveal" && session?.state.pendingDecision?.type === "EVENT_REVEAL_ACK") {
       setResolutionNotices((current) => current.slice(1));
@@ -822,6 +860,7 @@ export default function GameClient() {
 
 type MissionBoardProps = {
   session: EngineSession;
+  tutorial: boolean;
   boardAnimation: BoardAnimation | null;
   inspection: Inspection | null;
   error: string | null;
@@ -839,7 +878,7 @@ type MissionBoardProps = {
   onNewMission: () => void;
 };
 
-function MissionBoard({ session, boardAnimation, inspection, error, resolutionNotice, rollNotice, rollDecision, slayChoiceAnimating, onInspect, onChooseOption, onUndo, onDownloadSave, onDismissInspection, onDismissResolutionNotice, onDismissRoll, onNewMission }: MissionBoardProps) {
+function MissionBoard({ session, tutorial, boardAnimation, inspection, error, resolutionNotice, rollNotice, rollDecision, slayChoiceAnimating, onInspect, onChooseOption, onUndo, onDownloadSave, onDismissInspection, onDismissResolutionNotice, onDismissRoll, onNewMission }: MissionBoardProps) {
   const [moveSelection, setMoveSelection] = useState<{ decisionId: string; marineId: string } | null>(null);
   const [strategizeSelection, setStrategizeSelection] = useState<{ decisionId: string; swarmId: string } | null>(null);
   const [doorSwarmSelection, setDoorSwarmSelection] = useState<{ decisionId: string; swarmId: string } | null>(null);
@@ -924,6 +963,8 @@ function MissionBoard({ session, boardAnimation, inspection, error, resolutionNo
           </>
         )}
       </section>
+
+      {tutorial && <TutorialCoach session={session} />}
 
       <LiveFormationBoard session={session} boardAnimation={boardAnimation} highlightedTerrainIds={new Set(resolutionNotice?.terrainIds ?? [])} targetIds={targetIds} selectedMoveMarineId={selectedMoveMarineId} selectedStrategizeSwarmId={selectedStrategizeSwarmId} selectedDoorSwarmId={selectedDoorSwarmId} selectedHeroicChargeSwarmId={selectedHeroicChargeSwarmId} selectedEventSlaySwarmId={selectedEventSlaySwarmId} heroicChargeSlay={heroicChargeSlay} strategizeSwarms={strategizeSwarmSet} onChooseOption={onChooseOption} onInspect={onInspect} onSelectMoveMarine={(marineId) => { if (decision) setMoveSelection({ decisionId: decision.id, marineId }); }} onSelectStrategizeSwarm={(swarmId) => { if (decision) setStrategizeSelection({ decisionId: decision.id, swarmId }); }} onSelectDoorSwarm={(swarmId) => { if (decision) setDoorSwarmSelection({ decisionId: decision.id, swarmId }); }} onSelectHeroicChargeSwarm={(swarmId) => { if (decision) setHeroicChargeSwarmSelection({ decisionId: decision.id, swarmId }); }} onSelectEventSlaySwarm={(swarmId) => { if (decision) setEventSlaySwarmSelection({ decisionId: decision.id, swarmId }); }} />
 
