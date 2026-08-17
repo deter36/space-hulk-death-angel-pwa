@@ -179,6 +179,8 @@ function decisionInstruction(session: EngineSession, decision: PendingDecision, 
   if (decision.type === "ACTIVATE_TERRAIN") return "Choose the highlighted Terrain to activate with this squad's Move + Activate action.";
   if (decision.type === "PLACE_SUPPORT") return "Choose the highlighted Marine or Terrain that will receive the Support Token.";
   if (decision.type === "COUNTER_ATTACK_SLAY") return "Counter Attack succeeded. Choose the attacking Genestealer to slay.";
+  if (decision.type === "DOOR_TRAVEL_SLAY") return "Door support is ready. Choose a highlighted swarm, then choose the Genestealer to slay—or end the Door ability.";
+  if (decision.type === "PLACE_ARTEFACT") return "Choose a highlighted empty flank to place the Artefact from the Location card.";
   if (decision.type === "STRATEGIZE" && !selectedStrategizeSwarmId) return "Strategize: choose a highlighted swarm to move.";
   if (decision.type === "STRATEGIZE") return "Choose the highlighted legal destination, or choose another swarm below.";
   if (decision.type === "MOVE_MARINE" && !selectedMoveMarineId) return "Choose the highlighted Marine to move.";
@@ -209,7 +211,8 @@ function resolutionNoticesFrom(session: EngineSession, startingAt: number, throu
     }
     else if (transition.type === "ATTACK_SEQUENCE_FINISHED" && transition.sourceId) {
       const action = data.definitions.actions.find((item) => item.id === componentDefinitionId(session, transition.sourceId!));
-      const hasAttacker = transitions.some((candidate) => candidate.sourceId === transition.sourceId && candidate.type === "ATTACKER_SELECTED");
+      const actionStartSeq = [...session.transitions].reverse().find((candidate) => candidate.sourceId === transition.sourceId && candidate.type === "ACTION_STARTED")?.seq ?? 0;
+      const hasAttacker = session.transitions.some((candidate) => candidate.sourceId === transition.sourceId && candidate.seq > actionStartSeq && candidate.type === "ATTACKER_SELECTED");
       if (action?.type === "ATTACK" && !hasAttacker) notices.push({ id, eyebrow: `${action.team} squad · Attack`, title: action.name, body: "No eligible Genestealers are in range and facing for this squad. The attack action ends without a roll.", team: action.team });
     }
     else if (transition.type === "CARD_DRAWN" && transition.sourceId === "event.deck") {
@@ -619,7 +622,7 @@ export default function GameClient() {
       const notices = rollNoticesFrom(prepared.session, session.transitions.length, session.state, selectedOption);
       const movementPresentation = eventMovementPresentationFrom(session, prepared.session, session.transitions.length);
       if (movementPresentation) movementPresentations.current.set(movementPresentation.id, movementPresentation);
-      setResolutionNotices(resolutionNoticesFrom(prepared.session, session.transitions.length, notices[0]?.transitionSeq));
+      const resolutionNotices = resolutionNoticesFrom(prepared.session, session.transitions.length, notices[0]?.transitionSeq);
       if (decision.type === "ATTACK_SLAY") {
         const marineId = session.state.actionRuntime?.data.attackerId;
         const swarmId = selectedOption?.payload.swarmId;
@@ -631,6 +634,7 @@ export default function GameClient() {
           playBoardAnimation(animation, 1400, () => {
             setSession(prepared.session);
             setSlayChoiceAnimating(false);
+            setResolutionNotices(resolutionNotices);
             if (notices.length) {
               setPendingRollResolution({ session: prepared.session });
               setRollNotices(notices);
@@ -638,6 +642,7 @@ export default function GameClient() {
           });
         } else {
           setSession(prepared.session);
+          setResolutionNotices(resolutionNotices);
           if (notices.length) {
             setPendingRollResolution({ session: prepared.session });
             setRollNotices(notices);
@@ -647,6 +652,7 @@ export default function GameClient() {
         setError(prepared.error);
         return;
       }
+      setResolutionNotices(resolutionNotices);
       if (notices.length) {
         setPendingRollResolution({ session: prepared.session });
         setRollNotices(notices);
@@ -902,7 +908,7 @@ function MissionBoard({ session, boardAnimation, inspection, error, resolutionNo
             {decisionRules && <div className="decision-rules"><strong>Artefact ability</strong><span>{decisionRules}</span></div>}
             <p>{decisionInstruction(session, decision, selectedMoveMarineId, selectedStrategizeSwarmId, scoutingPreviewVisible)}</p>
             {decision.type === "STRATEGIZE" && selectedStrategizeSwarmId && <button type="button" className="strategize-reset" onClick={() => setStrategizeSelection(null)}>Choose another swarm</button>}
-            {decision.type !== "FORWARD_SCOUTING_ORDER" && decision.type !== "ATTACK_SLAY" && dockOptions.length > 0 && <div className="dock-options">{dockOptions.map((option) => { const presentation = presentedDecisionOption(decision, option); return <button key={option.id} type="button" onClick={() => onChooseOption(option.id)}><strong>{presentation.label}</strong>{presentation.preview && <small>{presentation.preview}</small>}</button>; })}</div>}
+            {decision.type !== "FORWARD_SCOUTING_ORDER" && decision.type !== "ATTACK_SLAY" && decision.type !== "DOOR_TRAVEL_SLAY" && dockOptions.length > 0 && <div className="dock-options">{dockOptions.map((option) => { const presentation = presentedDecisionOption(decision, option); return <button key={option.id} type="button" onClick={() => onChooseOption(option.id)}><strong>{presentation.label}</strong>{presentation.preview && <small>{presentation.preview}</small>}</button>; })}</div>}
           </div>
         ) : state.status === "IN_PROGRESS" ? (
           <div className="mission-result engine-paused"><strong>Engine paused</strong><span>Download a save from the game menu before ending this mission.</span></div>
@@ -917,7 +923,7 @@ function MissionBoard({ session, boardAnimation, inspection, error, resolutionNo
       {decision?.type === "FORWARD_SCOUTING_ORDER" && (scoutingPreviewVisible
         ? <ForwardScoutingPreview session={session} decision={decision} onChooseOption={onChooseOption} onViewBoard={() => setScoutingPreviewVisible(false)} />
         : <button type="button" className="scouting-return" onClick={() => setScoutingPreviewVisible(true)}><span aria-hidden="true">↩</span><strong>Forward Scouting</strong><small>Return to event choice</small></button>)}
-      {decision?.type === "ATTACK_SLAY" && !slayChoiceAnimating && <SlaySwarmOverlay session={session} decision={decision} onChooseOption={onChooseOption} />}
+      {(decision?.type === "ATTACK_SLAY" || decision?.type === "DOOR_TRAVEL_SLAY") && !slayChoiceAnimating && <SlaySwarmOverlay session={session} decision={decision} onChooseOption={onChooseOption} />}
       {rollNotice && <RollResult key={rollNotice.id} notice={rollNotice} decision={rollDecision} onProceed={onDismissRoll} />}
     </main>
   );
@@ -970,6 +976,11 @@ function LiveFormationBoard({ session, boardAnimation, highlightedTerrainIds, ta
       const row = typeof marineId === "string" ? state.formation.findIndex((slot) => slot.marineInstanceId === marineId) : -1;
       return row < 0 || side === null ? [] : [{ label: `Face ${side.toLowerCase()}`, row, side, state: "destination" }];
     });
+    if (decision.type === "PLACE_ARTEFACT") return decision.legalOptions.flatMap((option) => {
+      const row = typeof option.payload.positionIndex === "number" ? option.payload.positionIndex : null;
+      const side = option.payload.side === "LEFT" || option.payload.side === "RIGHT" ? option.payload.side : null;
+      return row === null || side === null ? [] : [{ label: "Place Artefact here", row, side, state: "destination" }];
+    });
     return [];
   }, [decision, selectedStrategizeSwarmId, state.formation]);
   const marineMoveChoices = useMemo(() => decision?.type === "MOVE_MARINE" && selectedMoveMarineId
@@ -980,15 +991,17 @@ function LiveFormationBoard({ session, boardAnimation, highlightedTerrainIds, ta
     const name = rows[positionIndex].marine.name;
     const selectable = decision?.type === "MOVE_MARINE" && decision.legalOptions.some((option) => option.payload.marineId === marineId);
     const targeted = decision?.type !== "MOVE_MARINE" && targetIds.has(marineId);
-    return [name, selectedMoveMarineId === marineId ? "selected" : selectable ? "selectable" : targeted ? "targeted" : "neutral"];
-  })), [decision, rows, selectedMoveMarineId, state.formation, targetIds]);
+    const underAttack = boardAnimation?.swarmAnimation === "attack" && boardAnimation.swarmId && state.swarms[boardAnimation.swarmId]?.positionIndex === positionIndex;
+    return [name, underAttack ? "targeted" : selectedMoveMarineId === marineId ? "selected" : selectable ? "selectable" : targeted ? "targeted" : "neutral"];
+  })), [boardAnimation, decision, rows, selectedMoveMarineId, state.formation, state.swarms, targetIds]);
   const swarmStates = useMemo<Record<string, LabTargetState>>(() => Object.fromEntries(state.formation.flatMap((slot, positionIndex) => (["LEFT", "RIGHT"] as const).map((side) => {
     const swarmId = slot.swarmIds[side][0];
     const selectable = decision?.type === "STRATEGIZE" && !selectedStrategizeSwarmId && Boolean(swarmId && selectableStrategizeSwarms.has(swarmId));
     const selected = Boolean(swarmId && selectedStrategizeSwarmId === swarmId);
     const targeted = Boolean(swarmId && targetIds.has(swarmId));
-    return [cellKey(positionIndex, side), selected ? "selected" : selectable ? "selectable" : targeted ? "targeted" : "neutral"];
-  }))), [decision, selectedStrategizeSwarmId, selectableStrategizeSwarms, state.formation, targetIds]);
+    const attacking = swarmId === boardAnimation?.swarmId && boardAnimation.swarmAnimation === "attack";
+    return [cellKey(positionIndex, side), attacking ? "targeted" : selected ? "selected" : selectable ? "selectable" : targeted ? "targeted" : "neutral"];
+  }))), [boardAnimation, decision, selectedStrategizeSwarmId, selectableStrategizeSwarms, state.formation, targetIds]);
   const terrainStates = useMemo<Record<string, LabTargetState>>(() => Object.fromEntries(state.formation.flatMap((slot, positionIndex) => (["LEFT", "RIGHT"] as const).map((side) => {
     const terrainId = slot.terrainInstanceIds[side][0];
     return [cellKey(positionIndex, side), terrainId && (targetIds.has(terrainId) || highlightedTerrainIds.has(terrainId)) ? "targeted" : "neutral"];
@@ -1151,10 +1164,11 @@ function SlaySwarmOverlay({ decision, onChooseOption, session }: { decision: Pen
     if (typeof swarmId !== "string") continue;
     groups.set(swarmId, [...(groups.get(swarmId) ?? []), option]);
   }
+  const doorAbility = decision.type === "DOOR_TRAVEL_SLAY";
   return (
     <div className="slay-swarm-backdrop" role="presentation">
       <section className="slay-swarm-overlay" role="dialog" aria-modal="true" aria-labelledby="slay-swarm-title">
-        <header><span>Attack confirmed</span><h2 id="slay-swarm-title">Choose a Genestealer to slay</h2><p>Tap its icon in the zoomed swarm.</p></header>
+        <header><span>{doorAbility ? "Door support" : "Attack confirmed"}</span><h2 id="slay-swarm-title">Choose a Genestealer to slay</h2><p>{doorAbility ? "Choose a swarm, then tap its icon. You may end the Door ability at any time." : "Tap its icon in the zoomed swarm."}</p></header>
         {[...groups.entries()].map(([swarmId, options]) => {
           const swarm = session.state.swarms[swarmId];
           const location = swarm ? `Formation ${swarm.positionIndex + 1} · ${swarm.side.toLowerCase()}` : "Target swarm";
@@ -1169,7 +1183,7 @@ function SlaySwarmOverlay({ decision, onChooseOption, session }: { decision: Pen
             })}</div>
           </section>;
         })}
-        {stopOption && <button type="button" className="slay-stop" onClick={() => onChooseOption(stopOption.id)}>Stop slaying</button>}
+        {stopOption && <button type="button" className="slay-stop" onClick={() => onChooseOption(stopOption.id)}>{doorAbility ? "End Door ability" : "Stop slaying"}</button>}
       </section>
     </div>
   );
