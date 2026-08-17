@@ -195,3 +195,7 @@ button:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
 .live-action-dock.is-choosing .live-action-team-slot { min-height: 78px; border: 0; padding: 8px 2px 2px; background: transparent; }
 .live-action-dock.is-choosing .live-action-team-slot.is-active { box-shadow: none; animation: none !important; }
 .live-action-dock.is-choosing .live-action-team-name { display: none; }
+
+/* Terrain art opens toward the formation: generated orientation on the left,
+   mirrored only for the right flank. */
+.lab-flank-right .lab-terrain.has-art > img { transform: scaleX(-1); }
