@@ -146,7 +146,7 @@ export default function FormationBoard({ alienAttackStripUrl, alienDeathStripUrl
   const renderMoveSlot = (slot: number) => moveSlots.includes(slot) ? <button type="button" className="lab-move-slot" onClick={() => onMoveSlot?.(slot)}><span>Move here</span></button> : null;
   const route = ["4", "3", "2", "1"];
   return (
-    <section className="lab-board" aria-label="Formation geometry preview">{locationProgress && <div className="lab-location-route" aria-hidden="true">{["left", "right"].map((side) => <div key={side} className={`lab-location-route-${side}`}>{route.map((tier) => <span key={tier} className={tier === locationProgress ? "is-current" : ""}>{tier}</span>)}</div>)}</div>}<div className="lab-formation">
+    <section className="lab-board" aria-label="Formation geometry preview">{locationProgress && <div className="lab-location-route" aria-hidden="true">{["left", "right"].map((side) => <div key={side} className={`lab-location-route-${side}`}>{route.map((tier) => { const active = tier === locationProgress; return <span key={tier} className={active ? "is-current" : ""}><img src={`/space-hulk-death-angel-pwa/game-art/location-stencils/${tier}-${active ? "active" : "inactive"}.png`} alt="" /></span>; })}</div>)}</div>}<div className="lab-formation">
       {rows.map((row, index) => {
         const leftOverlay = overlayChoices.find((choice) => choice.row === index && choice.side === "LEFT");
         const rightOverlay = overlayChoices.find((choice) => choice.row === index && choice.side === "RIGHT");
