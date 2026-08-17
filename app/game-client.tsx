@@ -52,7 +52,6 @@ type Inspection = {
 };
 
 type RollNotice = {
-  preRollAnimation: BoardAnimation | null;
   postRollAnimation: BoardAnimation | null;
   outcome: string;
   placement: "top" | "bottom";
@@ -363,10 +362,9 @@ function rollNoticesFrom(session: EngineSession, startingAt: number, priorState:
       const postRollAnimation: BoardAnimation | null = marineAttack && marineId && !slayChoicePending
         ? { marineId, swarmId: targetSwarmId, marineAnimation: `${hit ? "fire" : "gunJam"}-${attackTrajectory(priorState, marineId, targetSwarmId)}` as BoardAnimation["marineAnimation"], ...(hit ? { swarmAnimation: "death" as const } : {}) }
         : defense && marineId && defenseOutcome
-          ? { marineId, marineAnimation: defenseOutcome }
+          ? { marineId, marineAnimation: defenseOutcome, swarmId: input.sourceId, swarmAnimation: "attack" }
           : null;
       return {
-        preRollAnimation: defense ? { swarmId: input.sourceId, swarmAnimation: "attack" } : null,
         postRollAnimation,
         outcome,
         placement: relevantPosition !== undefined && relevantPosition >= priorState.formation.length / 2 ? "top" : "bottom",
@@ -507,12 +505,10 @@ export default function GameClient() {
   const [pendingRollResolution, setPendingRollResolution] = useState<PendingRollResolution | null>(null);
   const [boardAnimation, setBoardAnimation] = useState<BoardAnimation | null>(null);
   const [slayChoiceAnimating, setSlayChoiceAnimating] = useState(false);
-  const [rollIntroId, setRollIntroId] = useState<string | null>(null);
   const [restoreComplete, setRestoreComplete] = useState(false);
   const animationTimer = useRef<ReturnType<typeof globalThis.setTimeout> | null>(null);
   const movementPresentations = useRef(new Map<string, MovementPresentation>());
   const activeMovementPresentation = useRef<string | null>(null);
-  const playedRollIntros = useRef(new Set<string>());
 
   const clearBoardAnimationTimer = () => {
     if (animationTimer.current !== null) globalThis.clearTimeout(animationTimer.current);
@@ -550,21 +546,6 @@ export default function GameClient() {
       setResolutionNotices((current) => current[0]?.id === notice.id ? current.slice(1) : current);
     }, 1150);
   }, [resolutionNotices]);
-
-  useEffect(() => {
-    const notice = rollNotices[0];
-    if (!notice?.preRollAnimation || resolutionNotices.length || rollIntroId || playedRollIntros.current.has(notice.id)) return;
-    playedRollIntros.current.add(notice.id);
-    setRollIntroId(notice.id);
-    const swarm = notice.preRollAnimation.swarmId ? session?.state.swarms[notice.preRollAnimation.swarmId] : null;
-    if (animationTimer.current !== null) globalThis.clearTimeout(animationTimer.current);
-    setBoardAnimation(notice.preRollAnimation);
-    animationTimer.current = globalThis.setTimeout(() => {
-      animationTimer.current = null;
-      setBoardAnimation(null);
-      setRollIntroId(null);
-    }, swarm?.broodLordIds.length ? 1800 : 1000);
-  }, [resolutionNotices.length, rollIntroId, rollNotices, session]);
 
   useEffect(() => {
     const restoreTimer = globalThis.setTimeout(() => {
@@ -685,12 +666,10 @@ export default function GameClient() {
     setResolutionNotices([]);
     setPendingRollResolution(null);
     setSlayChoiceAnimating(false);
-    setRollIntroId(null);
     clearBoardAnimationTimer();
     setBoardAnimation(null);
     movementPresentations.current.clear();
     activeMovementPresentation.current = null;
-    playedRollIntros.current.clear();
   };
 
   const downloadSave = () => {
@@ -719,12 +698,10 @@ export default function GameClient() {
     setResolutionNotices([]);
     setPendingRollResolution(null);
     setSlayChoiceAnimating(false);
-    setRollIntroId(null);
     clearBoardAnimationTimer();
     setBoardAnimation(null);
     movementPresentations.current.clear();
     activeMovementPresentation.current = null;
-    playedRollIntros.current.clear();
   };
 
   if (!restoreComplete) return <main className="restore-shell"><span>Restoring mission state…</span></main>;
@@ -808,7 +785,7 @@ export default function GameClient() {
   };
 
   const rollDecision = isRollFollowUp(pendingRollResolution?.session.state.pendingDecision ?? null) ? pendingRollResolution?.session.state.pendingDecision ?? null : null;
-  return <MissionBoard session={session} boardAnimation={boardAnimation} inspection={inspection} error={error} resolutionNotice={resolutionNotices[0] ?? null} rollNotice={resolutionNotices.length || rollIntroId ? null : rollNotices[0] ?? null} rollDecision={rollDecision} slayChoiceAnimating={slayChoiceAnimating} onDismissResolutionNotice={() => {
+  return <MissionBoard session={session} boardAnimation={boardAnimation} inspection={inspection} error={error} resolutionNotice={resolutionNotices[0] ?? null} rollNotice={resolutionNotices.length ? null : rollNotices[0] ?? null} rollDecision={rollDecision} slayChoiceAnimating={slayChoiceAnimating} onDismissResolutionNotice={() => {
     const notice = resolutionNotices[0];
     if (notice?.eyebrow === "Event reveal" && session?.state.pendingDecision?.type === "EVENT_REVEAL_ACK") {
       setResolutionNotices((current) => current.slice(1));
