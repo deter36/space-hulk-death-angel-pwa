@@ -58,6 +58,7 @@ export default function TravelDemo({ assetBase }: { assetBase: string }) {
     <section className={`travel-board-window is-${stage}`} aria-label="Travel animation preview">
       <div className="travel-board-stage">
         <FormationBoard
+          key={arrived ? "location-two" : "location-one"}
           rows={arrived ? arrivalRows() : INTERACTION_SCENARIO.rows}
           locationProgress={arrived ? "2" : "1"}
           marineSpriteUrl={`${assetBase}/marine-idle.gif`}
