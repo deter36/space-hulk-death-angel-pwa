@@ -818,7 +818,15 @@ export default function GameClient() {
   };
 
   const rollDecision = isRollFollowUp(pendingRollResolution?.session.state.pendingDecision ?? null) ? pendingRollResolution?.session.state.pendingDecision ?? null : null;
-  return <MissionBoard session={session} boardAnimation={boardAnimation} inspection={inspection} error={error} resolutionNotice={resolutionNotices[0] ?? null} rollNotice={resolutionNotices.length || rollIntroId ? null : rollNotices[0] ?? null} rollDecision={rollDecision} slayChoiceAnimating={slayChoiceAnimating} onDismissResolutionNotice={() => setResolutionNotices((current) => current.slice(1))} onDismissRoll={proceedRoll} onInspect={setInspection} onChooseOption={resolveDecision} onUndo={undoOne} onDownloadSave={downloadSave} onDismissInspection={() => setInspection(null)} onNewMission={startNewMission} />;
+  return <MissionBoard session={session} boardAnimation={boardAnimation} inspection={inspection} error={error} resolutionNotice={resolutionNotices[0] ?? null} rollNotice={resolutionNotices.length || rollIntroId ? null : rollNotices[0] ?? null} rollDecision={rollDecision} slayChoiceAnimating={slayChoiceAnimating} onDismissResolutionNotice={() => {
+    const notice = resolutionNotices[0];
+    if (notice?.eyebrow === "Event reveal" && session?.state.pendingDecision?.type === "EVENT_REVEAL_ACK") {
+      setResolutionNotices((current) => current.slice(1));
+      resolveDecision("begin");
+      return;
+    }
+    setResolutionNotices((current) => current.slice(1));
+  }} onDismissRoll={proceedRoll} onInspect={setInspection} onChooseOption={resolveDecision} onUndo={undoOne} onDownloadSave={downloadSave} onDismissInspection={() => setInspection(null)} onNewMission={startNewMission} />;
 }
 
 type MissionBoardProps = {

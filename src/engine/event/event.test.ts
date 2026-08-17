@@ -99,6 +99,8 @@ describe("Event phase", () => {
     const state = eventState("event.gun-jam", "gun-jam");
     for (const team of state.activeTeams) state.teams[team].previousActionInstanceId = state.teams[team].actionInstanceIds.find((id) => id.includes("support") || id.includes("block") || id.includes("overwatch") || id.includes("defensive-stance")) ?? state.teams[team].actionInstanceIds[0];
     let result = advanceAutomatic(state);
+    expect(result.state.pendingDecision?.type).toBe("EVENT_REVEAL_ACK");
+    result = submit(result, "begin");
     expect(result.state.pendingDecision?.type).toBe("EVENT_TEAM");
     const team = result.state.pendingDecision!.legalOptions[0].payload.team as string;
     result = submit(result, result.state.pendingDecision!.legalOptions[0].id);
@@ -116,6 +118,8 @@ describe("Event phase", () => {
     slayMarine(state, marineId);
     const survivors = state.formation.map((slot) => slot.marineInstanceId);
     let result = advanceAutomatic(state);
+    expect(result.state.pendingDecision?.type).toBe("EVENT_REVEAL_ACK");
+    result = submit(result, "begin");
     const rescueOption = result.state.pendingDecision?.legalOptions.find((option) => option.payload.marineId === marineId);
     expect(rescueOption?.label).not.toContain("F0");
     expect(rescueOption?.canonicalEffectPreview).toBe("Return at the bottom of the formation facing right");

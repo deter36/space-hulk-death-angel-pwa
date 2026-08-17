@@ -49,6 +49,8 @@ describe("v1.4 constructed certification regressions", () => {
     state.roundEffects.push({ id: "cert.reg1.overwatch", sourceId: "action.red.overwatch", startTiming: "ACTION_RESOLVED", expiryTiming: "END_OF_ROUND", targetIds: targets, mergePropagation: "NONE", data: { handlerId: "action.overwatch" } });
 
     let result = advanceAutomatic(state);
+    expect(result.state.pendingDecision?.type).toBe("EVENT_REVEAL_ACK");
+    result = submitDecision(result.state, result.state.pendingDecision!.id, "begin");
     expect(result.state.pendingDecision?.type).toBe("EVENT_MOVEMENT_ACK");
     expect(result.state.travelRuntime).toBeNull();
     expect(result.state.eventStep).toBe("MOVEMENT_PREP");
@@ -127,12 +129,16 @@ describe("v1.4 constructed certification regressions", () => {
   it("REG9/REG16 reveals a solo Instinct Event before requesting its choice", () => {
     const state = baseState("reg9");
     const cardId = forceEvent(state, "event.surrounded");
-    const result = advanceAutomatic(state);
+    let result = advanceAutomatic(state);
     expect(eventDefinition(cardId).instinct).toBe(true);
     expect(result.state.components[cardId].zone).toBe("RESOLVING");
+    expect(result.state.pendingDecision?.type).toBe("EVENT_REVEAL_ACK");
+    const revealTransitions = [...result.transitions];
+    result = submitDecision(result.state, result.state.pendingDecision!.id, "begin");
     expect(result.state.pendingDecision?.type).toBe("EVENT_MARINE");
-    const drawIndex = result.transitions.findIndex((transition) => transition.type === "CARD_DRAWN" && transition.sourceId === "event.deck");
-    const decisionIndex = result.transitions.findIndex((transition) => transition.type === "DECISION_REQUESTED");
+    const transitions = [...revealTransitions, ...result.transitions];
+    const drawIndex = transitions.findIndex((transition) => transition.type === "CARD_DRAWN" && transition.sourceId === "event.deck");
+    const decisionIndex = transitions.map((transition) => transition.type).lastIndexOf("DECISION_REQUESTED");
     expect(drawIndex).toBeGreaterThanOrEqual(0);
     expect(drawIndex).toBeLessThan(decisionIndex);
   });

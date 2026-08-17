@@ -179,7 +179,7 @@ function slayDecision(state: GameState, purpose: string, swarmIds: string[], rem
 }
 
 export function handlesEventDecision(type: string): boolean {
-  return ["EVENT_MARINE", "EVENT_SWARM", "EVENT_BLIP", "EVENT_TEAM", "EVENT_COUNT", "EVENT_SLAY", "EVENT_ATTACK", "EVENT_ATTACK_REROLL", "EVENT_ATTACK_SLAY", "EVENT_SPAWN_PRIORITY", "EVENT_MOVEMENT_ACK", "ENTER_FORMATION_SUPPORT"].includes(type);
+  return ["EVENT_MARINE", "EVENT_SWARM", "EVENT_BLIP", "EVENT_TEAM", "EVENT_COUNT", "EVENT_SLAY", "EVENT_ATTACK", "EVENT_ATTACK_REROLL", "EVENT_ATTACK_SLAY", "EVENT_SPAWN_PRIORITY", "EVENT_REVEAL_ACK", "EVENT_MOVEMENT_ACK", "ENTER_FORMATION_SUPPORT"].includes(type);
 }
 
 export function applyEventDecision(state: GameState, pending: PendingDecision, option: Option, decisionRecord: DecisionRecord): TransitionRecord {
@@ -254,6 +254,8 @@ export function applyEventDecision(state: GameState, pending: PendingDecision, o
       if (runtime.data.attackPurpose !== "overwatch") runtime.data.specialResolved = true;
     } else if (pending.type === "EVENT_SPAWN_PRIORITY") {
       runtime.spawnTerrainIds = (option.payload.order as string).split(",").filter(Boolean); runtime.data.spawnPerTerrain = Number(option.payload.spawnPerTerrain); state.eventStep = "ACTIVATION_SPAWN";
+    } else if (pending.type === "EVENT_REVEAL_ACK") {
+      state.eventStep = "SPECIAL";
     } else if (pending.type === "EVENT_MOVEMENT_ACK") {
       runtime.data.movementAcknowledged = true;
     }
@@ -417,7 +419,11 @@ export function advanceEvent(state: GameState, transitions: TransitionRecord[]):
   }
   const runtime = state.eventRuntime;
   if (state.eventStep === "DRAW") {
-    const rng = Sha256CounterRng.restore(state.rng); const result = drawCard(state, rng, "event.deck", { zone: "RESOLVING", containerId: null }, (cardId) => { runtime.eventCardId = cardId; state.eventStep = "SPECIAL"; }); transitions.push(...result.transitions); return true;
+    const rng = Sha256CounterRng.restore(state.rng); const result = drawCard(state, rng, "event.deck", { zone: "RESOLVING", containerId: null }, (cardId) => { runtime.eventCardId = cardId; state.eventStep = "REVEAL_ACK"; }); transitions.push(...result.transitions); return true;
+  }
+  if (state.eventStep === "REVEAL_ACK") {
+    request(state, makeDecision(state, "EVENT_REVEAL_ACK", currentCard(state), "event.reveal", [{ id: "begin", label: "Resolve Event", payload: {}, canonicalEffectPreview: "Resolve this Event card" }]), transitions);
+    return false;
   }
   if (state.eventStep === "SPECIAL") return resolveSpecial(state, transitions);
   if (state.eventStep?.startsWith("SPECIAL_") || state.eventStep?.startsWith("END_ATTACK_")) return advanceSpecialSubstep(state, transitions);
