@@ -1009,8 +1009,11 @@ function LiveFormationBoard({ session, boardAnimation, highlightedTerrainIds, ta
   }))), [boardAnimation, decision, selectedStrategizeSwarmId, selectableStrategizeSwarms, state.formation, targetIds]);
   const terrainStates = useMemo<Record<string, LabTargetState>>(() => Object.fromEntries(state.formation.flatMap((slot, positionIndex) => (["LEFT", "RIGHT"] as const).map((side) => {
     const terrainId = slot.terrainInstanceIds[side][0];
-    return [cellKey(positionIndex, side), terrainId && (targetIds.has(terrainId) || highlightedTerrainIds.has(terrainId)) ? "targeted" : "neutral"];
-  }))), [highlightedTerrainIds, state.formation, targetIds]);
+    const isTargeted = Boolean(terrainId && (targetIds.has(terrainId) || highlightedTerrainIds.has(terrainId)));
+    // A Terrain choice must sit above an engaged swarm so its button receives
+    // the tap. Other Terrain highlights remain underneath the swarm artwork.
+    return [cellKey(positionIndex, side), isTargeted ? decision?.type === "ACTIVATE_TERRAIN" ? "selectable" : "targeted" : "neutral"];
+  }))), [decision, highlightedTerrainIds, state.formation, targetIds]);
   const marineAnimationStates = useMemo(() => {
     const marineId = boardAnimation?.marineId;
     const animation = boardAnimation?.marineAnimation;
