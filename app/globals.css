@@ -199,3 +199,9 @@ button:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
 /* Terrain art opens toward the formation: generated orientation on the left,
    mirrored only for the right flank. */
 .lab-flank-right .lab-terrain.has-art > img { transform: scaleX(-1); }
+
+/* Terrain support stays above the environmental art, on the outer edge of
+   each flank, so it never competes with the swarm readout. */
+.lab-terrain-support { top: 2px; bottom: auto; border: 0; border-radius: 0; padding: 0; background: transparent; color: #58dc7b; font-size: .72rem; letter-spacing: 2px; line-height: 1; text-shadow: 0 0 5px #58dc7b; }
+.lab-flank-left .lab-terrain-support { right: auto; left: 52%; }
+.lab-flank-right .lab-terrain-support { right: 52%; left: auto; }
