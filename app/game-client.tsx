@@ -71,6 +71,30 @@ type BoardAnimation = {
   movingSwarmCells?: Record<string, "up" | "down" | "flank">;
 };
 
+function useMobileBoardScale(): number {
+  const calculate = () => {
+    const viewportHeight = globalThis.visualViewport?.height ?? globalThis.innerHeight;
+    const viewportWidth = globalThis.visualViewport?.width ?? globalThis.innerWidth;
+    // Six 104px rows plus board chrome must share the screen with the compact
+    // mission tray and the persistent action cards. Keep touch targets usable.
+    const heightScale = (viewportHeight - 160) / 650;
+    const widthScale = viewportWidth / 390;
+    return Math.max(0.72, Math.min(1, heightScale, widthScale));
+  };
+  const [scale, setScale] = useState(0.84);
+  useEffect(() => {
+    const update = () => setScale(calculate());
+    update();
+    globalThis.addEventListener("resize", update);
+    globalThis.visualViewport?.addEventListener("resize", update);
+    return () => {
+      globalThis.removeEventListener("resize", update);
+      globalThis.visualViewport?.removeEventListener("resize", update);
+    };
+  }, []);
+  return scale;
+}
+
 type PendingRollResolution = { session: EngineSession };
 type ResolutionNotice = { id: string; eyebrow: string; title: string; body: string; meta?: string; team?: TeamColor; presentation?: "modal" | "board" | "movement"; terrainIds?: string[] };
 type MovementPresentation = { id: string; sourceSession: EngineSession; resolvedSession: EngineSession; animation: BoardAnimation };
@@ -973,6 +997,7 @@ function labRows(session: EngineSession): LabFormationRow[] {
 
 function LiveFormationBoard({ session, boardAnimation, highlightedTerrainIds, targetIds, selectedMoveMarineId, selectedStrategizeSwarmId, selectedDoorSwarmId, selectedHeroicChargeSwarmId, selectedEventSlaySwarmId, heroicChargeSlay, strategizeSwarms: selectableStrategizeSwarms, onChooseOption, onInspect, onSelectMoveMarine, onSelectStrategizeSwarm, onSelectDoorSwarm, onSelectHeroicChargeSwarm, onSelectEventSlaySwarm }: { session: EngineSession; boardAnimation: BoardAnimation | null; highlightedTerrainIds: Set<string>; targetIds: Set<string>; selectedMoveMarineId: string | null; selectedStrategizeSwarmId: string | null; selectedDoorSwarmId: string | null; selectedHeroicChargeSwarmId: string | null; selectedEventSlaySwarmId: string | null; heroicChargeSlay: boolean; strategizeSwarms: Set<string>; onChooseOption: (optionId: string) => void; onInspect: (inspection: Inspection) => void; onSelectMoveMarine: (marineId: string) => void; onSelectStrategizeSwarm: (swarmId: string) => void; onSelectDoorSwarm: (swarmId: string) => void; onSelectHeroicChargeSwarm: (swarmId: string) => void; onSelectEventSlaySwarm: (swarmId: string) => void }) {
   const { state } = session;
+  const boardScale = useMobileBoardScale();
   const decision = state.pendingDecision;
   const rows = useMemo(() => labRows(session), [session]);
   const overlayChoices = useMemo<LabOverlayChoice[]>(() => {
@@ -1073,7 +1098,7 @@ function LiveFormationBoard({ session, boardAnimation, highlightedTerrainIds, ta
     const option = terrainId ? uniquePayloadOption(decision, "terrainId", terrainId) : null;
     if (option) onChooseOption(option.id);
   };
-  const liveStyle = { "--lab-scale": "1", "--lab-viewport": "1180px" } as CSSProperties;
+  const liveStyle = { "--lab-scale": boardScale.toFixed(3), "--lab-viewport": "1180px" } as CSSProperties;
   return <section className="live-sprite-board" style={liveStyle}><FormationBoard rows={rows} marineSpriteUrl="prototype-art/marine-idle.gif" marineDeathStripUrl="game-art/marine/death.png" marineDodgeStripUrl="game-art/marine/dodge.png" marineFireStripUrls={{ straight: "game-art/marine/fire-straight.png", up: "game-art/marine/fire-up.png", down: "game-art/marine/fire-down.png" }} marineJamStripUrls={{ straight: "game-art/marine/gun-jam-straight.png", up: "game-art/marine/gun-jam-up.png", down: "game-art/marine/gun-jam-down.png" }} alienSpriteUrl="prototype-art/alien-attack.gif" alienAttackStripUrl="game-art/genestealer/attack.png" alienDeathStripUrl="game-art/genestealer/death.png" alienIdleStripUrl="game-art/genestealer/idle.png" broodlordSpriteUrl="game-art/broodlord/idle.png" broodlordAttackStripUrl="game-art/broodlord/attack.png" broodlordDeathStripUrl="game-art/broodlord/death.png" terrainSpriteUrls={{ Corridor: "game-art/terrain/corridor-v1.png", Artefact: "game-art/terrain/artefact-v1.png", "Control Panel": "game-art/terrain/control-panel-v1.png", Door: "game-art/terrain/door-v1.png", "Promethium Tank": "game-art/terrain/promethium-tank-v1.png", "Dark Corner": "game-art/terrain/dark-corner-v1.png", "Spore Chimney": "game-art/terrain/spore-chimney-v1.png", "Ventilation Duct": "game-art/terrain/ventilation-duct-v1.png" }} movingSwarmCells={boardAnimation?.movingSwarmCells} marineAnimationStates={marineAnimationStates} swarmAnimationStates={swarmAnimationStates} marineStates={marineStates} marineMoveChoices={marineMoveChoices} overlayChoices={overlayChoices} swarmStates={swarmStates} terrainStates={terrainStates} selectedMarine={null} onSelectMarine={chooseMarine} onSelectSwarm={chooseSwarm} onSelectTerrain={chooseTerrain} onOverlayChoice={(choice) => chooseCellOption(choice.row, choice.side)} onMarineMoveChoice={(choice) => { const option = decision?.legalOptions.find((item) => item.payload.marineId === selectedMoveMarineId && item.payload.to === choice.row); if (option) onChooseOption(option.id); }} onInspect={(details) => onInspect({ eyebrow: details.eyebrow, title: details.title, body: details.body, meta: details.subtitle })} /></section>;
 }
 
