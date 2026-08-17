@@ -476,25 +476,6 @@ function LiveActionSelection({ session, onChooseOption }: { session: EngineSessi
   );
 }
 
-function CombatHandoff({ session, animation }: { session: EngineSession; animation: BoardAnimation | null }) {
-  if (animation?.movingSwarmCells) {
-    const count = Object.keys(animation.movingSwarmCells).length;
-    return <aside className="combat-handoff is-genestealer" aria-live="assertive"><span>Genestealer movement</span><strong>{count} swarm{count === 1 ? "" : "s"} {count === 1 ? "moves" : "move"} with this Event</strong></aside>;
-  }
-  if (!animation?.swarmId) return null;
-  const swarm = session.state.swarms[animation.swarmId];
-  if (!swarm) return null;
-  const formationNumber = swarm.positionIndex + 1;
-  const targetMarineId = session.state.formation[swarm.positionIndex]?.marineInstanceId;
-  if (animation.swarmAnimation === "attack") {
-    return <aside className="combat-handoff is-genestealer" aria-live="assertive"><span>Genestealer attack</span><strong>Formation {formationNumber} · {swarm.side.toLowerCase()} flank → {marineDisplayName(session, targetMarineId)}</strong></aside>;
-  }
-  if (animation.marineAnimation?.startsWith("fire") || animation.marineAnimation?.startsWith("gunJam")) {
-    return <aside className="combat-handoff is-marine" aria-live="assertive"><span>Space Marine attack</span><strong>{marineDisplayName(session, animation.marineId)} → Genestealer swarm at formation {formationNumber} · {swarm.side.toLowerCase()} flank</strong></aside>;
-  }
-  return null;
-}
-
 function TeamActionPreview({ team, onClose }: { team: TeamColor; onClose: () => void }) {
   const cards = data.definitions.actions.filter((action) => action.team === team).sort((left, right) => left.initiative - right.initiative);
   const marines = data.definitions.marines.filter((marine) => marine.team === team);
@@ -921,7 +902,6 @@ function MissionBoard({ session, boardAnimation, inspection, error, resolutionNo
         )}
       </section>
 
-      <CombatHandoff session={session} animation={boardAnimation} />
       <LiveFormationBoard session={session} boardAnimation={boardAnimation} highlightedTerrainIds={new Set(resolutionNotice?.terrainIds ?? [])} targetIds={targetIds} selectedMoveMarineId={selectedMoveMarineId} selectedStrategizeSwarmId={selectedStrategizeSwarmId} selectedDoorSwarmId={selectedDoorSwarmId} strategizeSwarms={strategizeSwarmSet} onChooseOption={onChooseOption} onInspect={onInspect} onSelectMoveMarine={(marineId) => { if (decision) setMoveSelection({ decisionId: decision.id, marineId }); }} onSelectStrategizeSwarm={(swarmId) => { if (decision) setStrategizeSelection({ decisionId: decision.id, swarmId }); }} onSelectDoorSwarm={(swarmId) => { if (decision) setDoorSwarmSelection({ decisionId: decision.id, swarmId }); }} />
 
       <LiveActionSelection session={session} onChooseOption={onChooseOption} />
