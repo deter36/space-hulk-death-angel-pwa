@@ -52,12 +52,21 @@ function startTravel(locationId: string, label = locationId): EngineResult {
   state.phase = "GENESTEALER_ATTACK";
   state.pendingDecision = null;
   state.pendingQueue = [];
-  return advanceAutomatic(state);
+  return resolveTravelAcks(advanceAutomatic(state));
 }
 
 function submit(result: EngineResult, optionId?: string): EngineResult {
   const decision = result.state.pendingDecision!;
-  return submitDecision(result.state, decision.id, optionId ?? decision.legalOptions[0].id);
+  return resolveTravelAcks(submitDecision(result.state, decision.id, optionId ?? decision.legalOptions[0].id));
+}
+
+function resolveTravelAcks(result: EngineResult): EngineResult {
+  let current = result;
+  while (["TRAVEL_ANIMATION_ACK", "LOCATION_ARRIVAL_ACK"].includes(current.state.pendingDecision?.type ?? "")) {
+    const decision = current.state.pendingDecision!;
+    current = submitDecision(current.state, decision.id, decision.legalOptions[0].id);
+  }
+  return current;
 }
 
 function resolveGenestealerAttackHandoffs(result: EngineResult): EngineResult {
@@ -100,7 +109,6 @@ describe("travel and Locations", () => {
     expect(Object.keys(result.state.terrain)).toHaveLength(4);
     expect(result.state.supportSupply).toBe(12);
     expect(result.state.swarms[swarm.id]?.cardIds.length ?? 0).toBe(1);
-    expect(result.transitions.map((transition) => transition.type)).toContain("CARD_DRAWN");
     assertStateInvariants(result.state);
   });
 

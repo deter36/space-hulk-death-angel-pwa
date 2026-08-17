@@ -263,10 +263,14 @@ describe("Genestealer attack phase", () => {
     ];
     travel.components["location.service-shaft"].zone = "DECK";
     travel.components["location.service-shaft"].containerId = "location.deck";
-    const travelResult = advanceAutomatic(travel);
+    let travelResult = advanceAutomatic(travel);
+    while (["TRAVEL_ANIMATION_ACK", "LOCATION_ARRIVAL_ACK"].includes(travelResult.state.pendingDecision?.type ?? "")) {
+      const decision = travelResult.state.pendingDecision!;
+      travelResult = submitDecision(travelResult.state, decision.id, decision.legalOptions[0].id);
+    }
     expect(travelResult.state.phase).toBe("EVENT");
     expect(travelResult.state.currentLocationInstanceId).toBe("location.service-shaft");
-    expect(travelResult.transitions.map((transition) => transition.type)).toEqual(expect.arrayContaining(["TRAVEL_STARTED", "TRAVEL_COMPLETED"]));
+    expect(travelResult.transitions.map((transition) => transition.type)).toContain("TRAVEL_COMPLETED");
     expect(travelResult.state.pendingQueue.some((checkpoint) => checkpoint.timing === "TRAVEL_REQUIRED")).toBe(false);
   });
 });

@@ -100,6 +100,7 @@ function useMobileBoardScale(): number {
 type PendingRollResolution = { session: EngineSession };
 type ResolutionNotice = { id: string; eyebrow: string; title: string; body: string; meta?: string; team?: TeamColor; presentation?: "modal" | "board" | "movement"; terrainIds?: string[] };
 type MovementPresentation = { id: string; sourceSession: EngineSession; resolvedSession: EngineSession; animation: BoardAnimation };
+type TravelStage = "retreat" | "crossfade" | "arrive";
 
 function isRollFollowUp(decision: PendingDecision | null): decision is PendingDecision {
   return Boolean(decision && ["ATTACK_REROLL", "DEFENSE_REROLL", "EVENT_ATTACK_REROLL"].includes(decision.type));
@@ -223,6 +224,8 @@ function decisionInstruction(session: EngineSession, decision: PendingDecision, 
   if (decision.type === "PLACE_SUPPORT") return "Choose the highlighted Space Marine who will receive the Support Token.";
   if (decision.type === "COUNTER_ATTACK_SLAY") return "Counter Attack succeeded. Choose the attacking Genestealer to slay.";
   if (decision.type === "DOOR_TRAVEL_SLAY") return "Door support is ready. Choose a highlighted swarm, then choose the Genestealer to slay—or end the Door ability.";
+  if (decision.type === "TRAVEL_ANIMATION_ACK") return "All before-travel effects are complete. Begin travel when you are ready.";
+  if (decision.type === "LOCATION_ARRIVAL_ACK") return "The new Location and Terrain are in place. Reveal and resolve its upon-entering effect.";
   if (decision.type === "ATTACK_SLAY" && session.state.actionStep === "HEROIC_CHARGE_SLAY") return "Heroic Charge: choose a highlighted swarm, then choose one Genestealer to slay—or end the ability.";
   if (decision.type === "INTIMIDATION_PICK") return "Intimidation: choose a highlighted swarm, then choose the Genestealer to return to the Blip pile.";
   if (decision.type === "EVENT_SLAY") return decision.legalOptions[0]?.payload.purpose === "for-my-battle-brothers"
@@ -550,8 +553,10 @@ export default function GameClient() {
   const [pendingRollResolution, setPendingRollResolution] = useState<PendingRollResolution | null>(null);
   const [boardAnimation, setBoardAnimation] = useState<BoardAnimation | null>(null);
   const [slayChoiceAnimating, setSlayChoiceAnimating] = useState(false);
+  const [travelStage, setTravelStage] = useState<TravelStage | null>(null);
   const [restoreComplete, setRestoreComplete] = useState(false);
   const animationTimer = useRef<ReturnType<typeof globalThis.setTimeout> | null>(null);
+  const travelTimers = useRef<Array<ReturnType<typeof globalThis.setTimeout>>>([]);
   const movementPresentations = useRef(new Map<string, MovementPresentation>());
   const activeMovementPresentation = useRef<string | null>(null);
 
@@ -569,6 +574,7 @@ export default function GameClient() {
       onComplete();
     }, duration);
   };
+  const clearTravelTimers = () => { travelTimers.current.forEach(globalThis.clearTimeout); travelTimers.current = []; setTravelStage(null); };
 
   useEffect(() => {
     const notice = resolutionNotices[0];
@@ -658,6 +664,17 @@ export default function GameClient() {
     if (!session || !decision) return;
     try {
       const prepared = prepareUiSession(submitSessionDecision(session, decision.id, optionId));
+      if (decision.type === "TRAVEL_ANIMATION_ACK") {
+        clearTravelTimers();
+        setSession(session);
+        setTravelStage("retreat");
+        travelTimers.current.push(globalThis.setTimeout(() => setTravelStage("crossfade"), 2550));
+        travelTimers.current.push(globalThis.setTimeout(() => { setSession(prepared.session); setTravelStage("arrive"); }, 3000));
+        travelTimers.current.push(globalThis.setTimeout(() => { setTravelStage(null); travelTimers.current = []; }, 4450));
+        setInspection(null);
+        setError(prepared.error);
+        return;
+      }
       const selectedOption = decision.legalOptions.find((option) => option.id === optionId);
       const notices = rollNoticesFrom(prepared.session, session.transitions.length, session.state, selectedOption);
       const movementPresentation = decision.type === "EVENT_MOVEMENT_ACK" ? eventMovementPresentationFrom(session, prepared.session, session.transitions.length) : null;
@@ -730,6 +747,7 @@ export default function GameClient() {
     setBoardAnimation(null);
     movementPresentations.current.clear();
     activeMovementPresentation.current = null;
+    clearTravelTimers();
   };
 
   const downloadSave = () => {
@@ -763,6 +781,7 @@ export default function GameClient() {
     setBoardAnimation(null);
     movementPresentations.current.clear();
     activeMovementPresentation.current = null;
+    clearTravelTimers();
   };
 
   if (!restoreComplete) return <main className="restore-shell"><span>Restoring mission state…</span></main>;
@@ -847,7 +866,7 @@ export default function GameClient() {
   };
 
   const rollDecision = isRollFollowUp(pendingRollResolution?.session.state.pendingDecision ?? null) ? pendingRollResolution?.session.state.pendingDecision ?? null : null;
-  return <MissionBoard tutorial={playMode === "TUTORIAL"} session={session} boardAnimation={boardAnimation} inspection={inspection} error={error} resolutionNotice={resolutionNotices[0] ?? null} rollNotice={resolutionNotices.length ? null : rollNotices[0] ?? null} rollDecision={rollDecision} slayChoiceAnimating={slayChoiceAnimating} onDismissResolutionNotice={() => {
+  return <MissionBoard tutorial={playMode === "TUTORIAL"} session={session} travelStage={travelStage} boardAnimation={boardAnimation} inspection={inspection} error={error} resolutionNotice={resolutionNotices[0] ?? null} rollNotice={resolutionNotices.length ? null : rollNotices[0] ?? null} rollDecision={rollDecision} slayChoiceAnimating={slayChoiceAnimating} onDismissResolutionNotice={() => {
     const notice = resolutionNotices[0];
     if (notice?.eyebrow === "Event reveal" && session?.state.pendingDecision?.type === "EVENT_REVEAL_ACK") {
       setResolutionNotices((current) => current.slice(1));
@@ -860,6 +879,7 @@ export default function GameClient() {
 
 type MissionBoardProps = {
   session: EngineSession;
+  travelStage: TravelStage | null;
   tutorial: boolean;
   boardAnimation: BoardAnimation | null;
   inspection: Inspection | null;
@@ -879,7 +899,7 @@ type MissionBoardProps = {
   onStartTutorial: () => void;
 };
 
-function MissionBoard({ session, tutorial, boardAnimation, inspection, error, resolutionNotice, rollNotice, rollDecision, slayChoiceAnimating, onInspect, onChooseOption, onUndo, onDownloadSave, onDismissInspection, onDismissResolutionNotice, onDismissRoll, onNewMission, onStartTutorial }: MissionBoardProps) {
+function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspection, error, resolutionNotice, rollNotice, rollDecision, slayChoiceAnimating, onInspect, onChooseOption, onUndo, onDownloadSave, onDismissInspection, onDismissResolutionNotice, onDismissRoll, onNewMission, onStartTutorial }: MissionBoardProps) {
   const [moveSelection, setMoveSelection] = useState<{ decisionId: string; marineId: string } | null>(null);
   const [strategizeSelection, setStrategizeSelection] = useState<{ decisionId: string; swarmId: string } | null>(null);
   const [doorSwarmSelection, setDoorSwarmSelection] = useState<{ decisionId: string; swarmId: string } | null>(null);
@@ -967,11 +987,11 @@ function MissionBoard({ session, tutorial, boardAnimation, inspection, error, re
 
       {tutorial && <TutorialCoach session={session} />}
 
-      <LiveFormationBoard session={session} boardAnimation={boardAnimation} highlightedTerrainIds={new Set(resolutionNotice?.terrainIds ?? [])} targetIds={targetIds} selectedMoveMarineId={selectedMoveMarineId} selectedStrategizeSwarmId={selectedStrategizeSwarmId} selectedDoorSwarmId={selectedDoorSwarmId} selectedHeroicChargeSwarmId={selectedHeroicChargeSwarmId} selectedEventSlaySwarmId={selectedEventSlaySwarmId} heroicChargeSlay={heroicChargeSlay} strategizeSwarms={strategizeSwarmSet} onChooseOption={onChooseOption} onInspect={onInspect} onSelectMoveMarine={(marineId) => { if (decision) setMoveSelection({ decisionId: decision.id, marineId }); }} onSelectStrategizeSwarm={(swarmId) => { if (decision) setStrategizeSelection({ decisionId: decision.id, swarmId }); }} onSelectDoorSwarm={(swarmId) => { if (decision) setDoorSwarmSelection({ decisionId: decision.id, swarmId }); }} onSelectHeroicChargeSwarm={(swarmId) => { if (decision) setHeroicChargeSwarmSelection({ decisionId: decision.id, swarmId }); }} onSelectEventSlaySwarm={(swarmId) => { if (decision) setEventSlaySwarmSelection({ decisionId: decision.id, swarmId }); }} />
+      <LiveFormationBoard travelStage={travelStage} session={session} boardAnimation={boardAnimation} highlightedTerrainIds={new Set(resolutionNotice?.terrainIds ?? [])} targetIds={targetIds} selectedMoveMarineId={selectedMoveMarineId} selectedStrategizeSwarmId={selectedStrategizeSwarmId} selectedDoorSwarmId={selectedDoorSwarmId} selectedHeroicChargeSwarmId={selectedHeroicChargeSwarmId} selectedEventSlaySwarmId={selectedEventSlaySwarmId} heroicChargeSlay={heroicChargeSlay} strategizeSwarms={strategizeSwarmSet} onChooseOption={onChooseOption} onInspect={onInspect} onSelectMoveMarine={(marineId) => { if (decision) setMoveSelection({ decisionId: decision.id, marineId }); }} onSelectStrategizeSwarm={(swarmId) => { if (decision) setStrategizeSelection({ decisionId: decision.id, swarmId }); }} onSelectDoorSwarm={(swarmId) => { if (decision) setDoorSwarmSelection({ decisionId: decision.id, swarmId }); }} onSelectHeroicChargeSwarm={(swarmId) => { if (decision) setHeroicChargeSwarmSelection({ decisionId: decision.id, swarmId }); }} onSelectEventSlaySwarm={(swarmId) => { if (decision) setEventSlaySwarmSelection({ decisionId: decision.id, swarmId }); }} />
 
-      <LiveActionSelection session={session} onChooseOption={onChooseOption} />
+      {!travelStage && <LiveActionSelection session={session} onChooseOption={onChooseOption} />}
 
-      {!choosingActions && <section className="command-dock" aria-live="polite">
+      {!travelStage && !choosingActions && <section className="command-dock" aria-live="polite">
         {resolutionNotice?.presentation === "board" ? (
           <SpawnResolutionTray notice={resolutionNotice} onProceed={onDismissResolutionNotice} />
         ) : <>
@@ -1041,7 +1061,7 @@ function labRows(session: EngineSession): LabFormationRow[] {
   });
 }
 
-function LiveFormationBoard({ session, boardAnimation, highlightedTerrainIds, targetIds, selectedMoveMarineId, selectedStrategizeSwarmId, selectedDoorSwarmId, selectedHeroicChargeSwarmId, selectedEventSlaySwarmId, heroicChargeSlay, strategizeSwarms: selectableStrategizeSwarms, onChooseOption, onInspect, onSelectMoveMarine, onSelectStrategizeSwarm, onSelectDoorSwarm, onSelectHeroicChargeSwarm, onSelectEventSlaySwarm }: { session: EngineSession; boardAnimation: BoardAnimation | null; highlightedTerrainIds: Set<string>; targetIds: Set<string>; selectedMoveMarineId: string | null; selectedStrategizeSwarmId: string | null; selectedDoorSwarmId: string | null; selectedHeroicChargeSwarmId: string | null; selectedEventSlaySwarmId: string | null; heroicChargeSlay: boolean; strategizeSwarms: Set<string>; onChooseOption: (optionId: string) => void; onInspect: (inspection: Inspection) => void; onSelectMoveMarine: (marineId: string) => void; onSelectStrategizeSwarm: (swarmId: string) => void; onSelectDoorSwarm: (swarmId: string) => void; onSelectHeroicChargeSwarm: (swarmId: string) => void; onSelectEventSlaySwarm: (swarmId: string) => void }) {
+function LiveFormationBoard({ session, travelStage, boardAnimation, highlightedTerrainIds, targetIds, selectedMoveMarineId, selectedStrategizeSwarmId, selectedDoorSwarmId, selectedHeroicChargeSwarmId, selectedEventSlaySwarmId, heroicChargeSlay, strategizeSwarms: selectableStrategizeSwarms, onChooseOption, onInspect, onSelectMoveMarine, onSelectStrategizeSwarm, onSelectDoorSwarm, onSelectHeroicChargeSwarm, onSelectEventSlaySwarm }: { session: EngineSession; travelStage: TravelStage | null; boardAnimation: BoardAnimation | null; highlightedTerrainIds: Set<string>; targetIds: Set<string>; selectedMoveMarineId: string | null; selectedStrategizeSwarmId: string | null; selectedDoorSwarmId: string | null; selectedHeroicChargeSwarmId: string | null; selectedEventSlaySwarmId: string | null; heroicChargeSlay: boolean; strategizeSwarms: Set<string>; onChooseOption: (optionId: string) => void; onInspect: (inspection: Inspection) => void; onSelectMoveMarine: (marineId: string) => void; onSelectStrategizeSwarm: (swarmId: string) => void; onSelectDoorSwarm: (swarmId: string) => void; onSelectHeroicChargeSwarm: (swarmId: string) => void; onSelectEventSlaySwarm: (swarmId: string) => void }) {
   const { state } = session;
   const boardScale = useMobileBoardScale();
   const decision = state.pendingDecision;
@@ -1146,7 +1166,7 @@ function LiveFormationBoard({ session, boardAnimation, highlightedTerrainIds, ta
   };
   const liveStyle = { "--lab-scale": boardScale.toFixed(3), "--lab-viewport": "1180px" } as CSSProperties;
   const locationProgress = data.definitions.locations.find((item) => item.id === componentDefinitionId(session, state.currentLocationInstanceId))?.tier ?? "1";
-  return <section className="live-sprite-board" style={liveStyle}><FormationBoard rows={rows} locationProgress={locationProgress} marineSpriteUrl="prototype-art/marine-idle.gif" marineDeathStripUrl="game-art/marine/death.png" marineDodgeStripUrl="game-art/marine/dodge.png" marineFireStripUrls={{ straight: "game-art/marine/fire-straight.png", up: "game-art/marine/fire-up.png", down: "game-art/marine/fire-down.png" }} marineJamStripUrls={{ straight: "game-art/marine/gun-jam-straight.png", up: "game-art/marine/gun-jam-up.png", down: "game-art/marine/gun-jam-down.png" }} alienSpriteUrl="prototype-art/alien-attack.gif" alienAttackStripUrl="game-art/genestealer/attack.png" alienDeathStripUrl="game-art/genestealer/death.png" alienIdleStripUrl="game-art/genestealer/idle.png" broodlordSpriteUrl="game-art/broodlord/idle.png" broodlordAttackStripUrl="game-art/broodlord/attack.png" broodlordDeathStripUrl="game-art/broodlord/death.png" terrainSpriteUrls={{ Corridor: "game-art/terrain/corridor-v1.png", Artefact: "game-art/terrain/artefact-v1.png", "Control Panel": "game-art/terrain/control-panel-v1.png", Door: "game-art/terrain/door-v1.png", "Promethium Tank": "game-art/terrain/promethium-tank-v1.png", "Dark Corner": "game-art/terrain/dark-corner-v1.png", "Spore Chimney": "game-art/terrain/spore-chimney-v1.png", "Ventilation Duct": "game-art/terrain/ventilation-duct-v1.png" }} movingSwarmCells={boardAnimation?.movingSwarmCells} marineAnimationStates={marineAnimationStates} swarmAnimationStates={swarmAnimationStates} marineStates={marineStates} marineMoveChoices={marineMoveChoices} overlayChoices={overlayChoices} swarmStates={swarmStates} terrainStates={terrainStates} selectedMarine={null} onSelectMarine={chooseMarine} onSelectSwarm={chooseSwarm} onSelectTerrain={chooseTerrain} onOverlayChoice={(choice) => chooseCellOption(choice.row, choice.side)} onMarineMoveChoice={(choice) => { const option = decision?.legalOptions.find((item) => item.payload.marineId === selectedMoveMarineId && item.payload.to === choice.row); if (option) onChooseOption(option.id); }} onInspect={(details) => onInspect({ eyebrow: details.eyebrow, title: details.title, body: details.body, meta: details.subtitle })} /></section>;
+  return <section className={`live-sprite-board travel-live-board ${travelStage ? `is-${travelStage}` : ""}`} style={liveStyle}><FormationBoard key={state.currentLocationInstanceId} rows={rows} locationProgress={locationProgress} marineSpriteUrl="prototype-art/marine-idle.gif" marineDeathStripUrl="game-art/marine/death.png" marineDodgeStripUrl="game-art/marine/dodge.png" marineFireStripUrls={{ straight: "game-art/marine/fire-straight.png", up: "game-art/marine/fire-up.png", down: "game-art/marine/fire-down.png" }} marineJamStripUrls={{ straight: "game-art/marine/gun-jam-straight.png", up: "game-art/marine/gun-jam-up.png", down: "game-art/marine/gun-jam-down.png" }} alienSpriteUrl="prototype-art/alien-attack.gif" alienAttackStripUrl="game-art/genestealer/attack.png" alienDeathStripUrl="game-art/genestealer/death.png" alienIdleStripUrl="game-art/genestealer/idle.png" broodlordSpriteUrl="game-art/broodlord/idle.png" broodlordAttackStripUrl="game-art/broodlord/attack.png" broodlordDeathStripUrl="game-art/broodlord/death.png" terrainSpriteUrls={{ Corridor: "game-art/terrain/corridor-v1.png", Artefact: "game-art/terrain/artefact-v1.png", "Control Panel": "game-art/terrain/control-panel-v1.png", Door: "game-art/terrain/door-v1.png", "Promethium Tank": "game-art/terrain/promethium-tank-v1.png", "Dark Corner": "game-art/terrain/dark-corner-v1.png", "Spore Chimney": "game-art/terrain/spore-chimney-v1.png", "Ventilation Duct": "game-art/terrain/ventilation-duct-v1.png" }} movingSwarmCells={boardAnimation?.movingSwarmCells} marineAnimationStates={marineAnimationStates} swarmAnimationStates={swarmAnimationStates} marineStates={marineStates} marineMoveChoices={marineMoveChoices} overlayChoices={overlayChoices} swarmStates={swarmStates} terrainStates={terrainStates} selectedMarine={null} onSelectMarine={chooseMarine} onSelectSwarm={chooseSwarm} onSelectTerrain={chooseTerrain} onOverlayChoice={(choice) => chooseCellOption(choice.row, choice.side)} onMarineMoveChoice={(choice) => { const option = decision?.legalOptions.find((item) => item.payload.marineId === selectedMoveMarineId && item.payload.to === choice.row); if (option) onChooseOption(option.id); }} onInspect={(details) => onInspect({ eyebrow: details.eyebrow, title: details.title, body: details.body, meta: details.subtitle })} /><div className="travel-live-blackout" aria-hidden="true" /></section>;
 }
 
 // Kept as a reference while the remaining card-level target choices are moved to the sprite board.

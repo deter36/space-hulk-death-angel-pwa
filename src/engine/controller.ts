@@ -351,6 +351,16 @@ export function submitDecision(input: GameState, decisionId: string, optionId: s
       }
       state.travelStep = "DOOR";
     }, { playerDecision: decisionRecord }));
+  } else if (pending.type === "TRAVEL_ANIMATION_ACK") {
+    transitions.push(commitTransition(state, "TRAVEL_ANIMATION_ACKNOWLEDGED", pending.sourceId, () => {
+      clearPendingDecision(state, pending);
+      state.travelStep = "DRAW_LOCATION";
+    }, { playerDecision: decisionRecord }));
+  } else if (pending.type === "LOCATION_ARRIVAL_ACK") {
+    transitions.push(commitTransition(state, "LOCATION_ARRIVAL_ACKNOWLEDGED", pending.sourceId, () => {
+      clearPendingDecision(state, pending);
+      state.travelStep = "ARRIVAL";
+    }, { playerDecision: decisionRecord }));
   } else if (pending.type === "MUNITORIUM_SUPPORT") {
     const marineId = option.payload.marineId as string;
     transitions.push(commitTransition(state, "SUPPORT_PLACED", pending.sourceId, () => {
@@ -1133,9 +1143,13 @@ function advanceTravel(state: GameState, transitions: TransitionRecord[]): boole
     if (decision) { requestDecision(state, decision, transitions); return false; }
     transitions.push(commitTransition(state, "DOOR_ABILITY_FINISHED", "terrain.door", () => {
       runtime.doorRemaining = 0;
-      state.travelStep = "DRAW_LOCATION";
+      state.travelStep = "ANIMATION";
     }));
     return true;
+  }
+  if (state.travelStep === "ANIMATION") {
+    requestDecision(state, makeDecision(state, "TRAVEL_ANIMATION_ACK", state.currentLocationInstanceId, "travel.animation", [{ id: "travel", label: "Travel to next Location", payload: {}, canonicalEffectPreview: "Travel animation" }]), transitions);
+    return false;
   }
   if (state.travelStep === "DRAW_LOCATION") {
     const priorLocationId = state.currentLocationInstanceId;
@@ -1171,7 +1185,7 @@ function advanceTravel(state: GameState, transitions: TransitionRecord[]): boole
   if (state.travelStep === "BLIPS_REFILL") {
     const side = nextRefillSide(state);
     if (!side) {
-      transitions.push(commitTransition(state, "BLIPS_REFILLED", state.currentLocationInstanceId, () => { state.travelStep = "ARRIVAL"; }));
+      transitions.push(commitTransition(state, "BLIPS_REFILLED", state.currentLocationInstanceId, () => { state.travelStep = "ARRIVAL_REVEAL"; }));
       return true;
     }
     const sourceId = side === "LEFT" ? "blip.left" : "blip.right";
@@ -1181,6 +1195,10 @@ function advanceTravel(state: GameState, transitions: TransitionRecord[]): boole
     });
     transitions.push(...result.transitions);
     return true;
+  }
+  if (state.travelStep === "ARRIVAL_REVEAL") {
+    requestDecision(state, makeDecision(state, "LOCATION_ARRIVAL_ACK", state.currentLocationInstanceId, "travel.arrivalReveal", [{ id: "begin", label: "Reveal Location", payload: {}, canonicalEffectPreview: "Resolve upon-entering effect" }]), transitions);
+    return false;
   }
   if (state.travelStep === "ARRIVAL") {
     const handlerId = locationDefinition(state.currentLocationInstanceId).handlerId;
