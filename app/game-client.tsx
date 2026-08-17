@@ -330,8 +330,11 @@ function rollNoticesFrom(session: EngineSession, startingAt: number, priorState:
       const marineAttack = typeof attackerId === "string" && typeof targetSwarmId === "string" && !input.sourceId.startsWith("swarm.");
       const defense = input.sourceId.startsWith("swarm.");
       const marineId = marineAttack ? attackerId : defense
-        ? session.state.genestealerAttackRuntime?.defenderMarineId
-          ?? priorState.genestealerAttackRuntime?.defenderMarineId
+        // `session` may already be waiting on the next queued Genestealer
+        // attack by the time this die is presented. Anchor the animation to
+        // the runtime that existed when this die was actually rolled.
+        ? priorState.genestealerAttackRuntime?.defenderMarineId
+          ?? session.state.genestealerAttackRuntime?.defenderMarineId
           ?? priorState.formation[priorState.swarms[input.sourceId]?.positionIndex ?? -1]?.marineInstanceId
         : undefined;
       const hit = Boolean(input.dieSkull);
