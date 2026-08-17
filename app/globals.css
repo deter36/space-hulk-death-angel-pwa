@@ -194,4 +194,4 @@ button:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
 .live-action-dock.is-choosing .live-action-hands { min-height: 78px; background: transparent; }
 .live-action-dock.is-choosing .live-action-team-slot { min-height: 78px; border: 0; padding: 8px 2px 2px; background: transparent; }
 .live-action-dock.is-choosing .live-action-team-slot.is-active { box-shadow: none; animation: none !important; }
-.live-action-dock.is-choosing .live-action-team-name { top: 1px; text-shadow: 0 1px 3px #000; }
+.live-action-dock.is-choosing .live-action-team-name { display: none; }
