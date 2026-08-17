@@ -177,7 +177,7 @@ function decisionInstruction(session: EngineSession, decision: PendingDecision, 
     return `${marineDisplayName(session, typeof marineId === "string" ? marineId : undefined)} is attacking. Choose the highlighted Genestealer swarm.`;
   }
   if (decision.type === "ACTIVATE_TERRAIN") return "Choose the highlighted Terrain to activate with this squad's Move + Activate action.";
-  if (decision.type === "PLACE_SUPPORT") return "Choose the highlighted Marine or Terrain that will receive the Support Token.";
+  if (decision.type === "PLACE_SUPPORT") return "Choose the highlighted Space Marine who will receive the Support Token.";
   if (decision.type === "COUNTER_ATTACK_SLAY") return "Counter Attack succeeded. Choose the attacking Genestealer to slay.";
   if (decision.type === "DOOR_TRAVEL_SLAY") return "Door support is ready. Choose a highlighted swarm, then choose the Genestealer to slay—or end the Door ability.";
   if (decision.type === "PLACE_ARTEFACT") return "Choose a highlighted empty flank to place the Artefact from the Location card.";
@@ -999,7 +999,7 @@ function LiveFormationBoard({ session, boardAnimation, highlightedTerrainIds, ta
     const selectable = decision?.type === "STRATEGIZE" && !selectedStrategizeSwarmId && Boolean(swarmId && selectableStrategizeSwarms.has(swarmId));
     const selected = Boolean(swarmId && selectedStrategizeSwarmId === swarmId);
     const targeted = Boolean(swarmId && targetIds.has(swarmId));
-    const attacking = swarmId === boardAnimation?.swarmId && boardAnimation.swarmAnimation === "attack";
+    const attacking = Boolean(swarmId && swarmId === boardAnimation?.swarmId && boardAnimation?.swarmAnimation === "attack");
     return [cellKey(positionIndex, side), attacking ? "targeted" : selected ? "selected" : selectable ? "selectable" : targeted ? "targeted" : "neutral"];
   }))), [boardAnimation, decision, selectedStrategizeSwarmId, selectableStrategizeSwarms, state.formation, targetIds]);
   const terrainStates = useMemo<Record<string, LabTargetState>>(() => Object.fromEntries(state.formation.flatMap((slot, positionIndex) => (["LEFT", "RIGHT"] as const).map((side) => {
