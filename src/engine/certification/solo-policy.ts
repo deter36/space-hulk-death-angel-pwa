@@ -30,6 +30,7 @@ export function certificationOption(state: GameState): string {
   if (decision.type === "DEFENSE_REROLL" || decision.type === "ATTACK_REROLL" || decision.type === "EVENT_ATTACK_REROLL") return optionWith(decision, "reroll", false) ?? decision.legalOptions[0].id;
   if (decision.type === "EVENT_ATTACK") return optionWith(decision, "finish", true) ?? decision.legalOptions.at(-1)!.id;
   if (decision.type === "EVENT_MOVEMENT_ACK") return decision.legalOptions.find((option) => option.id === "begin")?.id ?? decision.legalOptions[0].id;
+  if (decision.type === "GENESTEALER_ATTACK_ACK") return decision.legalOptions.find((option) => option.id === "begin")?.id ?? decision.legalOptions[0].id;
   if (decision.type === "EVENT_COUNT") return optionWith(decision, "count", 0) ?? decision.legalOptions[0].id;
   if (decision.type === "FORWARD_SCOUTING_ORDER") return optionWith(decision, "placement", "BOTTOM") ?? decision.legalOptions[0].id;
   if (decision.type === "SET_FACING" || decision.type === "APOTHECARION_FACING") return decision.legalOptions.find((option) => option.id === "keep")?.id ?? decision.legalOptions[0].id;

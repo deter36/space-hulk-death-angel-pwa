@@ -60,6 +60,15 @@ function submit(result: EngineResult, optionId?: string): EngineResult {
   return submitDecision(result.state, decision.id, optionId ?? decision.legalOptions[0].id);
 }
 
+function resolveGenestealerAttackHandoffs(result: EngineResult): EngineResult {
+  let current = result;
+  let guard = 0;
+  while (["GENESTEALER_ATTACK_ACK", "DEFENSE_REROLL"].includes(current.state.pendingDecision?.type ?? "") && guard++ < 20) {
+    current = submit(current, current.state.pendingDecision!.type === "GENESTEALER_ATTACK_ACK" ? "begin" : "keep");
+  }
+  return current;
+}
+
 function choosePayload(result: EngineResult, key: string, value: string | boolean): EngineResult {
   const option = result.state.pendingDecision!.legalOptions.find((candidate) => candidate.payload[key] === value)!;
   return submit(result, option.id);
@@ -82,7 +91,7 @@ describe("travel and Locations", () => {
     state.phase = "GENESTEALER_ATTACK";
     state.pendingDecision = null;
     state.pendingQueue = [];
-    let result = advanceAutomatic(state);
+    let result = resolveGenestealerAttackHandoffs(advanceAutomatic(state));
     expect(result.state.pendingDecision?.type).toBe("DOOR_TRAVEL_SLAY");
     result = submit(result, result.state.pendingDecision!.legalOptions.find((option) => !option.payload.stop)!.id);
     result = submit(result, result.state.pendingDecision!.legalOptions.find((option) => !option.payload.stop)!.id);
@@ -211,8 +220,7 @@ describe("travel and Locations", () => {
     state.phase = "GENESTEALER_ATTACK";
     state.pendingDecision = null;
     state.pendingQueue = [];
-    let black = advanceAutomatic(state);
-    while (black.state.pendingDecision?.type === "DEFENSE_REROLL") black = submit(black, "keep");
+    let black = resolveGenestealerAttackHandoffs(advanceAutomatic(state));
     expect(black.state.pendingDecision?.type).toBe("BLACK_HOLDS_SWARM");
     black = choosePayload(black, "swarmId", swarm.id);
     expect(black.state.swarms[swarm.id]?.cardIds.length).toBe(before + 2);

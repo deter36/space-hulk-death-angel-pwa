@@ -158,6 +158,11 @@ export function submitDecision(input: GameState, decisionId: string, optionId: s
       state.marines[marineId].facing = option.payload.facing as "LEFT" | "RIGHT";
       state.actionRuntime!.facingResolvedMarineIds.push(marineId);
     }, { playerDecision: decisionRecord }));
+  } else if (pending.type === "GENESTEALER_ATTACK_ACK") {
+    transitions.push(commitTransition(state, "GENESTEALER_ATTACK_ACKNOWLEDGED", pending.sourceId, () => {
+      clearPendingDecision(state, pending);
+      state.genestealerAttackStep = "ROLL";
+    }, { playerDecision: decisionRecord }));
   } else if (pending.type === "ACTIVATE_TERRAIN") {
     const marineId = option.payload.marineId as string;
     const terrainId = option.payload.terrainId as string | undefined;
@@ -1394,12 +1399,21 @@ function advanceGenestealerAttack(state: GameState, transitions: TransitionRecor
     transitions.push(commitTransition(state, "GENESTEALER_ATTACK_STARTED", swarmId, () => {
       swarm.attackedThisAttackPhase = true;
       state.genestealerAttackRuntime = { swarmId, defenderMarineId, repeatAttack: false, rerolledWithSupport: false };
-      state.genestealerAttackStep = "ROLL";
+      state.genestealerAttackStep = "START_ACK";
     }));
     return true;
   }
 
   const runtime = state.genestealerAttackRuntime;
+  if (state.genestealerAttackStep === "START_ACK") {
+    requestDecision(state, makeDecision(state, "GENESTEALER_ATTACK_ACK", runtime.swarmId, "genestealer.attack.start", [{
+      id: "begin",
+      label: "Begin Genestealer attack",
+      payload: { swarmId: runtime.swarmId, marineId: runtime.defenderMarineId },
+      canonicalEffectPreview: "Roll the Genestealer attack die",
+    }]), transitions);
+    return false;
+  }
   if (state.genestealerAttackStep === "ROLL") {
     const rng = Sha256CounterRng.restore(state.rng);
     const face = rng.rollCombatDie();

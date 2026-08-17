@@ -181,6 +181,10 @@ function decisionInstruction(session: EngineSession, decision: PendingDecision, 
   if (decision.type === "COUNTER_ATTACK_SLAY") return "Counter Attack succeeded. Choose the attacking Genestealer to slay.";
   if (decision.type === "DOOR_TRAVEL_SLAY") return "Door support is ready. Choose a highlighted swarm, then choose the Genestealer to slay—or end the Door ability.";
   if (decision.type === "PLACE_ARTEFACT") return "Choose a highlighted empty flank to place the Artefact from the Location card.";
+  if (decision.type === "GENESTEALER_ATTACK_ACK") {
+    const marineId = decision.legalOptions[0]?.payload.marineId;
+    return `This highlighted Genestealer swarm is attacking ${marineDisplayName(session, typeof marineId === "string" ? marineId : undefined)}. Tap the swarm to begin its attack.`;
+  }
   if (decision.type === "EVENT_MOVEMENT_ACK") {
     const count = Number(decision.legalOptions[0]?.payload.count ?? 0);
     const movement = String(decision.legalOptions[0]?.payload.movement ?? "MOVE").toLowerCase();
@@ -625,7 +629,7 @@ export default function GameClient() {
       const prepared = prepareUiSession(submitSessionDecision(session, decision.id, optionId));
       const selectedOption = decision.legalOptions.find((option) => option.id === optionId);
       const notices = rollNoticesFrom(prepared.session, session.transitions.length, session.state, selectedOption);
-      const movementPresentation = eventMovementPresentationFrom(session, prepared.session, session.transitions.length);
+      const movementPresentation = decision.type === "EVENT_MOVEMENT_ACK" ? eventMovementPresentationFrom(session, prepared.session, session.transitions.length) : null;
       if (movementPresentation) movementPresentations.current.set(movementPresentation.id, movementPresentation);
       const resolutionNotices = resolutionNoticesFrom(prepared.session, session.transitions.length, notices[0]?.transitionSeq);
       if (decision.type === "ATTACK_SLAY") {
@@ -778,7 +782,7 @@ export default function GameClient() {
           return;
         }
         finalSession = prepared.session;
-        const movementPresentation = eventMovementPresentationFrom(resolve.session, prepared.session, resolve.session.transitions.length);
+        const movementPresentation = rollDecision?.type === "EVENT_MOVEMENT_ACK" ? eventMovementPresentationFrom(resolve.session, prepared.session, resolve.session.transitions.length) : null;
         if (movementPresentation) movementPresentations.current.set(movementPresentation.id, movementPresentation);
         if (!animation && resolve.session.state.genestealerAttackRuntime) {
           const runtime = resolve.session.state.genestealerAttackRuntime;
@@ -795,8 +799,6 @@ export default function GameClient() {
     }
     const duration = animation?.marineAnimation?.startsWith("gunJam") ? 1800 : 1400;
     const deferredNotices = resolutionNoticesFrom(finalSession, notice.transitionSeq);
-    const deferredMovementPresentation = eventMovementPresentationFrom(session, finalSession, session.transitions.length);
-    if (deferredMovementPresentation) movementPresentations.current.set(deferredMovementPresentation.id, deferredMovementPresentation);
     if (animation) {
       // The die result has been acknowledged. Remove its modal before the
       // consequence plays so the animation is the only thing in focus.
@@ -840,6 +842,7 @@ type MissionBoardProps = {
 function MissionBoard({ session, boardAnimation, inspection, error, resolutionNotice, rollNotice, rollDecision, slayChoiceAnimating, onInspect, onChooseOption, onUndo, onDownloadSave, onDismissInspection, onDismissResolutionNotice, onDismissRoll, onNewMission }: MissionBoardProps) {
   const [moveSelection, setMoveSelection] = useState<{ decisionId: string; marineId: string } | null>(null);
   const [strategizeSelection, setStrategizeSelection] = useState<{ decisionId: string; swarmId: string } | null>(null);
+  const [doorSwarmSelection, setDoorSwarmSelection] = useState<{ decisionId: string; swarmId: string } | null>(null);
   const [scoutingPreviewVisible, setScoutingPreviewVisible] = useState(true);
   const [missionInfoCollapsed, setMissionInfoCollapsed] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -849,6 +852,7 @@ function MissionBoard({ session, boardAnimation, inspection, error, resolutionNo
   const strategizeSwarms = useMemo(() => strategizeSwarmIds(decision), [decision]);
   const strategizeSwarmSet = useMemo(() => new Set(strategizeSwarms), [strategizeSwarms]);
   const selectedStrategizeSwarmId = strategizeSelection && strategizeSelection.decisionId === decision?.id && strategizeSwarmSet.has(strategizeSelection.swarmId) ? strategizeSelection.swarmId : null;
+  const selectedDoorSwarmId = doorSwarmSelection && doorSwarmSelection.decisionId === decision?.id && decision?.type === "DOOR_TRAVEL_SLAY" ? doorSwarmSelection.swarmId : null;
   const targetIds = useMemo(() => decision?.type === "STRATEGIZE" ? new Set<string>() : pendingTargetIds(decision), [decision]);
   const currentLocation = data.definitions.locations.find((item) => item.id === componentDefinitionId(session, state.currentLocationInstanceId));
   const locationInspection = sourceInspection(session, state.currentLocationInstanceId) ?? { eyebrow: "Setup location", title: setupLocationName(componentDefinitionId(session, state.currentLocationInstanceId)), body: "Starting location for the solo mission.", meta: "Void Lock" };
@@ -859,7 +863,11 @@ function MissionBoard({ session, boardAnimation, inspection, error, resolutionNo
   const lastEventId = state.eventRuntime?.eventCardId ?? state.orderedSources["event.discard"]?.at(-1) ?? null;
   const lastEvent = lastEventId ? findEvent(lastEventId) : null;
   const formationMarineIds = new Set(state.formation.map((slot) => slot.marineInstanceId));
-  const dockOptions = decision?.legalOptions.filter((option) => decision.type === "STRATEGIZE" ? option.payload.skip === true : isOffBoardMarineOption(option, formationMarineIds) || !isDirectInputOption(decision, option)) ?? [];
+  const dockOptions = decision?.legalOptions.filter((option) => decision.type === "STRATEGIZE"
+    ? option.payload.skip === true
+    : decision.type === "DOOR_TRAVEL_SLAY"
+      ? option.payload.stop === true
+      : isOffBoardMarineOption(option, formationMarineIds) || !isDirectInputOption(decision, option)) ?? [];
   const orderedDockOptions = decision?.type === "STEALTH_FIRST"
     ? [...dockOptions].sort((left, right) => {
       const rank = (option: DecisionOption) => option.payload.skip ? 2 : option.payload.side === "LEFT" ? 0 : 1;
@@ -906,7 +914,7 @@ function MissionBoard({ session, boardAnimation, inspection, error, resolutionNo
       </section>
 
       <CombatHandoff session={session} animation={boardAnimation} />
-      <LiveFormationBoard session={session} boardAnimation={boardAnimation} highlightedTerrainIds={new Set(resolutionNotice?.terrainIds ?? [])} targetIds={targetIds} selectedMoveMarineId={selectedMoveMarineId} selectedStrategizeSwarmId={selectedStrategizeSwarmId} strategizeSwarms={strategizeSwarmSet} onChooseOption={onChooseOption} onInspect={onInspect} onSelectMoveMarine={(marineId) => { if (decision) setMoveSelection({ decisionId: decision.id, marineId }); }} onSelectStrategizeSwarm={(swarmId) => { if (decision) setStrategizeSelection({ decisionId: decision.id, swarmId }); }} />
+      <LiveFormationBoard session={session} boardAnimation={boardAnimation} highlightedTerrainIds={new Set(resolutionNotice?.terrainIds ?? [])} targetIds={targetIds} selectedMoveMarineId={selectedMoveMarineId} selectedStrategizeSwarmId={selectedStrategizeSwarmId} selectedDoorSwarmId={selectedDoorSwarmId} strategizeSwarms={strategizeSwarmSet} onChooseOption={onChooseOption} onInspect={onInspect} onSelectMoveMarine={(marineId) => { if (decision) setMoveSelection({ decisionId: decision.id, marineId }); }} onSelectStrategizeSwarm={(swarmId) => { if (decision) setStrategizeSelection({ decisionId: decision.id, swarmId }); }} onSelectDoorSwarm={(swarmId) => { if (decision) setDoorSwarmSelection({ decisionId: decision.id, swarmId }); }} />
 
       <LiveActionSelection session={session} onChooseOption={onChooseOption} />
 
@@ -919,7 +927,7 @@ function MissionBoard({ session, boardAnimation, inspection, error, resolutionNo
             {decisionRules && <div className="decision-rules"><strong>Artefact ability</strong><span>{decisionRules}</span></div>}
             <p>{decisionInstruction(session, decision, selectedMoveMarineId, selectedStrategizeSwarmId, scoutingPreviewVisible)}</p>
             {decision.type === "STRATEGIZE" && selectedStrategizeSwarmId && <button type="button" className="strategize-reset" onClick={() => setStrategizeSelection(null)}>Choose another swarm</button>}
-            {decision.type !== "FORWARD_SCOUTING_ORDER" && decision.type !== "ATTACK_SLAY" && decision.type !== "DOOR_TRAVEL_SLAY" && orderedDockOptions.length > 0 && <div className={`dock-options ${decision.type === "STEALTH_FIRST" ? "is-stealth-first" : ""}`}>{orderedDockOptions.map((option) => { const presentation = presentedDecisionOption(decision, option); return <button key={option.id} type="button" className={option.payload.skip ? "is-decline" : ""} onClick={() => onChooseOption(option.id)}><strong>{presentation.label}</strong>{presentation.preview && <small>{presentation.preview}</small>}</button>; })}</div>}
+            {decision.type !== "FORWARD_SCOUTING_ORDER" && decision.type !== "ATTACK_SLAY" && orderedDockOptions.length > 0 && <div className={`dock-options ${decision.type === "STEALTH_FIRST" ? "is-stealth-first" : ""}`}>{orderedDockOptions.map((option) => { const presentation = presentedDecisionOption(decision, option); return <button key={option.id} type="button" className={option.payload.skip || option.payload.stop ? "is-decline" : ""} onClick={() => onChooseOption(option.id)}><strong>{presentation.label}</strong>{presentation.preview && <small>{presentation.preview}</small>}</button>; })}</div>}
           </div>
         ) : state.status === "IN_PROGRESS" ? (
           <div className="mission-result engine-paused"><strong>Engine paused</strong><span>Download a save from the game menu before ending this mission.</span></div>
@@ -934,7 +942,8 @@ function MissionBoard({ session, boardAnimation, inspection, error, resolutionNo
       {decision?.type === "FORWARD_SCOUTING_ORDER" && (scoutingPreviewVisible
         ? <ForwardScoutingPreview session={session} decision={decision} onChooseOption={onChooseOption} onViewBoard={() => setScoutingPreviewVisible(false)} />
         : <button type="button" className="scouting-return" onClick={() => setScoutingPreviewVisible(true)}><span aria-hidden="true">↩</span><strong>Forward Scouting</strong><small>Return to event choice</small></button>)}
-      {(decision?.type === "ATTACK_SLAY" || decision?.type === "DOOR_TRAVEL_SLAY") && !slayChoiceAnimating && <SlaySwarmOverlay session={session} decision={decision} onChooseOption={onChooseOption} />}
+      {decision?.type === "ATTACK_SLAY" && !slayChoiceAnimating && <SlaySwarmOverlay session={session} decision={decision} onChooseOption={onChooseOption} />}
+      {decision?.type === "DOOR_TRAVEL_SLAY" && selectedDoorSwarmId && <SlaySwarmOverlay session={session} decision={decision} swarmId={selectedDoorSwarmId} onChooseOption={onChooseOption} />}
       {rollNotice && <RollResult key={rollNotice.id} notice={rollNotice} decision={rollDecision} onProceed={onDismissRoll} />}
     </main>
   );
@@ -970,7 +979,7 @@ function labRows(session: EngineSession): LabFormationRow[] {
   });
 }
 
-function LiveFormationBoard({ session, boardAnimation, highlightedTerrainIds, targetIds, selectedMoveMarineId, selectedStrategizeSwarmId, strategizeSwarms: selectableStrategizeSwarms, onChooseOption, onInspect, onSelectMoveMarine, onSelectStrategizeSwarm }: { session: EngineSession; boardAnimation: BoardAnimation | null; highlightedTerrainIds: Set<string>; targetIds: Set<string>; selectedMoveMarineId: string | null; selectedStrategizeSwarmId: string | null; strategizeSwarms: Set<string>; onChooseOption: (optionId: string) => void; onInspect: (inspection: Inspection) => void; onSelectMoveMarine: (marineId: string) => void; onSelectStrategizeSwarm: (swarmId: string) => void }) {
+function LiveFormationBoard({ session, boardAnimation, highlightedTerrainIds, targetIds, selectedMoveMarineId, selectedStrategizeSwarmId, selectedDoorSwarmId, strategizeSwarms: selectableStrategizeSwarms, onChooseOption, onInspect, onSelectMoveMarine, onSelectStrategizeSwarm, onSelectDoorSwarm }: { session: EngineSession; boardAnimation: BoardAnimation | null; highlightedTerrainIds: Set<string>; targetIds: Set<string>; selectedMoveMarineId: string | null; selectedStrategizeSwarmId: string | null; selectedDoorSwarmId: string | null; strategizeSwarms: Set<string>; onChooseOption: (optionId: string) => void; onInspect: (inspection: Inspection) => void; onSelectMoveMarine: (marineId: string) => void; onSelectStrategizeSwarm: (swarmId: string) => void; onSelectDoorSwarm: (swarmId: string) => void }) {
   const { state } = session;
   const decision = state.pendingDecision;
   const rows = useMemo(() => labRows(session), [session]);
@@ -1011,8 +1020,9 @@ function LiveFormationBoard({ session, boardAnimation, highlightedTerrainIds, ta
     const selected = Boolean(swarmId && selectedStrategizeSwarmId === swarmId);
     const targeted = Boolean(swarmId && targetIds.has(swarmId));
     const attacking = Boolean(swarmId && swarmId === boardAnimation?.swarmId && boardAnimation?.swarmAnimation === "attack");
-    return [cellKey(positionIndex, side), attacking ? "targeted" : selected ? "selected" : selectable ? "selectable" : targeted ? "targeted" : "neutral"];
-  }))), [boardAnimation, decision, selectedStrategizeSwarmId, selectableStrategizeSwarms, state.formation, targetIds]);
+    const doorSelectable = decision?.type === "DOOR_TRAVEL_SLAY" && Boolean(swarmId && targetIds.has(swarmId));
+    return [cellKey(positionIndex, side), attacking ? "targeted" : selected || selectedDoorSwarmId === swarmId ? "selected" : selectable || doorSelectable ? "selectable" : targeted ? "targeted" : "neutral"];
+  }))), [boardAnimation, decision, selectedDoorSwarmId, selectedStrategizeSwarmId, selectableStrategizeSwarms, state.formation, targetIds]);
   const terrainStates = useMemo<Record<string, LabTargetState>>(() => Object.fromEntries(state.formation.flatMap((slot, positionIndex) => (["LEFT", "RIGHT"] as const).map((side) => {
     const terrainId = slot.terrainInstanceIds[side][0];
     const isTargeted = Boolean(terrainId && (targetIds.has(terrainId) || highlightedTerrainIds.has(terrainId)));
@@ -1046,6 +1056,7 @@ function LiveFormationBoard({ session, boardAnimation, highlightedTerrainIds, ta
     const swarmId = state.formation[row].swarmIds[side][0];
     if (!decision || !swarmId) return;
     if (decision.type === "STRATEGIZE" && !selectedStrategizeSwarmId && selectableStrategizeSwarms.has(swarmId)) { onSelectStrategizeSwarm(swarmId); return; }
+    if (decision.type === "DOOR_TRAVEL_SLAY" && targetIds.has(swarmId)) { onSelectDoorSwarm(swarmId); return; }
     const option = uniquePayloadOption(decision, "swarmId", swarmId);
     if (option) onChooseOption(option.id);
   };
@@ -1166,10 +1177,10 @@ function ResolutionNoticeOverlay({ notice, onProceed }: { notice: ResolutionNoti
 }
 
 function BoardResolutionNotice({ notice, onProceed }: { notice: ResolutionNotice; onProceed: () => void }) {
-  return <aside className="board-resolution-notice" aria-live="assertive"><span>{notice.eyebrow}</span><strong>{notice.title}</strong>{notice.meta && <em>{notice.meta}</em>}<p>{notice.body}</p><button type="button" onClick={onProceed}>Proceed to movement</button></aside>;
+  return <aside className="board-resolution-notice" aria-live="assertive"><span>{notice.eyebrow}</span><strong>{notice.title}</strong>{notice.meta && <em>{notice.meta}</em>}<p>{notice.body}</p><button type="button" onClick={onProceed}>Proceed</button></aside>;
 }
 
-function SlaySwarmOverlay({ decision, onChooseOption, session }: { decision: PendingDecision; onChooseOption: (optionId: string) => void; session: EngineSession }) {
+function SlaySwarmOverlay({ decision, onChooseOption, session, swarmId: onlySwarmId }: { decision: PendingDecision; onChooseOption: (optionId: string) => void; session: EngineSession; swarmId?: string }) {
   const groups = new Map<string, DecisionOption[]>();
   let stopOption: DecisionOption | null = null;
   for (const option of decision.legalOptions) {
@@ -1182,8 +1193,8 @@ function SlaySwarmOverlay({ decision, onChooseOption, session }: { decision: Pen
   return (
     <div className="slay-swarm-backdrop" role="presentation">
       <section className="slay-swarm-overlay" role="dialog" aria-modal="true" aria-labelledby="slay-swarm-title">
-        <header><span>{doorAbility ? "Door support" : "Attack confirmed"}</span><h2 id="slay-swarm-title">Choose a Genestealer to slay</h2><p>{doorAbility ? "Choose a swarm, then tap its icon. You may end the Door ability at any time." : "Tap its icon in the zoomed swarm."}</p></header>
-        {[...groups.entries()].map(([swarmId, options]) => {
+        <header><span>{doorAbility ? "Door support" : "Attack confirmed"}</span><h2 id="slay-swarm-title">Choose a Genestealer to slay</h2><p>{doorAbility ? "Choose one Genestealer from the selected swarm." : "Tap its icon in the zoomed swarm."}</p></header>
+        {[...groups.entries()].filter(([swarmId]) => !onlySwarmId || swarmId === onlySwarmId).map(([swarmId, options]) => {
           const swarm = session.state.swarms[swarmId];
           const location = swarm ? `Formation ${swarm.positionIndex + 1} · ${swarm.side.toLowerCase()}` : "Target swarm";
           return <section key={swarmId} className="slay-swarm-group" aria-label={`${location} swarm`}>

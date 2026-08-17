@@ -105,6 +105,10 @@ function submit(result: EngineResult, optionId: string): EngineResult {
   return submitDecision(result.state, result.state.pendingDecision!.id, optionId);
 }
 
+function beginAttack(result: EngineResult): EngineResult {
+  return result.state.pendingDecision?.type === "GENESTEALER_ATTACK_ACK" ? submit(result, "begin") : result;
+}
+
 describe("Genestealer attack phase", () => {
   it("builds a top-to-bottom, left-before-right queue and skips Power Field swarms", () => {
     const state = hostileState("queue-order");
@@ -113,7 +117,7 @@ describe("Genestealer attack phase", () => {
     relocateSwarm(state, swarms[1], 1, "RIGHT");
     relocateSwarm(state, swarms[2], 1, "LEFT");
     for (const swarm of swarms) swarm.effects.push({ id: `power.${swarm.id}`, sourceId: "test", startTiming: "NOW", expiryTiming: "END_OF_ROUND", targetIds: [swarm.id], mergePropagation: "WHOLE_MERGED_SWARM", data: { cannotAttack: true, cannotBeSlain: true } });
-    const result = advanceAutomatic(state);
+    const result = beginAttack(advanceAutomatic(state));
     const prevented = result.transitions.filter((transition) => transition.type === "GENESTEALER_ATTACK_PREVENTED").map((transition) => transition.sourceId);
     expect(prevented).toEqual([swarms[2].id, swarms[1].id, swarms[0].id]);
     expect(result.state.phase).toBe("EVENT");
@@ -131,7 +135,7 @@ describe("Genestealer attack phase", () => {
       state.components[broodId].containerId = swarm.id;
       swarm.broodLordIds.push(broodId);
     }
-    const result = advanceAutomatic(state);
+    const result = beginAttack(advanceAutomatic(state));
     expect(result.state.pendingDecision?.type).toBe("DEFENSE_REROLL");
     expect(result.state.activeDie!.modifiedValue).toBe(result.state.activeDie!.rawValue - 2);
     expect(result.state.activeDie!.skull).toBe([1, 2, 3].includes(result.state.activeDie!.rawValue));
@@ -142,7 +146,7 @@ describe("Genestealer attack phase", () => {
     const [swarm] = keepOnlySwarms(state, 1);
     addCards(state, swarm, 6);
     const defenderId = state.formation[swarm.positionIndex].marineInstanceId;
-    const result = advanceAutomatic(state);
+    const result = beginAttack(advanceAutomatic(state));
     expect(result.transitions.map((transition) => transition.type)).toContain("DIE_ROLLED");
     expect(result.state.marines[defenderId]).toBeUndefined();
   });
@@ -154,7 +158,7 @@ describe("Genestealer attack phase", () => {
     state.marines[marineId].facing = swarm.side;
     state.marines[marineId].support = 2;
     state.supportSupply -= 2;
-    let result = advanceAutomatic(state);
+    let result = beginAttack(advanceAutomatic(state));
     expect(result.state.pendingDecision?.type).toBe("DEFENSE_REROLL");
     const firstRoll = result.state.activeDie!.rawValue;
     let session = engineSessionFromResult(result, "PLAYER");
@@ -169,7 +173,7 @@ describe("Genestealer attack phase", () => {
     behind.marines[behindMarine].facing = behindSwarm.side === "LEFT" ? "RIGHT" : "LEFT";
     behind.marines[behindMarine].support = 1;
     behind.supportSupply -= 1;
-    result = advanceAutomatic(behind);
+    result = beginAttack(advanceAutomatic(behind));
     expect(result.state.pendingDecision).toBeNull();
   });
 
@@ -179,7 +183,7 @@ describe("Genestealer attack phase", () => {
     const [swarm] = keepOnlySwarms(state, 1);
     setDefender(state, swarm, "marine.green.sergeant-gideon", swarm.side === "LEFT" ? "RIGHT" : "LEFT");
     state.roundEffects.push(ability("action.green.block", "action.block", "marine.green.sergeant-gideon"));
-    const result = advanceAutomatic(state);
+    const result = beginAttack(advanceAutomatic(state));
     expect(result.transitions.map((transition) => transition.type)).toContain("GENESTEALER_ATTACK_MISSED");
     expect(result.state.marines["marine.green.sergeant-gideon"]).toBeDefined();
   });
@@ -193,7 +197,7 @@ describe("Genestealer attack phase", () => {
     state.marines[marineId].support = 1;
     state.supportSupply -= 1;
     state.roundEffects.push(ability("action.yellow.defensive-stance", "action.defensive-stance", marineId));
-    let result = advanceAutomatic(state);
+    let result = beginAttack(advanceAutomatic(state));
     expect(result.state.pendingDecision?.type).toBe("DEFENSE_REROLL");
     result = submit(result, "reroll");
     expect(result.transitions.map((transition) => transition.type)).toContain("GENESTEALER_ATTACK_MISSED");
@@ -208,7 +212,7 @@ describe("Genestealer attack phase", () => {
     const marineId = "marine.blue.sergeant-lorenzo";
     setDefender(state, swarm, marineId, swarm.side === "LEFT" ? "RIGHT" : "LEFT");
     state.roundEffects.push(ability("action.blue.counter-attack", "action.counter-attack", marineId));
-    let result = advanceAutomatic(state);
+    let result = beginAttack(advanceAutomatic(state));
     expect(result.state.pendingDecision?.type).toBe("COUNTER_ATTACK_SLAY");
     const before = state.swarms[swarm.id].cardIds.length;
     result = submit(result, result.state.pendingDecision!.legalOptions[0].id);
@@ -225,8 +229,14 @@ describe("Genestealer attack phase", () => {
     addCards(state, first, 2);
     addCards(state, second, 1);
     const before = state.formation.length;
-    const result = advanceAutomatic(state);
-    const starts = result.transitions.filter((transition) => transition.type === "GENESTEALER_ATTACK_STARTED").map((transition) => transition.sourceId);
+    let result = advanceAutomatic(state);
+    const starts = [...result.transitions.filter((transition) => transition.type === "GENESTEALER_ATTACK_STARTED").map((transition) => transition.sourceId)];
+    result = beginAttack(result);
+    starts.push(...result.transitions.filter((transition) => transition.type === "GENESTEALER_ATTACK_STARTED").map((transition) => transition.sourceId));
+    if (result.state.pendingDecision?.type === "GENESTEALER_ATTACK_ACK") {
+      result = beginAttack(result);
+      starts.push(...result.transitions.filter((transition) => transition.type === "GENESTEALER_ATTACK_STARTED").map((transition) => transition.sourceId));
+    }
     expect(starts.filter((id) => id === first.id)).toHaveLength(1);
     expect(starts.filter((id) => id === second.id)).toHaveLength(1);
     expect(result.state.formation.length).toBeLessThan(before);
