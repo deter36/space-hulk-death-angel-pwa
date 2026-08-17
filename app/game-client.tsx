@@ -184,7 +184,7 @@ function decisionInstruction(session: EngineSession, decision: PendingDecision, 
   if (decision.type === "PLACE_ARTEFACT") return "Choose a highlighted empty flank to place the Artefact from the Location card.";
   if (decision.type === "GENESTEALER_ATTACK_ACK") {
     const marineId = decision.legalOptions[0]?.payload.marineId;
-    return `This highlighted Genestealer swarm is attacking ${marineDisplayName(session, typeof marineId === "string" ? marineId : undefined)}. Tap the swarm to begin its attack.`;
+    return `This highlighted Genestealer swarm is attacking ${marineDisplayName(session, typeof marineId === "string" ? marineId : undefined)}. Proceed when you are ready to roll.`;
   }
   if (decision.type === "EVENT_MOVEMENT_ACK") {
     const count = Number(decision.legalOptions[0]?.payload.count ?? 0);
@@ -861,6 +861,8 @@ function MissionBoard({ session, boardAnimation, inspection, error, resolutionNo
   const formationMarineIds = new Set(state.formation.map((slot) => slot.marineInstanceId));
   const dockOptions = decision?.legalOptions.filter((option) => decision.type === "STRATEGIZE"
     ? option.payload.skip === true
+    : decision.type === "GENESTEALER_ATTACK_ACK"
+      ? true
     : decision.type === "DOOR_TRAVEL_SLAY" || heroicChargeSlay
       ? option.payload.stop === true
       : isOffBoardMarineOption(option, formationMarineIds) || !isDirectInputOption(decision, option)) ?? [];
@@ -922,7 +924,7 @@ function MissionBoard({ session, boardAnimation, inspection, error, resolutionNo
             {decisionRules && <div className="decision-rules"><strong>Artefact ability</strong><span>{decisionRules}</span></div>}
             <p>{decisionInstruction(session, decision, selectedMoveMarineId, selectedStrategizeSwarmId, scoutingPreviewVisible)}</p>
             {decision.type === "STRATEGIZE" && selectedStrategizeSwarmId && <button type="button" className="strategize-reset" onClick={() => setStrategizeSelection(null)}>Choose another swarm</button>}
-            {decision.type !== "FORWARD_SCOUTING_ORDER" && (decision.type !== "ATTACK_SLAY" || heroicChargeSlay) && orderedDockOptions.length > 0 && <div className={`dock-options ${decision.type === "STEALTH_FIRST" ? "is-stealth-first" : ""}`}>{orderedDockOptions.map((option) => { const presentation = presentedDecisionOption(decision, option); return <button key={option.id} type="button" className={option.payload.skip || option.payload.stop ? "is-decline" : ""} onClick={() => onChooseOption(option.id)}><strong>{presentation.label}</strong>{presentation.preview && <small>{presentation.preview}</small>}</button>; })}</div>}
+            {decision.type !== "FORWARD_SCOUTING_ORDER" && (decision.type !== "ATTACK_SLAY" || heroicChargeSlay) && orderedDockOptions.length > 0 && <div className={`dock-options ${decision.type === "STEALTH_FIRST" ? "is-stealth-first" : ""}`}>{orderedDockOptions.map((option) => { const presentation = presentedDecisionOption(decision, option); const label = decision.type === "GENESTEALER_ATTACK_ACK" ? "Proceed to attack" : presentation.label; return <button key={option.id} type="button" className={option.payload.skip || option.payload.stop ? "is-decline" : ""} onClick={() => onChooseOption(option.id)}><strong>{label}</strong>{presentation.preview && <small>{presentation.preview}</small>}</button>; })}</div>}
           </div>
         ) : state.status === "IN_PROGRESS" ? (
           <div className="mission-result engine-paused"><strong>Engine paused</strong><span>Download a save from the game menu before ending this mission.</span></div>
@@ -1052,6 +1054,9 @@ function LiveFormationBoard({ session, boardAnimation, highlightedTerrainIds, ta
   const chooseSwarm = (row: number, side: Side) => {
     const swarmId = state.formation[row].swarmIds[side][0];
     if (!decision || !swarmId) return;
+    // Genestealer attacks are resolved in deterministic queue order. The
+    // board highlights the current matchup, but it is not an input choice.
+    if (decision.type === "GENESTEALER_ATTACK_ACK") return;
     if (decision.type === "STRATEGIZE" && !selectedStrategizeSwarmId && selectableStrategizeSwarms.has(swarmId)) { onSelectStrategizeSwarm(swarmId); return; }
     if (decision.type === "DOOR_TRAVEL_SLAY" && targetIds.has(swarmId)) { onSelectDoorSwarm(swarmId); return; }
     if (heroicChargeSlay && targetIds.has(swarmId)) { onSelectHeroicChargeSwarm(swarmId); return; }
@@ -1062,6 +1067,7 @@ function LiveFormationBoard({ session, boardAnimation, highlightedTerrainIds, ta
     const row = rows.findIndex((item) => item.marine.name === name);
     const marineId = row >= 0 ? state.formation[row].marineInstanceId : null;
     if (!decision || !marineId) return;
+    if (decision.type === "GENESTEALER_ATTACK_ACK") return;
     if (decision.type === "MOVE_MARINE" && decision.legalOptions.some((option) => option.payload.marineId === marineId)) { onSelectMoveMarine(marineId); return; }
     const option = uniquePayloadOption(decision, "marineId", marineId);
     if (option) onChooseOption(option.id);
