@@ -860,6 +860,12 @@ function MissionBoard({ session, boardAnimation, inspection, error, resolutionNo
   const lastEvent = lastEventId ? findEvent(lastEventId) : null;
   const formationMarineIds = new Set(state.formation.map((slot) => slot.marineInstanceId));
   const dockOptions = decision?.legalOptions.filter((option) => decision.type === "STRATEGIZE" ? option.payload.skip === true : isOffBoardMarineOption(option, formationMarineIds) || !isDirectInputOption(decision, option)) ?? [];
+  const orderedDockOptions = decision?.type === "STEALTH_FIRST"
+    ? [...dockOptions].sort((left, right) => {
+      const rank = (option: DecisionOption) => option.payload.skip ? 2 : option.payload.side === "LEFT" ? 0 : 1;
+      return rank(left) - rank(right);
+    })
+    : dockOptions;
   const decisionAction = decision ? data.definitions.actions.find((item) => item.id === componentDefinitionId(session, decision.sourceId)) : null;
   const decisionRules = decision?.type === "PLACE_ARTEFACT"
     ? data.definitions.terrain.find((item) => item.id === "terrain.artefact")?.sourceText ?? null
@@ -913,7 +919,7 @@ function MissionBoard({ session, boardAnimation, inspection, error, resolutionNo
             {decisionRules && <div className="decision-rules"><strong>Artefact ability</strong><span>{decisionRules}</span></div>}
             <p>{decisionInstruction(session, decision, selectedMoveMarineId, selectedStrategizeSwarmId, scoutingPreviewVisible)}</p>
             {decision.type === "STRATEGIZE" && selectedStrategizeSwarmId && <button type="button" className="strategize-reset" onClick={() => setStrategizeSelection(null)}>Choose another swarm</button>}
-            {decision.type !== "FORWARD_SCOUTING_ORDER" && decision.type !== "ATTACK_SLAY" && decision.type !== "DOOR_TRAVEL_SLAY" && dockOptions.length > 0 && <div className="dock-options">{dockOptions.map((option) => { const presentation = presentedDecisionOption(decision, option); return <button key={option.id} type="button" onClick={() => onChooseOption(option.id)}><strong>{presentation.label}</strong>{presentation.preview && <small>{presentation.preview}</small>}</button>; })}</div>}
+            {decision.type !== "FORWARD_SCOUTING_ORDER" && decision.type !== "ATTACK_SLAY" && decision.type !== "DOOR_TRAVEL_SLAY" && orderedDockOptions.length > 0 && <div className={`dock-options ${decision.type === "STEALTH_FIRST" ? "is-stealth-first" : ""}`}>{orderedDockOptions.map((option) => { const presentation = presentedDecisionOption(decision, option); return <button key={option.id} type="button" className={option.payload.skip ? "is-decline" : ""} onClick={() => onChooseOption(option.id)}><strong>{presentation.label}</strong>{presentation.preview && <small>{presentation.preview}</small>}</button>; })}</div>}
           </div>
         ) : state.status === "IN_PROGRESS" ? (
           <div className="mission-result engine-paused"><strong>Engine paused</strong><span>Download a save from the game menu before ending this mission.</span></div>
