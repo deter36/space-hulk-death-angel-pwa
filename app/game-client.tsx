@@ -181,6 +181,9 @@ function decisionInstruction(session: EngineSession, decision: PendingDecision, 
   if (decision.type === "COUNTER_ATTACK_SLAY") return "Counter Attack succeeded. Choose the attacking Genestealer to slay.";
   if (decision.type === "DOOR_TRAVEL_SLAY") return "Door support is ready. Choose a highlighted swarm, then choose the Genestealer to slay—or end the Door ability.";
   if (decision.type === "ATTACK_SLAY" && session.state.actionStep === "HEROIC_CHARGE_SLAY") return "Heroic Charge: choose a highlighted swarm, then choose one Genestealer to slay—or end the ability.";
+  if (decision.type === "EVENT_SLAY") return decision.legalOptions[0]?.payload.purpose === "for-my-battle-brothers"
+    ? "For My Battle Brothers!: choose a highlighted engaged swarm, then choose the Genestealer to slay."
+    : "Choose a highlighted swarm, then choose the Genestealer to slay.";
   if (decision.type === "PLACE_ARTEFACT") return "Choose a highlighted empty flank to place the Artefact from the Location card.";
   if (decision.type === "GENESTEALER_ATTACK_ACK") {
     const marineId = decision.legalOptions[0]?.payload.marineId;
@@ -837,6 +840,7 @@ function MissionBoard({ session, boardAnimation, inspection, error, resolutionNo
   const [strategizeSelection, setStrategizeSelection] = useState<{ decisionId: string; swarmId: string } | null>(null);
   const [doorSwarmSelection, setDoorSwarmSelection] = useState<{ decisionId: string; swarmId: string } | null>(null);
   const [heroicChargeSwarmSelection, setHeroicChargeSwarmSelection] = useState<{ decisionId: string; swarmId: string } | null>(null);
+  const [eventSlaySwarmSelection, setEventSlaySwarmSelection] = useState<{ decisionId: string; swarmId: string } | null>(null);
   const [scoutingPreviewVisible, setScoutingPreviewVisible] = useState(true);
   const [missionInfoCollapsed, setMissionInfoCollapsed] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -849,6 +853,7 @@ function MissionBoard({ session, boardAnimation, inspection, error, resolutionNo
   const selectedDoorSwarmId = doorSwarmSelection && doorSwarmSelection.decisionId === decision?.id && decision?.type === "DOOR_TRAVEL_SLAY" ? doorSwarmSelection.swarmId : null;
   const heroicChargeSlay = decision?.type === "ATTACK_SLAY" && state.actionStep === "HEROIC_CHARGE_SLAY";
   const selectedHeroicChargeSwarmId = heroicChargeSwarmSelection && heroicChargeSwarmSelection.decisionId === decision?.id && heroicChargeSlay ? heroicChargeSwarmSelection.swarmId : null;
+  const selectedEventSlaySwarmId = eventSlaySwarmSelection && eventSlaySwarmSelection.decisionId === decision?.id && decision?.type === "EVENT_SLAY" ? eventSlaySwarmSelection.swarmId : null;
   const targetIds = useMemo(() => decision?.type === "STRATEGIZE" ? new Set<string>() : pendingTargetIds(decision), [decision]);
   const currentLocation = data.definitions.locations.find((item) => item.id === componentDefinitionId(session, state.currentLocationInstanceId));
   const locationInspection = sourceInspection(session, state.currentLocationInstanceId) ?? { eyebrow: "Setup location", title: setupLocationName(componentDefinitionId(session, state.currentLocationInstanceId)), body: "Starting location for the solo mission.", meta: "Void Lock" };
@@ -863,7 +868,7 @@ function MissionBoard({ session, boardAnimation, inspection, error, resolutionNo
     ? option.payload.skip === true
     : decision.type === "GENESTEALER_ATTACK_ACK"
       ? true
-    : decision.type === "DOOR_TRAVEL_SLAY" || heroicChargeSlay
+    : decision.type === "DOOR_TRAVEL_SLAY" || heroicChargeSlay || decision.type === "EVENT_SLAY"
       ? option.payload.stop === true
       : isOffBoardMarineOption(option, formationMarineIds) || !isDirectInputOption(decision, option)) ?? [];
   const orderedDockOptions = decision?.type === "STEALTH_FIRST"
@@ -911,7 +916,7 @@ function MissionBoard({ session, boardAnimation, inspection, error, resolutionNo
         )}
       </section>
 
-      <LiveFormationBoard session={session} boardAnimation={boardAnimation} highlightedTerrainIds={new Set(resolutionNotice?.terrainIds ?? [])} targetIds={targetIds} selectedMoveMarineId={selectedMoveMarineId} selectedStrategizeSwarmId={selectedStrategizeSwarmId} selectedDoorSwarmId={selectedDoorSwarmId} selectedHeroicChargeSwarmId={selectedHeroicChargeSwarmId} heroicChargeSlay={heroicChargeSlay} strategizeSwarms={strategizeSwarmSet} onChooseOption={onChooseOption} onInspect={onInspect} onSelectMoveMarine={(marineId) => { if (decision) setMoveSelection({ decisionId: decision.id, marineId }); }} onSelectStrategizeSwarm={(swarmId) => { if (decision) setStrategizeSelection({ decisionId: decision.id, swarmId }); }} onSelectDoorSwarm={(swarmId) => { if (decision) setDoorSwarmSelection({ decisionId: decision.id, swarmId }); }} onSelectHeroicChargeSwarm={(swarmId) => { if (decision) setHeroicChargeSwarmSelection({ decisionId: decision.id, swarmId }); }} />
+      <LiveFormationBoard session={session} boardAnimation={boardAnimation} highlightedTerrainIds={new Set(resolutionNotice?.terrainIds ?? [])} targetIds={targetIds} selectedMoveMarineId={selectedMoveMarineId} selectedStrategizeSwarmId={selectedStrategizeSwarmId} selectedDoorSwarmId={selectedDoorSwarmId} selectedHeroicChargeSwarmId={selectedHeroicChargeSwarmId} selectedEventSlaySwarmId={selectedEventSlaySwarmId} heroicChargeSlay={heroicChargeSlay} strategizeSwarms={strategizeSwarmSet} onChooseOption={onChooseOption} onInspect={onInspect} onSelectMoveMarine={(marineId) => { if (decision) setMoveSelection({ decisionId: decision.id, marineId }); }} onSelectStrategizeSwarm={(swarmId) => { if (decision) setStrategizeSelection({ decisionId: decision.id, swarmId }); }} onSelectDoorSwarm={(swarmId) => { if (decision) setDoorSwarmSelection({ decisionId: decision.id, swarmId }); }} onSelectHeroicChargeSwarm={(swarmId) => { if (decision) setHeroicChargeSwarmSelection({ decisionId: decision.id, swarmId }); }} onSelectEventSlaySwarm={(swarmId) => { if (decision) setEventSlaySwarmSelection({ decisionId: decision.id, swarmId }); }} />
 
       <LiveActionSelection session={session} onChooseOption={onChooseOption} />
 
@@ -942,6 +947,7 @@ function MissionBoard({ session, boardAnimation, inspection, error, resolutionNo
       {decision?.type === "ATTACK_SLAY" && !heroicChargeSlay && !slayChoiceAnimating && <SlaySwarmOverlay session={session} decision={decision} onChooseOption={onChooseOption} />}
       {heroicChargeSlay && selectedHeroicChargeSwarmId && <SlaySwarmOverlay session={session} decision={decision!} swarmId={selectedHeroicChargeSwarmId} onChooseOption={onChooseOption} />}
       {decision?.type === "DOOR_TRAVEL_SLAY" && selectedDoorSwarmId && <SlaySwarmOverlay session={session} decision={decision} swarmId={selectedDoorSwarmId} onChooseOption={onChooseOption} />}
+      {decision?.type === "EVENT_SLAY" && selectedEventSlaySwarmId && <SlaySwarmOverlay session={session} decision={decision} swarmId={selectedEventSlaySwarmId} onChooseOption={onChooseOption} />}
       {rollNotice && <RollResult key={rollNotice.id} notice={rollNotice} decision={rollDecision} onProceed={onDismissRoll} />}
     </main>
   );
@@ -977,7 +983,7 @@ function labRows(session: EngineSession): LabFormationRow[] {
   });
 }
 
-function LiveFormationBoard({ session, boardAnimation, highlightedTerrainIds, targetIds, selectedMoveMarineId, selectedStrategizeSwarmId, selectedDoorSwarmId, selectedHeroicChargeSwarmId, heroicChargeSlay, strategizeSwarms: selectableStrategizeSwarms, onChooseOption, onInspect, onSelectMoveMarine, onSelectStrategizeSwarm, onSelectDoorSwarm, onSelectHeroicChargeSwarm }: { session: EngineSession; boardAnimation: BoardAnimation | null; highlightedTerrainIds: Set<string>; targetIds: Set<string>; selectedMoveMarineId: string | null; selectedStrategizeSwarmId: string | null; selectedDoorSwarmId: string | null; selectedHeroicChargeSwarmId: string | null; heroicChargeSlay: boolean; strategizeSwarms: Set<string>; onChooseOption: (optionId: string) => void; onInspect: (inspection: Inspection) => void; onSelectMoveMarine: (marineId: string) => void; onSelectStrategizeSwarm: (swarmId: string) => void; onSelectDoorSwarm: (swarmId: string) => void; onSelectHeroicChargeSwarm: (swarmId: string) => void }) {
+function LiveFormationBoard({ session, boardAnimation, highlightedTerrainIds, targetIds, selectedMoveMarineId, selectedStrategizeSwarmId, selectedDoorSwarmId, selectedHeroicChargeSwarmId, selectedEventSlaySwarmId, heroicChargeSlay, strategizeSwarms: selectableStrategizeSwarms, onChooseOption, onInspect, onSelectMoveMarine, onSelectStrategizeSwarm, onSelectDoorSwarm, onSelectHeroicChargeSwarm, onSelectEventSlaySwarm }: { session: EngineSession; boardAnimation: BoardAnimation | null; highlightedTerrainIds: Set<string>; targetIds: Set<string>; selectedMoveMarineId: string | null; selectedStrategizeSwarmId: string | null; selectedDoorSwarmId: string | null; selectedHeroicChargeSwarmId: string | null; selectedEventSlaySwarmId: string | null; heroicChargeSlay: boolean; strategizeSwarms: Set<string>; onChooseOption: (optionId: string) => void; onInspect: (inspection: Inspection) => void; onSelectMoveMarine: (marineId: string) => void; onSelectStrategizeSwarm: (swarmId: string) => void; onSelectDoorSwarm: (swarmId: string) => void; onSelectHeroicChargeSwarm: (swarmId: string) => void; onSelectEventSlaySwarm: (swarmId: string) => void }) {
   const { state } = session;
   const decision = state.pendingDecision;
   const rows = useMemo(() => labRows(session), [session]);
@@ -1020,8 +1026,9 @@ function LiveFormationBoard({ session, boardAnimation, highlightedTerrainIds, ta
     const attacking = Boolean(swarmId && swarmId === boardAnimation?.swarmId && boardAnimation?.swarmAnimation === "attack");
     const doorSelectable = decision?.type === "DOOR_TRAVEL_SLAY" && Boolean(swarmId && targetIds.has(swarmId));
     const heroicChargeSelectable = heroicChargeSlay && Boolean(swarmId && targetIds.has(swarmId));
-    return [cellKey(positionIndex, side), attacking ? "targeted" : selected || selectedDoorSwarmId === swarmId || selectedHeroicChargeSwarmId === swarmId ? "selected" : selectable || doorSelectable || heroicChargeSelectable ? "selectable" : targeted ? "targeted" : "neutral"];
-  }))), [boardAnimation, decision, heroicChargeSlay, selectedDoorSwarmId, selectedHeroicChargeSwarmId, selectedStrategizeSwarmId, selectableStrategizeSwarms, state.formation, targetIds]);
+    const eventSlaySelectable = decision?.type === "EVENT_SLAY" && Boolean(swarmId && targetIds.has(swarmId));
+    return [cellKey(positionIndex, side), attacking ? "targeted" : selected || selectedDoorSwarmId === swarmId || selectedHeroicChargeSwarmId === swarmId || selectedEventSlaySwarmId === swarmId ? "selected" : selectable || doorSelectable || heroicChargeSelectable || eventSlaySelectable ? "selectable" : targeted ? "targeted" : "neutral"];
+  }))), [boardAnimation, decision, heroicChargeSlay, selectedDoorSwarmId, selectedEventSlaySwarmId, selectedHeroicChargeSwarmId, selectedStrategizeSwarmId, selectableStrategizeSwarms, state.formation, targetIds]);
   const terrainStates = useMemo<Record<string, LabTargetState>>(() => Object.fromEntries(state.formation.flatMap((slot, positionIndex) => (["LEFT", "RIGHT"] as const).map((side) => {
     const terrainId = slot.terrainInstanceIds[side][0];
     const isTargeted = Boolean(terrainId && (targetIds.has(terrainId) || highlightedTerrainIds.has(terrainId)));
@@ -1060,6 +1067,7 @@ function LiveFormationBoard({ session, boardAnimation, highlightedTerrainIds, ta
     if (decision.type === "STRATEGIZE" && !selectedStrategizeSwarmId && selectableStrategizeSwarms.has(swarmId)) { onSelectStrategizeSwarm(swarmId); return; }
     if (decision.type === "DOOR_TRAVEL_SLAY" && targetIds.has(swarmId)) { onSelectDoorSwarm(swarmId); return; }
     if (heroicChargeSlay && targetIds.has(swarmId)) { onSelectHeroicChargeSwarm(swarmId); return; }
+    if (decision.type === "EVENT_SLAY" && targetIds.has(swarmId)) { onSelectEventSlaySwarm(swarmId); return; }
     const option = uniquePayloadOption(decision, "swarmId", swarmId);
     if (option) onChooseOption(option.id);
   };
@@ -1195,10 +1203,11 @@ function SlaySwarmOverlay({ decision, onChooseOption, session, swarmId: onlySwar
   }
   const doorAbility = decision.type === "DOOR_TRAVEL_SLAY";
   const heroicCharge = decision.type === "ATTACK_SLAY" && session.state.actionStep === "HEROIC_CHARGE_SLAY";
+  const eventEffect = decision.type === "EVENT_SLAY";
   return (
     <div className="slay-swarm-backdrop" role="presentation">
       <section className="slay-swarm-overlay" role="dialog" aria-modal="true" aria-labelledby="slay-swarm-title">
-        <header><span>{doorAbility ? "Door support" : heroicCharge ? "Heroic Charge" : "Attack confirmed"}</span><h2 id="slay-swarm-title">Choose a Genestealer to slay</h2><p>{doorAbility || heroicCharge ? "Choose one Genestealer from the selected swarm." : "Tap its icon in the zoomed swarm."}</p></header>
+        <header><span>{doorAbility ? "Door support" : heroicCharge ? "Heroic Charge" : eventEffect ? "Event effect" : "Attack confirmed"}</span><h2 id="slay-swarm-title">Choose a Genestealer to slay</h2><p>{doorAbility || heroicCharge || eventEffect ? "Choose one Genestealer from the selected swarm." : "Tap its icon in the zoomed swarm."}</p></header>
         {[...groups.entries()].filter(([swarmId]) => !onlySwarmId || swarmId === onlySwarmId).map(([swarmId, options]) => {
           const swarm = session.state.swarms[swarmId];
           const location = swarm ? `Formation ${swarm.positionIndex + 1} · ${swarm.side.toLowerCase()}` : "Target swarm";
