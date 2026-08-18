@@ -269,5 +269,8 @@ button:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
 .is-tutorial-focus { animation: tutorial-focus-pulse 1.2s ease-in-out infinite; outline: 2px solid #8eeefa !important; outline-offset: -2px; box-shadow: 0 0 0 3px #87e9fa44, 0 0 22px 5px #48d9f17d, inset 0 0 16px #77eefa24 !important; }
 .live-sprite-board.is-tutorial-focus .lab-board { box-shadow: inset 0 0 0 2px #91effa, inset 0 0 32px #4edff355, 0 0 18px #48d9f14f; }
 .round-command-tray.is-tutorial-focus { box-shadow: 0 -2px 18px #5ae8fa8c !important; }
+.live-action-team-slot.is-tutorial-recommended, .live-full-action-card.is-tutorial-recommended { animation: tutorial-card-pulse 1.05s ease-in-out infinite; box-shadow: 0 0 0 2px #91effa, 0 0 18px #49dbf7b0 !important; }
+.live-full-action-card.is-tutorial-recommended::after { position: absolute; top: 7px; right: 7px; border: 1px solid #9df1fb; padding: 2px 4px; background: #10383ccc; color: #e9ffff; font-size: .42rem; font-weight: 900; letter-spacing: .08em; content: "START HERE"; }
+@keyframes tutorial-card-pulse { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.32); } }
 @keyframes tutorial-focus-pulse { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.27); } }
 @media (max-width: 380px) { .tutorial-tour-card { width: calc(100vw - 20px); padding: 10px 11px; }.tutorial-tour.is-round .tutorial-tour-card { left: 10px; transform: none; }.tutorial-tour.is-board .tutorial-tour-card, .tutorial-tour.is-cards .tutorial-tour-card { left: 10px; transform: none; }.tutorial-tour-card h2 { font-size: .94rem; } }

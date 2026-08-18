@@ -195,13 +195,41 @@ function sourceInspection(session: EngineSession, sourceId: string): Inspection 
   return null;
 }
 
+type TutorialActionGuide = { type: string; allowedActionIds: Set<string>; label: string; body: string };
+
+function tutorialActionGuide(session: EngineSession): TutorialActionGuide | null {
+  const decision = session.state.pendingDecision;
+  if (session.state.round !== 1 || decision?.type !== "CHOOSE_ACTION") return null;
+  const chosenTypes = new Set(session.state.activeTeams.map((team) => {
+    const chosenId = session.state.teams[team].chosenActionInstanceId;
+    return chosenId ? data.definitions.actions.find((action) => action.id === componentDefinitionId(session, chosenId))?.type : null;
+  }).filter((type): type is string => Boolean(type)));
+  const nextType = ["SUPPORT", "MOVE_ACTIVATE", "ATTACK"].find((type) => !chosenTypes.has(type));
+  if (!nextType) return null;
+  const allowedActionIds = new Set(decision.legalOptions
+    .map((option) => typeof option.payload.actionId === "string" ? option.payload.actionId : null)
+    .filter((actionId): actionId is string => Boolean(actionId))
+    .filter((actionId) => data.definitions.actions.find((action) => action.id === componentDefinitionId(session, actionId))?.type === nextType));
+  const copy = nextType === "SUPPORT"
+    ? { label: "Support", body: "Choose a Support card first. Its action will place a green Support token on a Marine, ready to power a reroll or ability." }
+    : nextType === "MOVE_ACTIVATE"
+      ? { label: "Move + Activate", body: "Now choose Move + Activate. You will reposition a Marine, then activate Terrain or place a Support token." }
+      : { label: "Attack", body: "Finish the command with Attack. Range determines which opposing swarms that squad can target." };
+  return { type: nextType, allowedActionIds, ...copy };
+}
+
 function tutorialGuidance(session: EngineSession): { eyebrow: string; title: string; body: string } {
   const decision = session.state.pendingDecision;
   const round = session.state.round;
   const chapter = round === 1 ? "Round 1 · Guided" : round === 2 ? "Round 2 · Coached" : "Round 3 · Open play";
-  if (round === 1 && decision?.type === "CHOOSE_ACTION") return { eyebrow: chapter, title: "Choose your squad actions", body: "Tap a hand of cards, read all three options, and select one card for each squad. This round introduces Support, Move + Activate, and Attack." };
+  const actionGuide = tutorialActionGuide(session);
+  if (round === 1 && actionGuide) return { eyebrow: chapter, title: `Choose ${actionGuide.label}`, body: actionGuide.body };
+  if (round === 1 && decision?.type === "SUPPORT_TOKEN_TARGET") return { eyebrow: chapter, title: "Place a Support token", body: "Choose the highlighted Marine. Support is shown as the green dots beside a Marine and can be spent for rerolls or card abilities." };
+  if (round === 1 && decision?.type === "MOVE_MARINE") return { eyebrow: chapter, title: "Reposition the formation", body: "Select the highlighted Marine, then the highlighted destination. Marines can swap places so range and terrain line up." };
+  if (round === 1 && decision?.type === "ACTIVATE_TERRAIN") return { eyebrow: chapter, title: "Activate Terrain", body: "Terrain lives behind a swarm. Select a glowing piece to use its effect; the colored halo marks its blip-spawn color." };
   if (round === 1 && decision?.type === "ATTACK_MARINE") return { eyebrow: chapter, title: "Choose an attacker", body: "Tap a highlighted Marine, then choose a highlighted swarm in range. The die will determine whether the attack hits." };
   if (round === 1 && decision?.type === "ATTACK_TARGET") return { eyebrow: chapter, title: "Choose a target swarm", body: "Only highlighted swarms are legal targets. Tap one to make the attack." };
+  if (round === 1 && decision?.type === "ATTACK_SLAY") return { eyebrow: chapter, title: "Confirm the kill", body: "A successful attack can now remove one Genestealer from the chosen swarm. The swarm count updates after the death animation." };
   if (round === 1 && decision?.type === "GENESTEALER_ATTACK_ACK") return { eyebrow: chapter, title: "Defend the formation", body: "This swarm attacks its paired Marine. Proceed to roll, then watch the dodge or death result." };
   if (round === 1 && session.state.phase === "EVENT") return { eyebrow: chapter, title: "Resolve the Event", body: "Read the entire card first. Effects, spawning, and Genestealer movement all resolve in sequence." };
   if (round === 2) return { eyebrow: chapter, title: "Choose with a little coaching", body: "You have full control this round. Check card text, range, support tokens, and terrain before committing an action." };
@@ -507,7 +535,7 @@ function TacticalButton({ onTap, onHold, stopPropagation, onPointerDown, onPoint
 
 type LiveActionCard = ActionDefinition & { instanceId: string };
 
-function LiveActionSelection({ compact = false, session, onChooseOption }: { compact?: boolean; session: EngineSession; onChooseOption: (optionId: string) => void }) {
+function LiveActionSelection({ compact = false, session, onChooseOption, tutorialGuide }: { compact?: boolean; session: EngineSession; onChooseOption: (optionId: string) => void; tutorialGuide?: TutorialActionGuide | null }) {
   const { state } = session;
   const decision = state.pendingDecision;
   const choosingActions = decision?.type === "CHOOSE_ACTION";
@@ -531,6 +559,7 @@ function LiveActionSelection({ compact = false, session, onChooseOption }: { com
 
   const openTeam = (team: TeamColor) => {
     if (!choosingActions || state.teams[team].chosenActionInstanceId) return;
+    if (tutorialGuide && !(cardsByTeam[team] ?? []).some((card) => tutorialGuide.allowedActionIds.has(card.instanceId))) return;
     setExpandedTeam((current) => current === team ? null : team);
     setPendingActionId(null);
   };
@@ -545,8 +574,9 @@ function LiveActionSelection({ compact = false, session, onChooseOption }: { com
           <div className="live-full-action-grid">
             {expandedCards.map((card) => {
               const option = uniquePayloadOption(decision, "actionId", card.instanceId);
-              const unavailable = !option;
-              return <button type="button" key={card.instanceId} className={`live-full-action-card lab-team-${card.team.toLowerCase()} ${pendingActionId === card.instanceId ? "is-pending" : ""} ${unavailable ? "is-unavailable" : ""}`} disabled={unavailable} onClick={() => setPendingActionId(card.instanceId)}>
+              const unavailable = !option || Boolean(tutorialGuide && !tutorialGuide.allowedActionIds.has(card.instanceId));
+              const recommended = Boolean(option && tutorialGuide?.allowedActionIds.has(card.instanceId));
+              return <button type="button" key={card.instanceId} className={`live-full-action-card lab-team-${card.team.toLowerCase()} ${pendingActionId === card.instanceId ? "is-pending" : ""} ${recommended ? "is-tutorial-recommended" : ""} ${unavailable ? "is-unavailable" : ""}`} disabled={unavailable} onClick={() => setPendingActionId(card.instanceId)}>
                 <small>{formatActionType(card.type)}</small><em className="action-initiative" aria-label={`Initiative ${card.initiative}`}>{card.initiative}</em><strong>{card.name}</strong><p>{card.sourceText}</p>{unavailable && <i aria-hidden="true">×</i>}
               </button>;
             })}
@@ -561,10 +591,11 @@ function LiveActionSelection({ compact = false, session, onChooseOption }: { com
           const selected = cards.find((card) => card.instanceId === chosenId) ?? orderedCards.find((card) => card.team === team) ?? null;
           const resolutionState = !choosingActions && activeIndex >= 0 ? orderIndex < activeIndex ? "is-completed" : orderIndex === activeIndex ? "is-active" : "is-upcoming" : "";
           const conciseSelectedCard = compact || choosingActions;
-          return <button key={team} type="button" className={`live-action-team-slot lab-team-${team.toLowerCase()} ${selected ? "has-selection" : ""} ${resolutionState}`} onClick={() => openTeam(team)} disabled={!choosingActions || Boolean(selected)}>
+          const teamHasGuidedChoice = cards.some((card) => tutorialGuide?.allowedActionIds.has(card.instanceId));
+          return <button key={team} type="button" className={`live-action-team-slot lab-team-${team.toLowerCase()} ${selected ? "has-selection" : ""} ${tutorialGuide && teamHasGuidedChoice ? "is-tutorial-recommended" : ""} ${resolutionState}`} onClick={() => openTeam(team)} disabled={!choosingActions || Boolean(selected) || Boolean(tutorialGuide && !teamHasGuidedChoice)}>
             {!selected && <span className="live-action-team-name">{team}</span>}
             {selected ? <span className={`live-chosen-action ${conciseSelectedCard ? "is-compact-card" : ""}`}>{conciseSelectedCard ? <><span className="compact-card-type"><small>{selected.type === "MOVE_ACTIVATE" ? "Move" : formatActionType(selected.type)}</small><em className="action-initiative" aria-label={`Initiative ${selected.initiative}`}>{selected.initiative}</em></span><strong>{selected.name}</strong></> : <><em className="action-initiative" aria-label={`Initiative ${selected.initiative}`}>{selected.initiative}</em><strong>{selected.name}</strong><small>— {actionCardSummary(selected.type)}</small></>}</span> : <span className="live-mini-hand">{cards.map((card, index) => {
-              const unavailable = !uniquePayloadOption(decision, "actionId", card.instanceId);
+              const unavailable = !uniquePayloadOption(decision, "actionId", card.instanceId) || Boolean(tutorialGuide && !tutorialGuide.allowedActionIds.has(card.instanceId));
               return <span key={card.instanceId} className={`live-mini-action-card ${unavailable ? "is-unavailable" : ""}`} style={{ "--card-index": index } as CSSProperties}><b>{card.type === "MOVE_ACTIVATE" ? "Move" : formatActionType(card.type)}</b></span>;
             })}</span>}
           </button>;
@@ -1001,6 +1032,7 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
   const statusKey = !choosingActions ? decision?.id ?? (resolutionNotice?.presentation === "board" ? resolutionNotice.id : null) : null;
   const displayedBottomView = choosingActions ? "cards" : statusKey && seenStatusKey !== statusKey ? "status" : bottomView;
   const tutorialTarget = tutorialIntroStep >= 0 ? TUTORIAL_HUD_TOUR[tutorialIntroStep]?.target ?? null : null;
+  const activeTutorialGuide = tutorial && tutorialIntroStep < 0 ? tutorialActionGuide(session) : null;
   const setTrayView = (view: "cards" | "status") => { setSeenStatusKey(statusKey); setBottomView(view); };
   const startTraySwipe = (event: ReactPointerEvent<HTMLDivElement>) => {
     const target = event.target instanceof Element ? event.target : null;
@@ -1058,8 +1090,8 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
       <LiveFormationBoard tutorialFocus={tutorialTarget === "board"} travelStage={travelStage} session={session} boardAnimation={boardAnimation} highlightedTerrainIds={new Set(resolutionNotice?.terrainIds ?? [])} targetIds={targetIds} selectedMoveMarineId={selectedMoveMarineId} selectedStrategizeSwarmId={selectedStrategizeSwarmId} selectedDoorSwarmId={selectedDoorSwarmId} selectedHeroicChargeSwarmId={selectedHeroicChargeSwarmId} selectedEventSlaySwarmId={selectedEventSlaySwarmId} heroicChargeSlay={heroicChargeSlay} strategizeSwarms={strategizeSwarmSet} onChooseOption={onChooseOption} onInspect={onInspect} onSelectMoveMarine={(marineId) => { if (decision) setMoveSelection({ decisionId: decision.id, marineId }); }} onSelectStrategizeSwarm={(swarmId) => { if (decision) setStrategizeSelection({ decisionId: decision.id, swarmId }); }} onSelectDoorSwarm={(swarmId) => { if (decision) setDoorSwarmSelection({ decisionId: decision.id, swarmId }); }} onSelectHeroicChargeSwarm={(swarmId) => { if (decision) setHeroicChargeSwarmSelection({ decisionId: decision.id, swarmId }); }} onSelectEventSlaySwarm={(swarmId) => { if (decision) setEventSlaySwarmSelection({ decisionId: decision.id, swarmId }); }} />
 
       {!travelStage && <section className={`round-command-tray is-${displayedBottomView} ${choosingActions ? "is-choosing" : ""} ${tutorialTarget === "cards" ? "is-tutorial-focus" : ""}`}>
-        {choosingActions ? <LiveActionSelection session={session} onChooseOption={onChooseOption} /> : <div className="round-command-viewport" onPointerDown={startTraySwipe} onPointerUp={finishTraySwipe} onPointerCancel={() => { traySwipeStart.current = null; }}><div className={`round-command-rail is-${displayedBottomView}`}>
-          <div className="round-rail-panel round-rail-cards"><div className="round-rail-content"><LiveActionSelection compact session={session} onChooseOption={onChooseOption} /></div><button type="button" className="round-rail-tab" aria-label="Show information panel" onClick={() => setTrayView("status")}>Info</button></div>
+        {choosingActions ? <LiveActionSelection session={session} onChooseOption={onChooseOption} tutorialGuide={activeTutorialGuide} /> : <div className="round-command-viewport" onPointerDown={startTraySwipe} onPointerUp={finishTraySwipe} onPointerCancel={() => { traySwipeStart.current = null; }}><div className={`round-command-rail is-${displayedBottomView}`}>
+          <div className="round-rail-panel round-rail-cards"><div className="round-rail-content"><LiveActionSelection compact session={session} onChooseOption={onChooseOption} tutorialGuide={activeTutorialGuide} /></div><button type="button" className="round-rail-tab" aria-label="Show information panel" onClick={() => setTrayView("status")}>Info</button></div>
           <div className="round-rail-panel round-rail-status"><button type="button" className="round-rail-tab" aria-label="Show selected action cards" onClick={() => setTrayView("cards")}>Cards</button><div className="round-rail-content"><section className="command-dock" aria-live="polite">
         {resolutionNotice?.presentation === "board" ? (
           <SpawnResolutionTray notice={resolutionNotice} onProceed={onDismissResolutionNotice} />
