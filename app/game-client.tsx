@@ -527,7 +527,7 @@ function LiveActionSelection({ compact = false, session, onChooseOption }: { com
           const resolutionState = !choosingActions && activeIndex >= 0 ? orderIndex < activeIndex ? "is-completed" : orderIndex === activeIndex ? "is-active" : "is-upcoming" : "";
           return <button key={team} type="button" className={`live-action-team-slot lab-team-${team.toLowerCase()} ${selected ? "has-selection" : ""} ${resolutionState}`} onClick={() => openTeam(team)} disabled={!choosingActions || Boolean(selected)}>
             {!selected && <span className="live-action-team-name">{team}</span>}
-            {selected ? <span className={`live-chosen-action ${compact ? "is-compact-card" : ""}`}>{compact ? <><small>{selected.type === "MOVE_ACTIVATE" ? "Move" : formatActionType(selected.type)}</small><em className="action-initiative" aria-label={`Initiative ${selected.initiative}`}>{selected.initiative}</em></> : <><em className="action-initiative" aria-label={`Initiative ${selected.initiative}`}>{selected.initiative}</em><strong>{selected.name}</strong><small>— {actionCardSummary(selected.type)}</small></>}</span> : <span className="live-mini-hand">{cards.map((card, index) => {
+            {selected ? <span className={`live-chosen-action ${compact ? "is-compact-card" : ""}`}>{compact ? <><span className="compact-card-title"><small>{formatActionType(selected.type)}</small><strong>{selected.name}</strong></span><em className="action-initiative" aria-label={`Initiative ${selected.initiative}`}>{selected.initiative}</em><small className="compact-card-summary">{actionCardSummary(selected.type)}</small></> : <><em className="action-initiative" aria-label={`Initiative ${selected.initiative}`}>{selected.initiative}</em><strong>{selected.name}</strong><small>— {actionCardSummary(selected.type)}</small></>}</span> : <span className="live-mini-hand">{cards.map((card, index) => {
               const unavailable = !uniquePayloadOption(decision, "actionId", card.instanceId);
               return <span key={card.instanceId} className={`live-mini-action-card ${unavailable ? "is-unavailable" : ""}`} style={{ "--card-index": index } as CSSProperties}><b>{card.type === "MOVE_ACTIVATE" ? "Move" : formatActionType(card.type)}</b></span>;
             })}</span>}
@@ -985,8 +985,9 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
       <LiveFormationBoard travelStage={travelStage} session={session} boardAnimation={boardAnimation} highlightedTerrainIds={new Set(resolutionNotice?.terrainIds ?? [])} targetIds={targetIds} selectedMoveMarineId={selectedMoveMarineId} selectedStrategizeSwarmId={selectedStrategizeSwarmId} selectedDoorSwarmId={selectedDoorSwarmId} selectedHeroicChargeSwarmId={selectedHeroicChargeSwarmId} selectedEventSlaySwarmId={selectedEventSlaySwarmId} heroicChargeSlay={heroicChargeSlay} strategizeSwarms={strategizeSwarmSet} onChooseOption={onChooseOption} onInspect={onInspect} onSelectMoveMarine={(marineId) => { if (decision) setMoveSelection({ decisionId: decision.id, marineId }); }} onSelectStrategizeSwarm={(swarmId) => { if (decision) setStrategizeSelection({ decisionId: decision.id, swarmId }); }} onSelectDoorSwarm={(swarmId) => { if (decision) setDoorSwarmSelection({ decisionId: decision.id, swarmId }); }} onSelectHeroicChargeSwarm={(swarmId) => { if (decision) setHeroicChargeSwarmSelection({ decisionId: decision.id, swarmId }); }} onSelectEventSlaySwarm={(swarmId) => { if (decision) setEventSlaySwarmSelection({ decisionId: decision.id, swarmId }); }} />
 
       {!travelStage && <section className={`round-command-tray is-${displayedBottomView} ${choosingActions ? "is-choosing" : ""}`}>
-        <div className="round-tray-views"><div className="round-tray-view round-tray-cards"><LiveActionSelection compact={!choosingActions} session={session} onChooseOption={onChooseOption} /></div>
-        {!choosingActions && <div className="round-tray-view round-tray-status"><section className="command-dock" aria-live="polite">
+        {choosingActions ? <LiveActionSelection session={session} onChooseOption={onChooseOption} /> : <div className="round-command-viewport"><div className={`round-command-rail is-${displayedBottomView}`}>
+          <div className="round-rail-panel round-rail-cards"><div className="round-rail-content"><LiveActionSelection compact session={session} onChooseOption={onChooseOption} /></div><button type="button" className="round-rail-tab" aria-label="Show information panel" onClick={() => { setSeenStatusKey(statusKey); setBottomView("status"); }}>Info</button></div>
+          <div className="round-rail-panel round-rail-status"><button type="button" className="round-rail-tab" aria-label="Show selected action cards" onClick={() => { setSeenStatusKey(statusKey); setBottomView("cards"); }}>Cards</button><div className="round-rail-content"><section className="command-dock" aria-live="polite">
         {resolutionNotice?.presentation === "board" ? (
           <SpawnResolutionTray notice={resolutionNotice} onProceed={onDismissResolutionNotice} />
         ) : <>
@@ -1007,8 +1008,7 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
         )}
         {error && <p className="error-message" role="alert">{error}</p>}
         </>}
-      </section></div>}</div>
-        {!choosingActions && <button type="button" className="round-tray-side-toggle" aria-label={displayedBottomView === "cards" ? "Show information panel" : "Show selected action cards"} onClick={() => { setSeenStatusKey(statusKey); setBottomView(displayedBottomView === "cards" ? "status" : "cards"); }}>{displayedBottomView === "cards" ? "Info" : "Cards"}</button>}
+      </section></div></div></div></div>}
       </section>}
 
       {inspection && <InspectionDrawer inspection={inspection} onClose={onDismissInspection} />}
