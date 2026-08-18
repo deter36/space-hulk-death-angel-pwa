@@ -1035,7 +1035,7 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
             {decisionRules && <div className="decision-rules"><strong>Artefact ability</strong><span>{decisionRules}</span></div>}
             {decisionText && <p>{decisionText}</p>}
             {decision.type === "STRATEGIZE" && selectedStrategizeSwarmId && <button type="button" className="strategize-reset" onClick={() => setStrategizeSelection(null)}>Choose another swarm</button>}
-            {decision.type !== "FORWARD_SCOUTING_ORDER" && (decision.type !== "ATTACK_SLAY" || heroicChargeSlay) && orderedDockOptions.length > 0 && <div className={`dock-options ${decision.type === "STEALTH_FIRST" ? "is-stealth-first" : ""}`}>{orderedDockOptions.map((option) => { const presentation = presentedDecisionOption(decision, option); const label = conciseDecisionButtonLabel(decision, option); return <button key={option.id} type="button" className={option.payload.skip || option.payload.stop ? "is-decline" : ""} onClick={() => onChooseOption(option.id)}><strong>{label}</strong>{presentation.preview && <small>{presentation.preview}</small>}</button>; })}</div>}
+            {decision.type !== "FORWARD_SCOUTING_ORDER" && (decision.type !== "ATTACK_SLAY" || heroicChargeSlay) && orderedDockOptions.length > 0 && <div className={`dock-options ${decision.type === "STEALTH_FIRST" ? "is-stealth-first" : ""} ${orderedDockOptions.length === 1 ? "is-single-option" : ""}`}>{orderedDockOptions.map((option) => { const presentation = presentedDecisionOption(decision, option); const label = conciseDecisionButtonLabel(decision, option); return <button key={option.id} type="button" className={option.payload.skip || option.payload.stop ? "is-decline" : ""} onClick={() => onChooseOption(option.id)}><strong>{label}</strong>{presentation.preview && <small>{presentation.preview}</small>}</button>; })}</div>}
           </div>
         ) : state.status === "IN_PROGRESS" ? (
           <div className="mission-result engine-paused"><strong>Engine paused</strong><span>Download a save from the game menu before ending this mission.</span></div>
@@ -1305,7 +1305,7 @@ function ResolutionNoticeOverlay({ notice, onProceed }: { notice: ResolutionNoti
 }
 
 function SpawnResolutionTray({ notice, onProceed }: { notice: ResolutionNotice; onProceed: () => void }) {
-  return <div className="dock-decision spawn-resolution-tray"><div className="decision-brief"><span>{notice.title}</span></div><div className="dock-options"><button type="button" onClick={onProceed}><strong>Begin movement</strong></button></div></div>;
+  return <div className="dock-decision spawn-resolution-tray"><div className="decision-brief"><span>{notice.title}</span></div><div className="dock-options is-single-option"><button type="button" onClick={onProceed}><strong>Begin movement</strong></button></div></div>;
 }
 
 function SlaySwarmOverlay({ decision, onChooseOption, session, swarmId: onlySwarmId }: { decision: PendingDecision; onChooseOption: (optionId: string) => void; session: EngineSession; swarmId?: string }) {

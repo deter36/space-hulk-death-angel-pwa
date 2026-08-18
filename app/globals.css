@@ -218,6 +218,9 @@ button:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
 .round-command-tray .decision-brief span { overflow: hidden; color: #d7ddd8; text-overflow: ellipsis; white-space: nowrap; }
 .round-command-tray .dock-decision > p { margin: 4px 0 0; color: var(--muted); font-size: .58rem; line-height: 1.15; }
 .round-command-tray .dock-options { margin-top: 5px; }
+.round-command-tray .dock-options.is-single-option { margin-top: 3px; }
+.round-command-tray .dock-options.is-single-option button { min-height: 28px; padding: 3px 7px; text-align: center; }
+.round-command-tray .dock-options.is-single-option strong { font-size: .57rem; }
 .live-action-dock.is-compact { position: relative; z-index: 30; height: 100%; border: 0; padding-bottom: 0; background: transparent; box-shadow: none; }
 .live-action-dock.is-compact .live-action-hands { min-height: 100%; height: 100%; background: transparent; }
 .live-action-dock.is-compact .live-action-team-slot { width: 100%; min-height: 100%; height: 100%; border: 0; padding: 6px 2px 2px; background: transparent; }
