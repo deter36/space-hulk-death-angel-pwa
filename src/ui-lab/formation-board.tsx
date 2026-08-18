@@ -1,6 +1,6 @@
 /* eslint-disable @next/next/no-img-element -- The lab intentionally renders animated sprite canvases directly. */
 import type { Side } from "@/src/data/types";
-import { Fragment, useRef, type CSSProperties, type MouseEvent } from "react";
+import { Fragment, useRef, type CSSProperties, type MouseEvent, type PointerEvent } from "react";
 import type { LabFlank, LabFormationRow, LabMarine, LabSwarm, LabTerrain } from "./formation-types";
 
 export type LabTargetState = "neutral" | "selectable" | "selected" | "targeted" | "unavailable" | "destination";
@@ -76,6 +76,14 @@ function usePress(onTap: () => void, onHold: () => void) {
     onClick: (event: MouseEvent) => { if (held.current) { held.current = false; event.preventDefault(); return; } onTap(); },
     onContextMenu: (event: MouseEvent) => event.preventDefault(),
     onPointerCancel: clear,
+    onPointerEnter: (event: PointerEvent) => {
+      // The sprite formation has its own press handler, separate from the
+      // shared tactical buttons used by the header cards.
+      if (event.pointerType === "mouse") {
+        clear();
+        timer.current = setTimeout(() => { timer.current = null; onHold(); }, 360);
+      }
+    },
     onPointerDown: () => { held.current = false; clear(); timer.current = setTimeout(() => { held.current = true; onHold(); }, 520); },
     onPointerLeave: clear,
     onPointerUp: clear,
