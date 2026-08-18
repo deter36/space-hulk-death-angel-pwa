@@ -77,17 +77,17 @@ function usePress(onTap: () => void, onHold: () => void, onHover?: (anchor: DOMR
   return {
     onClick: (event: MouseEvent) => { if (held.current) { held.current = false; event.preventDefault(); return; } onTap(); },
     onContextMenu: (event: MouseEvent) => event.preventDefault(),
-    onPointerCancel: clear,
+    onPointerCancel: (event: PointerEvent) => { clear(); if (held.current && event.pointerType !== "mouse") onHoverEnd?.(); },
     onPointerEnter: (event: PointerEvent) => {
       if (event.pointerType === "mouse") {
         clear();
         const anchor = event.currentTarget.getBoundingClientRect();
-        timer.current = setTimeout(() => { timer.current = null; onHover ? onHover(anchor) : onHold(); }, 700);
+        timer.current = setTimeout(() => { timer.current = null; if (onHover) onHover(anchor); else onHold(); }, 700);
       }
     },
-    onPointerDown: () => { held.current = false; clear(); timer.current = setTimeout(() => { held.current = true; onHold(); }, 520); },
+    onPointerDown: (event: PointerEvent) => { held.current = false; clear(); const anchor = event.currentTarget.getBoundingClientRect(); timer.current = setTimeout(() => { held.current = true; if (onHover) onHover(anchor); else onHold(); }, 520); },
     onPointerLeave: (event: PointerEvent) => { clear(); if (event.pointerType === "mouse") onHoverEnd?.(); },
-    onPointerUp: clear,
+    onPointerUp: (event: PointerEvent) => { clear(); if (held.current && event.pointerType !== "mouse") onHoverEnd?.(); },
   };
 }
 

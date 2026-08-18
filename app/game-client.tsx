@@ -525,18 +525,21 @@ function TacticalButton({ onTap, onHold, onHover, onHoverEnd, stopPropagation, o
       onPointerEnter={(event) => {
         if (event.pointerType === "mouse" && (onHover || onHold)) {
           const anchor = event.currentTarget.getBoundingClientRect();
-          timer.current = globalThis.setTimeout(() => { timer.current = null; onHover ? onHover(anchor) : onHold?.(); }, 700);
+          timer.current = globalThis.setTimeout(() => { timer.current = null; if (onHover) onHover(anchor); else onHold?.(); }, 700);
         }
         onPointerEnter?.(event);
       }}
       onPointerDown={(event) => {
         cancelTimer();
         held.current = false;
-        if (onHold) timer.current = globalThis.setTimeout(() => { held.current = true; onHold(); }, HOLD_DURATION_MS);
+        if (onHold || onHover) {
+          const anchor = event.currentTarget.getBoundingClientRect();
+          timer.current = globalThis.setTimeout(() => { held.current = true; if (onHover) onHover(anchor); else onHold?.(); }, HOLD_DURATION_MS);
+        }
         onPointerDown?.(event);
       }}
-      onPointerUp={(event) => { cancelTimer(); onPointerUp?.(event); }}
-      onPointerCancel={(event) => { cancelTimer(); onPointerCancel?.(event); }}
+      onPointerUp={(event) => { cancelTimer(); if (held.current && event.pointerType !== "mouse") onHoverEnd?.(); onPointerUp?.(event); }}
+      onPointerCancel={(event) => { cancelTimer(); if (held.current && event.pointerType !== "mouse") onHoverEnd?.(); onPointerCancel?.(event); }}
       onPointerLeave={(event) => { cancelTimer(); if (event.pointerType === "mouse") onHoverEnd?.(); onPointerLeave?.(event); }}
       onContextMenu={(event) => { event.preventDefault(); onContextMenu?.(event); }}
       onClick={(event) => {
