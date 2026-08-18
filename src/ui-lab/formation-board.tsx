@@ -132,9 +132,8 @@ function Marine({ animation, deathStripUrl, dodgeStripUrl, fireStripUrls, jamStr
   return (
     <button type="button" className={`lab-marine lab-team-${team.toLowerCase()} lab-face-${facing.toLowerCase()} is-${state}`} aria-label={`${name}, ${team} team, range ${details.range}, ${supportTokens} support tokens, facing ${facing.toLowerCase()}`} aria-pressed={state === "selected"} aria-disabled={state === "unavailable"} {...press}>
       {animation && animationUrl ? <span className={`lab-marine-sprite lab-marine-strip is-${animation}`} style={{ backgroundImage: `url(${animationUrl})` }} aria-hidden="true" /> : <img className="lab-marine-sprite" src={marineSpriteUrl} alt="" />}
-      
-      <span className="lab-marine-stats"><b title={`Range ${details.range}`}>R{details.range}</b>{supportTokens > 0 && <b title={`${supportTokens} support tokens`}><i />{supportTokens}</b>}</span>
-      <strong className={`lab-marine-name ${details.ability ? "has-ability" : ""}`}>{name}</strong>{state === "unavailable" && <span className="lab-unavailable-mark" aria-hidden="true">×</span>}
+      {supportTokens > 0 && <span className="lab-marine-stats"><b title={`${supportTokens} support tokens`}><i />{supportTokens}</b></span>}
+      <strong className={`lab-marine-name ${details.ability ? "has-ability" : ""}`}>{name}<span className="lab-marine-range"> · R{details.range}</span></strong>{state === "unavailable" && <span className="lab-unavailable-mark" aria-hidden="true">×</span>}
       {moveChoice && <span className="lab-marine-move-choice"><b>⇅</b><em>{moveChoice.label}</em></span>}
     </button>
   );
