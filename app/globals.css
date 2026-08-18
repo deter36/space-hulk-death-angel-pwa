@@ -245,3 +245,29 @@ button:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
 .tutorial-command { display: grid; gap: 3px; width: calc(100% - 28px); margin: 0 14px 14px; border: 1px solid #72c5e5; border-left: 5px solid #72c5e5; padding: 11px 13px; background: linear-gradient(90deg, #14313b, #151c18); color: #eef8f7; cursor: pointer; text-align: left; }
 .tutorial-command strong { color: #a8edff; font-size: .74rem; letter-spacing: .08em; text-transform: uppercase; }.tutorial-command small { color: #c3d5d0; font-size: .58rem; }
 .tutorial-coach { display: grid; gap: 3px; margin: 7px 9px; border: 1px solid #72c5e5; border-left: 5px solid #72c5e5; padding: 8px 10px; background: linear-gradient(90deg, #102d36f2, #0d1611f2); box-shadow: 0 5px 16px #0008; color: #edf7f3; }.tutorial-coach > span { color: #8ae7ff; font-size: .5rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }.tutorial-coach strong { font-size: .7rem; text-transform: uppercase; }.tutorial-coach p { margin: 0; color: #d5e1dc; font-size: .61rem; line-height: 1.35; }
+
+/* The tutorial is an actual board tour, not another message in the command rail.
+   Its translucent scrim keeps the whole board visible while the current element
+   gets a bright, animated inspection light. */
+.tutorial-tour { position: fixed; z-index: 280; inset: 0; background: radial-gradient(circle at 50% 42%, #09140a08 0 35%, #01050438 100%); pointer-events: auto; }
+.tutorial-tour-card { position: absolute; z-index: 1; display: grid; gap: 7px; width: min(calc(100vw - 28px), 316px); border: 1px solid #78d9ec; border-left: 5px solid #8ce8f8; padding: 12px 13px 11px; background: linear-gradient(135deg, #193b40f5, #101b15fa 74%); box-shadow: 0 12px 32px #000b, inset 0 0 20px #62d8eb20; color: #edf9f4; }
+.tutorial-tour-card::before { position: absolute; top: -1px; right: 10px; width: 42px; height: 3px; background: #8ce8f8; box-shadow: 0 0 12px #78e9ff; content: ""; }
+.tutorial-tour-card > span { color: #a9effa; font-size: .52rem; font-weight: 900; letter-spacing: .15em; text-transform: uppercase; }
+.tutorial-tour-card h2 { margin: 0; color: #fff6d7; font-size: 1.05rem; letter-spacing: .035em; text-transform: uppercase; }
+.tutorial-tour-card p { margin: 0; color: #d9e9e2; font-size: .73rem; line-height: 1.4; }
+.tutorial-tour-card footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 3px; }
+.tutorial-tour-card button { min-height: 33px; border: 1px solid #84d9e7; padding: 6px 12px; font-family: inherit; font-size: .61rem; font-weight: 900; letter-spacing: .07em; text-transform: uppercase; cursor: pointer; }
+.tutorial-tour-skip { background: #08100c9c; color: #b6c7bf; }
+.tutorial-tour-next { border-left: 4px solid #fff2ac !important; background: linear-gradient(135deg, #496844, #273b25); box-shadow: 0 0 12px #a6d97036; color: #fffbe5; }
+.tutorial-tour.is-stats .tutorial-tour-card { top: 59px; left: 10px; }
+.tutorial-tour.is-round .tutorial-tour-card { top: 59px; left: 50%; transform: translateX(-50%); }
+.tutorial-tour.is-phase .tutorial-tour-card { top: 59px; right: 10px; }
+.tutorial-tour.is-mission .tutorial-tour-card { top: 116px; left: 10px; }
+.tutorial-tour.is-board .tutorial-tour-card { top: 43%; left: 50%; transform: translate(-50%, -50%); }
+.tutorial-tour.is-cards .tutorial-tour-card { bottom: 94px; left: 50%; transform: translateX(-50%); }
+
+.is-tutorial-focus { animation: tutorial-focus-pulse 1.2s ease-in-out infinite; outline: 2px solid #8eeefa !important; outline-offset: -2px; box-shadow: 0 0 0 3px #87e9fa44, 0 0 22px 5px #48d9f17d, inset 0 0 16px #77eefa24 !important; }
+.live-sprite-board.is-tutorial-focus .lab-board { box-shadow: inset 0 0 0 2px #91effa, inset 0 0 32px #4edff355, 0 0 18px #48d9f14f; }
+.round-command-tray.is-tutorial-focus { box-shadow: 0 -2px 18px #5ae8fa8c !important; }
+@keyframes tutorial-focus-pulse { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.27); } }
+@media (max-width: 380px) { .tutorial-tour-card { width: calc(100vw - 20px); padding: 10px 11px; }.tutorial-tour.is-round .tutorial-tour-card { left: 10px; transform: none; }.tutorial-tour.is-board .tutorial-tour-card, .tutorial-tour.is-cards .tutorial-tour-card { left: 10px; transform: none; }.tutorial-tour-card h2 { font-size: .94rem; } }
