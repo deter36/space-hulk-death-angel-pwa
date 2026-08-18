@@ -512,9 +512,10 @@ type TacticalButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "onClic
   stopPropagation?: boolean;
 };
 
-function TacticalButton({ onTap, onHold, stopPropagation, onPointerDown, onPointerUp, onPointerCancel, onPointerEnter, onPointerLeave, onContextMenu, ...props }: TacticalButtonProps) {
+function TacticalButton({ onTap, onHold, onHover, onHoverEnd, stopPropagation, onPointerDown, onPointerUp, onPointerCancel, onPointerEnter, onPointerLeave, onContextMenu, ...props }: TacticalButtonProps) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const held = useRef(false);
+  const hoverOpen = useRef(false);
   const cancelTimer = () => {
     if (timer.current !== null) globalThis.clearTimeout(timer.current);
     timer.current = null;
@@ -523,9 +524,9 @@ function TacticalButton({ onTap, onHold, stopPropagation, onPointerDown, onPoint
     <button
       {...props}
       onPointerEnter={(event) => {
-        // Preserve the established desktop path: hover uses the same detail
-        // trigger as a touch hold. Presentation can evolve independently.
-        if (event.pointerType === "mouse" && onHold) timer.current = globalThis.setTimeout(() => { timer.current = null; onHold(); }, 700);
+        // Preserve the proven pointer-enter trigger while changing only the
+        // desktop presentation from a drawer to the contextual tooltip.
+        if (event.pointerType === "mouse") timer.current = globalThis.setTimeout(() => { timer.current = null; if (onHover) { hoverOpen.current = true; onHover(event.currentTarget.getBoundingClientRect()); } else { onHold?.(); } }, 700);
         onPointerEnter?.(event);
       }}
       onPointerDown={(event) => {
@@ -536,7 +537,7 @@ function TacticalButton({ onTap, onHold, stopPropagation, onPointerDown, onPoint
       }}
       onPointerUp={(event) => { cancelTimer(); onPointerUp?.(event); }}
       onPointerCancel={(event) => { cancelTimer(); onPointerCancel?.(event); }}
-      onPointerLeave={(event) => { cancelTimer(); onPointerLeave?.(event); }}
+      onPointerLeave={(event) => { cancelTimer(); if (event.pointerType === "mouse" && hoverOpen.current) { hoverOpen.current = false; onHoverEnd?.(); } onPointerLeave?.(event); }}
       onContextMenu={(event) => { event.preventDefault(); onContextMenu?.(event); }}
       onClick={(event) => {
         if (stopPropagation) event.stopPropagation();
