@@ -514,7 +514,7 @@ function TacticalButton({ onTap, onHold, stopPropagation, onPointerDown, onPoint
       onPointerEnter={(event) => {
         // Desktop gets the same detail drawer as a mobile hold, after a brief
         // pause so passing the cursor across the formation does not feel noisy.
-        if (event.pointerType === "mouse" && onHold) timer.current = globalThis.setTimeout(() => { timer.current = null; onHold(); }, 360);
+        if (event.pointerType === "mouse" && onHold) timer.current = globalThis.setTimeout(() => { timer.current = null; onHold(); }, 700);
         onPointerEnter?.(event);
       }}
       onPointerDown={(event) => {

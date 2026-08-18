@@ -81,7 +81,7 @@ function usePress(onTap: () => void, onHold: () => void) {
       // shared tactical buttons used by the header cards.
       if (event.pointerType === "mouse") {
         clear();
-        timer.current = setTimeout(() => { timer.current = null; onHold(); }, 360);
+        timer.current = setTimeout(() => { timer.current = null; onHold(); }, 700);
       }
     },
     onPointerDown: () => { held.current = false; clear(); timer.current = setTimeout(() => { held.current = true; onHold(); }, 520); },
