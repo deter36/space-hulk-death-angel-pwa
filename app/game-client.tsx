@@ -716,14 +716,15 @@ export default function GameClient() {
       : current.length < 3 ? [...current, team] : current);
   };
 
-  const startGame = () => {
-    if (selectedTeams.length !== 3) return;
+  const startGame = (teams = selectedTeams) => {
+    if (teams.length !== 3) return;
     try {
       const gameId = globalThis.crypto?.randomUUID?.() ?? `game-${Date.now()}`;
-      const seed = `${gameId}:${selectedTeams.join("-")}`;
-      const prepared = prepareUiSession(newEngineSession({ gameId, seed, teamColors: selectedTeams as [TeamColor, TeamColor, TeamColor] }, "PLAYER"));
+      const seed = `${gameId}:${teams.join("-")}`;
+      const prepared = prepareUiSession(newEngineSession({ gameId, seed, teamColors: teams as [TeamColor, TeamColor, TeamColor] }, "PLAYER"));
       setSession(prepared.session);
       setPlayMode("STANDARD");
+      setSelectedTeams(teams);
       setTeamPreview(null);
       setResolutionNotices([]);
       setInspection(null);
@@ -731,6 +732,15 @@ export default function GameClient() {
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "The mission could not be started.");
     }
+  };
+
+  const startRandomGame = () => {
+    const available = [...TEAM_COLORS];
+    for (let index = available.length - 1; index > 0; index -= 1) {
+      const swapIndex = Math.floor(Math.random() * (index + 1));
+      [available[index], available[swapIndex]] = [available[swapIndex], available[index]];
+    }
+    startGame(available.slice(0, 3));
   };
 
   const startTutorial = () => {
@@ -879,7 +889,7 @@ export default function GameClient() {
       <main className="setup-shell">
         <section className="setup-panel" aria-labelledby="setup-title">
           <div className="brand-lockup"><span className="brand-kicker">Space Hulk</span><h1 id="setup-title">Death Angel</h1><p>Solo mission command</p></div>
-          <div className="setup-copy"><span className="section-number">01</span><div><h2>Select three combat teams</h2><p>The formation is randomized after your team choice, just like the physical game.</p></div></div>
+          <div className="setup-copy"><span className="section-number">01</span><div><h2>Select three combat teams</h2><p>Choose any three squads to form your strike force.</p></div></div>
           <div className="team-grid">
             {TEAM_COLORS.map((team) => {
               const selected = selectedTeams.includes(team);
@@ -891,7 +901,7 @@ export default function GameClient() {
               );
             })}
           </div>
-          <div className="setup-footer"><span>{selectedTeams.length} / 3 selected</span><button type="button" className="primary-command" disabled={selectedTeams.length !== 3} onClick={startGame}>Begin mission</button></div>
+          <div className="setup-footer"><span>{selectedTeams.length} / 3 selected</span><button type="button" className="random-mission-command" onClick={startRandomGame}>Random squads</button><button type="button" className="primary-command" disabled={selectedTeams.length !== 3} onClick={() => startGame()}>Begin mission</button></div>
           <button type="button" className="tutorial-command" onClick={startTutorial}><strong>Guided tutorial</strong><small>Learn the HUD and play through a fixed beginner mission.</small></button>
           {error && <p className="error-message" role="alert">{error}</p>}
         </section>
