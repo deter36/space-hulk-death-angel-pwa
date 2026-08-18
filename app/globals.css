@@ -267,6 +267,8 @@ button:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
 .tutorial-tour.is-board .tutorial-tour-card { top: 43%; left: 50%; transform: translate(-50%, -50%); }
 .tutorial-tour.is-cards .tutorial-tour-card { bottom: 94px; left: 50%; transform: translateX(-50%); }
 
+.live-hud-menu-scale { display: grid; gap: 3px; border-bottom: 1px solid #455149; padding: 8px 10px 9px; background: #18221d; }.live-hud-menu-scale > strong { color: #e9e5da; font: 800 .58rem Arial, sans-serif; letter-spacing: .06em; text-transform: uppercase; }.live-hud-menu-scale > small { color: #aeb8b1; font-size: .45rem; }.live-hud-menu-scale > div { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px; margin-top: 3px; }.live-hud-menu-scale button { display: block; min-height: 28px !important; border: 1px solid #56665c !important; padding: 3px 2px !important; background: #0d130f !important; color: #c9d3cc; font-size: .43rem; line-height: 1; text-align: center !important; }.live-hud-menu-scale button:hover, .live-hud-menu-scale button.is-active { border-color: #d1b66a !important; background: #354238 !important; color: #fff1bd; }.live-hud-menu-scale button.is-active { box-shadow: inset 0 0 0 1px #d1b66a66; }
+
 .is-tutorial-focus { animation: tutorial-focus-pulse 1.2s ease-in-out infinite; outline: 2px solid #8eeefa !important; outline-offset: -2px; box-shadow: 0 0 0 3px #87e9fa44, 0 0 22px 5px #48d9f17d, inset 0 0 16px #77eefa24 !important; }
 .live-sprite-board.is-tutorial-focus .lab-board { box-shadow: inset 0 0 0 2px #91effa, inset 0 0 32px #4edff355, 0 0 18px #48d9f14f; }
 .round-command-tray.is-tutorial-focus { box-shadow: 0 -2px 18px #5ae8fa8c !important; }

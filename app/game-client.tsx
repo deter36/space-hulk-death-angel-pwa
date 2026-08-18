@@ -73,20 +73,27 @@ type BoardAnimation = {
   movingSwarmCells?: Record<string, "up" | "down" | "flank">;
 };
 
-function useMobileBoardScale(): number {
-  const calculate = () => {
+type DesktopBoardScale = "AUTO" | "COMPACT" | "STANDARD" | "LARGE";
+const DESKTOP_BOARD_SCALE_KEY = "death-angel.desktop-board-scale";
+
+function useBoardScale(desktopPreference: DesktopBoardScale): number {
+  const [scale, setScale] = useState(0.84);
+  useEffect(() => {
+    const update = () => {
     const viewportHeight = globalThis.visualViewport?.height ?? globalThis.innerHeight;
     const viewportWidth = globalThis.visualViewport?.width ?? globalThis.innerWidth;
+    if (viewportWidth > 700) {
+      const automatic = Math.max(1, Math.min(1.2, (viewportHeight - 225) / 650));
+      setScale(desktopPreference === "COMPACT" ? 0.92 : desktopPreference === "STANDARD" ? 1.08 : desktopPreference === "LARGE" ? 1.2 : automatic);
+      return;
+    }
     // The live board receives the space left by the HUD and card tray. This
     // conservative allowance keeps the six-lane board inside short mobile
     // viewports without stretching any individual asset.
     const heightScale = (viewportHeight - 225) / 650;
     const widthScale = viewportWidth / 390;
-    return Math.max(0.62, Math.min(1, heightScale, widthScale));
+    setScale(Math.max(0.62, Math.min(1, heightScale, widthScale)));
   };
-  const [scale, setScale] = useState(0.84);
-  useEffect(() => {
-    const update = () => setScale(calculate());
     update();
     globalThis.addEventListener("resize", update);
     globalThis.visualViewport?.addEventListener("resize", update);
@@ -94,7 +101,7 @@ function useMobileBoardScale(): number {
       globalThis.removeEventListener("resize", update);
       globalThis.visualViewport?.removeEventListener("resize", update);
     };
-  }, []);
+  }, [desktopPreference]);
   return scale;
 }
 
@@ -991,6 +998,10 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
   const [bottomView, setBottomView] = useState<"cards" | "status">("cards");
   const [seenStatusKey, setSeenStatusKey] = useState<string | null>(null);
   const [tutorialIntroStep, setTutorialIntroStep] = useState(tutorial ? 0 : -1);
+  const [desktopBoardScale, setDesktopBoardScale] = useState<DesktopBoardScale>(() => {
+    const saved = globalThis.localStorage?.getItem(DESKTOP_BOARD_SCALE_KEY);
+    return saved === "AUTO" || saved === "COMPACT" || saved === "STANDARD" || saved === "LARGE" ? saved : "AUTO";
+  });
   const traySwipeStart = useRef<{ x: number; y: number } | null>(null);
   const { state } = session;
   const decision = state.pendingDecision;
@@ -1040,6 +1051,10 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
   const displayedBottomView = choosingActions ? "cards" : statusKey && seenStatusKey !== statusKey ? "status" : bottomView;
   const tutorialTarget = tutorialIntroStep >= 0 ? TUTORIAL_HUD_TOUR[tutorialIntroStep]?.target ?? null : null;
   const activeTutorialGuide = tutorial && tutorialIntroStep < 0 ? tutorialActionGuide(session) : null;
+  const chooseDesktopBoardScale = (preference: DesktopBoardScale) => {
+    setDesktopBoardScale(preference);
+    globalThis.localStorage?.setItem(DESKTOP_BOARD_SCALE_KEY, preference);
+  };
   const setTrayView = (view: "cards" | "status") => { setSeenStatusKey(statusKey); setBottomView(view); };
   const startTraySwipe = (event: ReactPointerEvent<HTMLDivElement>) => {
     const target = event.target instanceof Element ? event.target : null;
@@ -1065,7 +1080,7 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
           <div className={`live-hud-stats ${tutorialTarget === "stats" ? "is-tutorial-focus" : ""}`}><span>Marines <b>{livingMarines}/6</b></span><span>Support <b><i>●</i>{state.supportSupply}</b></span></div>
           <div className={`lab-hud-cycle ${tutorialTarget === "round" ? "is-tutorial-focus" : ""}`}><span>Round</span><strong>{String(state.round).padStart(2, "0")}</strong></div>
           <div className={`lab-hud-phase ${tutorialTarget === "phase" ? "is-tutorial-focus" : ""}`}><span>Current phase</span><strong>{formatPhase(state.phase)}</strong></div>
-          <div className="live-hud-menu"><button type="button" aria-label="Open game menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((current) => !current)}>☰</button>{menuOpen && <div className="live-hud-menu-panel"><button type="button" disabled={!undoStatus.allowed} onClick={() => { onUndo(); setMenuOpen(false); }}><strong>↶ Undo</strong><small>{undoStatus.allowed ? `${undoStatus.availableSteps} step${undoStatus.availableSteps === 1 ? "" : "s"} available` : undoStatus.unavailableReason === "RANDOMNESS_BARRIER" ? "Locked by random result" : undoStatus.unavailableReason === "HIDDEN_INFORMATION_BARRIER" ? "Locked by card reveal" : "No reversible step"}</small></button><button type="button" onClick={() => { onDownloadSave(); setMenuOpen(false); }}><strong>⇩ Download save</strong><small>Export this game’s diagnostics</small></button><a href="/space-hulk-death-angel-pwa/rules/death-angel-rulebook.pdf" target="_blank" rel="noreferrer" onClick={() => setMenuOpen(false)}><strong>▤ Rules reference</strong><small>Open the official rulebook PDF</small></a><button type="button" className="is-danger" onClick={() => { if (globalThis.confirm("End this mission and return to team selection?")) { onNewMission(); setMenuOpen(false); } }}><strong>New mission</strong><small>End the current game</small></button></div>}</div>
+          <div className="live-hud-menu"><button type="button" aria-label="Open game menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((current) => !current)}>☰</button>{menuOpen && <div className="live-hud-menu-panel"><div className="live-hud-menu-scale"><strong>Board scale</strong><small>Desktop view only</small><div>{(["AUTO", "COMPACT", "STANDARD", "LARGE"] as DesktopBoardScale[]).map((preference) => <button key={preference} type="button" className={desktopBoardScale === preference ? "is-active" : ""} onClick={() => chooseDesktopBoardScale(preference)}>{preference[0] + preference.slice(1).toLowerCase()}</button>)}</div></div><button type="button" disabled={!undoStatus.allowed} onClick={() => { onUndo(); setMenuOpen(false); }}><strong>↶ Undo</strong><small>{undoStatus.allowed ? `${undoStatus.availableSteps} step${undoStatus.availableSteps === 1 ? "" : "s"} available` : undoStatus.unavailableReason === "RANDOMNESS_BARRIER" ? "Locked by random result" : undoStatus.unavailableReason === "HIDDEN_INFORMATION_BARRIER" ? "Locked by card reveal" : "No reversible step"}</small></button><button type="button" onClick={() => { onDownloadSave(); setMenuOpen(false); }}><strong>⇩ Download save</strong><small>Export this game’s diagnostics</small></button><a href="/space-hulk-death-angel-pwa/rules/death-angel-rulebook.pdf" target="_blank" rel="noreferrer" onClick={() => setMenuOpen(false)}><strong>▤ Rules reference</strong><small>Open the official rulebook PDF</small></a><button type="button" className="is-danger" onClick={() => { if (globalThis.confirm("End this mission and return to team selection?")) { onNewMission(); setMenuOpen(false); } }}><strong>New mission</strong><small>End the current game</small></button></div>}</div>
         </div>
 
         {missionInfoCollapsed ? (
@@ -1094,7 +1109,7 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
 
       {tutorial && tutorialIntroStep < 0 && <TutorialCoach session={session} />}
 
-      <LiveFormationBoard tutorialFocus={tutorialTarget === "board"} travelStage={travelStage} session={session} boardAnimation={boardAnimation} highlightedTerrainIds={new Set(resolutionNotice?.terrainIds ?? [])} targetIds={targetIds} selectedMoveMarineId={selectedMoveMarineId} selectedStrategizeSwarmId={selectedStrategizeSwarmId} selectedDoorSwarmId={selectedDoorSwarmId} selectedHeroicChargeSwarmId={selectedHeroicChargeSwarmId} selectedEventSlaySwarmId={selectedEventSlaySwarmId} heroicChargeSlay={heroicChargeSlay} strategizeSwarms={strategizeSwarmSet} onChooseOption={onChooseOption} onInspect={onInspect} onSelectMoveMarine={(marineId) => { if (decision) setMoveSelection({ decisionId: decision.id, marineId }); }} onSelectStrategizeSwarm={(swarmId) => { if (decision) setStrategizeSelection({ decisionId: decision.id, swarmId }); }} onSelectDoorSwarm={(swarmId) => { if (decision) setDoorSwarmSelection({ decisionId: decision.id, swarmId }); }} onSelectHeroicChargeSwarm={(swarmId) => { if (decision) setHeroicChargeSwarmSelection({ decisionId: decision.id, swarmId }); }} onSelectEventSlaySwarm={(swarmId) => { if (decision) setEventSlaySwarmSelection({ decisionId: decision.id, swarmId }); }} />
+      <LiveFormationBoard desktopBoardScale={desktopBoardScale} tutorialFocus={tutorialTarget === "board"} travelStage={travelStage} session={session} boardAnimation={boardAnimation} highlightedTerrainIds={new Set(resolutionNotice?.terrainIds ?? [])} targetIds={targetIds} selectedMoveMarineId={selectedMoveMarineId} selectedStrategizeSwarmId={selectedStrategizeSwarmId} selectedDoorSwarmId={selectedDoorSwarmId} selectedHeroicChargeSwarmId={selectedHeroicChargeSwarmId} selectedEventSlaySwarmId={selectedEventSlaySwarmId} heroicChargeSlay={heroicChargeSlay} strategizeSwarms={strategizeSwarmSet} onChooseOption={onChooseOption} onInspect={onInspect} onSelectMoveMarine={(marineId) => { if (decision) setMoveSelection({ decisionId: decision.id, marineId }); }} onSelectStrategizeSwarm={(swarmId) => { if (decision) setStrategizeSelection({ decisionId: decision.id, swarmId }); }} onSelectDoorSwarm={(swarmId) => { if (decision) setDoorSwarmSelection({ decisionId: decision.id, swarmId }); }} onSelectHeroicChargeSwarm={(swarmId) => { if (decision) setHeroicChargeSwarmSelection({ decisionId: decision.id, swarmId }); }} onSelectEventSlaySwarm={(swarmId) => { if (decision) setEventSlaySwarmSelection({ decisionId: decision.id, swarmId }); }} />
 
       {!travelStage && <section className={`round-command-tray is-${displayedBottomView} ${choosingActions ? "is-choosing" : ""} ${tutorialTarget === "cards" ? "is-tutorial-focus" : ""}`}>
         {choosingActions ? <LiveActionSelection session={session} onChooseOption={onChooseOption} tutorialGuide={activeTutorialGuide} /> : <div className="round-command-viewport" onPointerDown={startTraySwipe} onPointerUp={finishTraySwipe} onPointerCancel={() => { traySwipeStart.current = null; }}><div className={`round-command-rail is-${displayedBottomView}`}>
@@ -1170,9 +1185,9 @@ function labRows(session: EngineSession): LabFormationRow[] {
   });
 }
 
-function LiveFormationBoard({ tutorialFocus = false, session, travelStage, boardAnimation, highlightedTerrainIds, targetIds, selectedMoveMarineId, selectedStrategizeSwarmId, selectedDoorSwarmId, selectedHeroicChargeSwarmId, selectedEventSlaySwarmId, heroicChargeSlay, strategizeSwarms: selectableStrategizeSwarms, onChooseOption, onInspect, onSelectMoveMarine, onSelectStrategizeSwarm, onSelectDoorSwarm, onSelectHeroicChargeSwarm, onSelectEventSlaySwarm }: { tutorialFocus?: boolean; session: EngineSession; travelStage: TravelStage | null; boardAnimation: BoardAnimation | null; highlightedTerrainIds: Set<string>; targetIds: Set<string>; selectedMoveMarineId: string | null; selectedStrategizeSwarmId: string | null; selectedDoorSwarmId: string | null; selectedHeroicChargeSwarmId: string | null; selectedEventSlaySwarmId: string | null; heroicChargeSlay: boolean; strategizeSwarms: Set<string>; onChooseOption: (optionId: string) => void; onInspect: (inspection: Inspection) => void; onSelectMoveMarine: (marineId: string) => void; onSelectStrategizeSwarm: (swarmId: string) => void; onSelectDoorSwarm: (swarmId: string) => void; onSelectHeroicChargeSwarm: (swarmId: string) => void; onSelectEventSlaySwarm: (swarmId: string) => void }) {
+function LiveFormationBoard({ desktopBoardScale, tutorialFocus = false, session, travelStage, boardAnimation, highlightedTerrainIds, targetIds, selectedMoveMarineId, selectedStrategizeSwarmId, selectedDoorSwarmId, selectedHeroicChargeSwarmId, selectedEventSlaySwarmId, heroicChargeSlay, strategizeSwarms: selectableStrategizeSwarms, onChooseOption, onInspect, onSelectMoveMarine, onSelectStrategizeSwarm, onSelectDoorSwarm, onSelectHeroicChargeSwarm, onSelectEventSlaySwarm }: { desktopBoardScale: DesktopBoardScale; tutorialFocus?: boolean; session: EngineSession; travelStage: TravelStage | null; boardAnimation: BoardAnimation | null; highlightedTerrainIds: Set<string>; targetIds: Set<string>; selectedMoveMarineId: string | null; selectedStrategizeSwarmId: string | null; selectedDoorSwarmId: string | null; selectedHeroicChargeSwarmId: string | null; selectedEventSlaySwarmId: string | null; heroicChargeSlay: boolean; strategizeSwarms: Set<string>; onChooseOption: (optionId: string) => void; onInspect: (inspection: Inspection) => void; onSelectMoveMarine: (marineId: string) => void; onSelectStrategizeSwarm: (swarmId: string) => void; onSelectDoorSwarm: (swarmId: string) => void; onSelectHeroicChargeSwarm: (swarmId: string) => void; onSelectEventSlaySwarm: (swarmId: string) => void }) {
   const { state } = session;
-  const boardScale = useMobileBoardScale();
+  const boardScale = useBoardScale(desktopBoardScale);
   const decision = state.pendingDecision;
   const rows = useMemo(() => labRows(session), [session]);
   const overlayChoices = useMemo<LabOverlayChoice[]>(() => {
