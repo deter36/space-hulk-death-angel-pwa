@@ -150,6 +150,12 @@ function formatActionType(type: string): string {
   return formatPhase(type);
 }
 
+function actionCardSummary(type: string): string {
+  if (type === "SUPPORT") return "Place support";
+  if (type === "MOVE_ACTIVATE") return "Move + activate";
+  return "Attack";
+}
+
 function componentDefinitionId(session: EngineSession, instanceId: string): string {
   return session.state.components[instanceId]?.definitionId ?? instanceId.split("#", 1)[0];
 }
@@ -520,8 +526,8 @@ function LiveActionSelection({ session, onChooseOption }: { session: EngineSessi
           const selected = cards.find((card) => card.instanceId === chosenId) ?? orderedCards.find((card) => card.team === team) ?? null;
           const resolutionState = !choosingActions && activeIndex >= 0 ? orderIndex < activeIndex ? "is-completed" : orderIndex === activeIndex ? "is-active" : "is-upcoming" : "";
           return <button key={team} type="button" className={`live-action-team-slot lab-team-${team.toLowerCase()} ${selected ? "has-selection" : ""} ${resolutionState}`} onClick={() => openTeam(team)} disabled={!choosingActions || Boolean(selected)}>
-            <span className="live-action-team-name">{team}</span>
-            {selected ? <span className="live-chosen-action"><small>{formatActionType(selected.type)}</small><em className="action-initiative" aria-label={`Initiative ${selected.initiative}`}>{selected.initiative}</em><strong>{selected.name}</strong></span> : <span className="live-mini-hand">{cards.map((card, index) => {
+            {!selected && <span className="live-action-team-name">{team}</span>}
+            {selected ? <span className="live-chosen-action"><em className="action-initiative" aria-label={`Initiative ${selected.initiative}`}>{selected.initiative}</em><strong>{selected.name}</strong><small>— {actionCardSummary(selected.type)}</small></span> : <span className="live-mini-hand">{cards.map((card, index) => {
               const unavailable = !uniquePayloadOption(decision, "actionId", card.instanceId);
               return <span key={card.instanceId} className={`live-mini-action-card ${unavailable ? "is-unavailable" : ""}`} style={{ "--card-index": index } as CSSProperties}><b>{card.type === "MOVE_ACTIVATE" ? "Move" : formatActionType(card.type)}</b></span>;
             })}</span>}
