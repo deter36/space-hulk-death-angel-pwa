@@ -1080,8 +1080,8 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
   };
   const closeMenu = () => { setMenuOpen(false); setMenuScreen("ROOT"); };
   const composeEmail = (subject: string, body?: string) => {
-    const query = new URLSearchParams({ subject, ...(body ? { body } : {}) });
-    globalThis.location.href = `mailto:shepps36@gmail.com?${query.toString()}`;
+    const query = [`subject=${encodeURIComponent(subject)}`, ...(body ? [`body=${encodeURIComponent(body)}`] : [])].join("&");
+    globalThis.location.href = `mailto:shepps36@gmail.com?${query}`;
   };
   const setTrayView = (view: "cards" | "status") => { setSeenStatusKey(statusKey); setBottomView(view); };
   const startTraySwipe = (event: ReactPointerEvent<HTMLDivElement>) => {
