@@ -76,6 +76,8 @@ type BoardAnimation = {
 
 type DesktopBoardScale = "AUTO" | "COMPACT" | "STANDARD" | "LARGE";
 const DESKTOP_BOARD_SCALE_KEY = "death-angel.desktop-board-scale";
+type PresentationSettings = { attackAnimations: boolean; travelAnimations: boolean; dieRollAnimations: boolean };
+const PRESENTATION_SETTINGS_KEY = "death-angel.presentation-settings";
 const APP_VERSION = "0.1.0";
 
 function useBoardScale(desktopPreference: DesktopBoardScale): number {
@@ -651,6 +653,13 @@ export default function GameClient() {
   const [boardAnimation, setBoardAnimation] = useState<BoardAnimation | null>(null);
   const [slayChoiceAnimating, setSlayChoiceAnimating] = useState(false);
   const [travelStage, setTravelStage] = useState<TravelStage | null>(null);
+  const [presentationSettings, setPresentationSettings] = useState<PresentationSettings>(() => {
+    try {
+      const saved = globalThis.localStorage?.getItem(PRESENTATION_SETTINGS_KEY);
+      const parsed = saved ? JSON.parse(saved) as Partial<PresentationSettings> : null;
+      return { attackAnimations: parsed?.attackAnimations ?? true, travelAnimations: parsed?.travelAnimations ?? true, dieRollAnimations: parsed?.dieRollAnimations ?? true };
+    } catch { return { attackAnimations: true, travelAnimations: true, dieRollAnimations: true }; }
+  });
   const [restoreComplete, setRestoreComplete] = useState(false);
   const animationTimer = useRef<ReturnType<typeof globalThis.setTimeout> | null>(null);
   const travelTimers = useRef<Array<ReturnType<typeof globalThis.setTimeout>>>([]);
@@ -664,6 +673,7 @@ export default function GameClient() {
 
   const playBoardAnimation = (animation: BoardAnimation, duration: number, onComplete: () => void) => {
     clearBoardAnimationTimer();
+    if (!presentationSettings.attackAnimations) { setBoardAnimation(null); onComplete(); return; }
     setBoardAnimation(animation);
     animationTimer.current = globalThis.setTimeout(() => {
       animationTimer.current = null;
@@ -773,6 +783,12 @@ export default function GameClient() {
       const prepared = prepareUiSession(submitSessionDecision(session, decision.id, optionId));
       if (decision.type === "TRAVEL_ANIMATION_ACK") {
         clearTravelTimers();
+        if (!presentationSettings.travelAnimations) {
+          setSession(prepared.session);
+          setInspection(null);
+          setError(prepared.error);
+          return;
+        }
         setSession(session);
         setTravelStage("retreat");
         travelTimers.current.push(globalThis.setTimeout(() => setTravelStage("crossfade"), 2550));
@@ -973,7 +989,12 @@ export default function GameClient() {
   };
 
   const rollDecision = isRollFollowUp(pendingRollResolution?.session.state.pendingDecision ?? null) ? pendingRollResolution?.session.state.pendingDecision ?? null : null;
-  return <MissionBoard tutorial={playMode === "TUTORIAL"} session={session} travelStage={travelStage} boardAnimation={boardAnimation} inspection={inspection} hoverInspection={hoverInspection} error={error} resolutionNotice={resolutionNotices[0] ?? null} rollNotice={resolutionNotices.length ? null : rollNotices[0] ?? null} rollDecision={rollDecision} slayChoiceAnimating={slayChoiceAnimating} onDismissResolutionNotice={() => {
+  const updatePresentationSetting = (setting: keyof PresentationSettings) => setPresentationSettings((current) => {
+    const next = { ...current, [setting]: !current[setting] };
+    globalThis.localStorage?.setItem(PRESENTATION_SETTINGS_KEY, JSON.stringify(next));
+    return next;
+  });
+  return <MissionBoard tutorial={playMode === "TUTORIAL"} session={session} travelStage={travelStage} boardAnimation={boardAnimation} inspection={inspection} hoverInspection={hoverInspection} presentationSettings={presentationSettings} onTogglePresentationSetting={updatePresentationSetting} error={error} resolutionNotice={resolutionNotices[0] ?? null} rollNotice={resolutionNotices.length ? null : rollNotices[0] ?? null} rollDecision={rollDecision} slayChoiceAnimating={slayChoiceAnimating} onDismissResolutionNotice={() => {
     const notice = resolutionNotices[0];
     if (notice?.eyebrow === "Event reveal" && session?.state.pendingDecision?.type === "EVENT_REVEAL_ACK") {
       setResolutionNotices((current) => current.slice(1));
@@ -991,6 +1012,8 @@ type MissionBoardProps = {
   boardAnimation: BoardAnimation | null;
   inspection: Inspection | null;
   hoverInspection: HoverInspection | null;
+  presentationSettings: PresentationSettings;
+  onTogglePresentationSetting: (setting: keyof PresentationSettings) => void;
   error: string | null;
   resolutionNotice: ResolutionNotice | null;
   rollNotice: RollNotice | null;
@@ -1008,7 +1031,7 @@ type MissionBoardProps = {
   onNewMission: () => void;
 };
 
-function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspection, hoverInspection, error, resolutionNotice, rollNotice, rollDecision, slayChoiceAnimating, onInspect, onHoverInspect, onDismissHoverInspection, onChooseOption, onUndo, onDownloadSave, onDismissInspection, onDismissResolutionNotice, onDismissRoll, onNewMission }: MissionBoardProps) {
+function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspection, hoverInspection, presentationSettings, onTogglePresentationSetting, error, resolutionNotice, rollNotice, rollDecision, slayChoiceAnimating, onInspect, onHoverInspect, onDismissHoverInspection, onChooseOption, onUndo, onDownloadSave, onDismissInspection, onDismissResolutionNotice, onDismissRoll, onNewMission }: MissionBoardProps) {
   const [moveSelection, setMoveSelection] = useState<{ decisionId: string; marineId: string } | null>(null);
   const [strategizeSelection, setStrategizeSelection] = useState<{ decisionId: string; swarmId: string } | null>(null);
   const [doorSwarmSelection, setDoorSwarmSelection] = useState<{ decisionId: string; swarmId: string } | null>(null);
@@ -1108,7 +1131,7 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
           <div className={`live-hud-stats ${tutorialTarget === "stats" ? "is-tutorial-focus" : ""}`}><span>Support Supply <b><i>●</i>{state.supportSupply}</b></span></div>
           <div className={`lab-hud-cycle ${tutorialTarget === "round" ? "is-tutorial-focus" : ""}`}><span>Round</span><strong>{String(state.round).padStart(2, "0")}</strong></div>
           <div className={`lab-hud-phase ${tutorialTarget === "phase" ? "is-tutorial-focus" : ""}`}><span>Current phase</span><strong>{formatPhase(state.phase)}</strong></div>
-          <div className="live-hud-tools"><button type="button" className="live-hud-undo" aria-label="Undo last action" disabled={!undoStatus.allowed} onClick={onUndo}>↶</button><div className="live-hud-menu"><button type="button" aria-label="Open game menu" aria-expanded={menuOpen} onClick={() => { setMenuOpen((current) => !current); setMenuScreen("ROOT"); }}>☰</button>{menuOpen && <div className="live-hud-menu-panel">{menuScreen === "ROOT" ? <section className="live-menu-root"><header><strong>Command Menu</strong><button type="button" aria-label="Close menu" onClick={closeMenu}>×</button></header><div><button type="button" onClick={() => setMenuScreen("SETTINGS")}><strong>Settings</strong></button><button type="button" onClick={() => setMenuScreen("HELP")}><strong>Help</strong></button><button type="button" onClick={() => { if (globalThis.confirm("End this mission and return to team selection?")) { onNewMission(); closeMenu(); } }}><strong>New Mission</strong></button></div></section> : menuScreen === "SETTINGS" ? <section className="live-menu-subpanel is-settings"><header><button type="button" aria-label="Back to menu" onClick={() => setMenuScreen("ROOT")}>‹</button><strong>Settings</strong><button type="button" aria-label="Close menu" onClick={closeMenu}>×</button></header><div className="live-hud-menu-scale"><strong>Desktop scale</strong><div>{(["AUTO", "COMPACT", "STANDARD", "LARGE"] as DesktopBoardScale[]).map((preference) => <button key={preference} type="button" className={desktopBoardScale === preference ? "is-active" : ""} onClick={() => chooseDesktopBoardScale(preference)}>{preference[0] + preference.slice(1).toLowerCase()}</button>)}</div></div></section> : <section className="live-menu-subpanel is-help"><header><button type="button" aria-label="Back to menu" onClick={() => setMenuScreen("ROOT")}>‹</button><strong>Help</strong><button type="button" aria-label="Close menu" onClick={closeMenu}>×</button></header><a href="/space-hulk-death-angel-pwa/rules/death-angel-rulebook.pdf" target="_blank" rel="noreferrer" onClick={closeMenu}><strong>Rules reference</strong></a><button type="button" onClick={() => { onDownloadSave(); closeMenu(); }}><strong>Download diagnostics</strong></button><button type="button" onClick={() => { composeEmail("Space Marine: Death Angel Feedback"); closeMenu(); }}><strong>Send Feedback</strong></button><button type="button" onClick={() => { onDownloadSave(); composeEmail(`Space Hulk: Death Angel Bug Report v${APP_VERSION}`, "Please attach the diagnostics .json file that was just downloaded, then describe what happened."); closeMenu(); }}><strong>Report a Bug</strong></button></section>}</div>}</div></div>
+          <div className="live-hud-tools"><button type="button" className="live-hud-undo" aria-label="Undo last action" disabled={!undoStatus.allowed} onClick={onUndo}>↶</button><div className="live-hud-menu"><button type="button" aria-label="Open game menu" aria-expanded={menuOpen} onClick={() => { setMenuOpen((current) => !current); setMenuScreen("ROOT"); }}>☰</button>{menuOpen && <div className="live-hud-menu-panel">{menuScreen === "ROOT" ? <section className="live-menu-root"><header><strong>Command Menu</strong><button type="button" aria-label="Close menu" onClick={closeMenu}>×</button></header><div><button type="button" onClick={() => setMenuScreen("SETTINGS")}><strong>Settings</strong></button><button type="button" onClick={() => setMenuScreen("HELP")}><strong>Help</strong></button><button type="button" onClick={() => { if (globalThis.confirm("End this mission and return to team selection?")) { onNewMission(); closeMenu(); } }}><strong>New Mission</strong></button></div></section> : menuScreen === "SETTINGS" ? <section className="live-menu-subpanel is-settings"><header><button type="button" aria-label="Back to menu" onClick={() => setMenuScreen("ROOT")}>‹</button><strong>Settings</strong><button type="button" aria-label="Close menu" onClick={closeMenu}>×</button></header><div className="live-settings-controls">{([ ["attackAnimations", "Attack animations"], ["travelAnimations", "Travel animations"], ["dieRollAnimations", "Die roll animations"] ] as Array<[keyof PresentationSettings, string]>).map(([setting, label]) => <button key={setting} type="button" className={presentationSettings[setting] ? "is-enabled" : ""} onClick={() => onTogglePresentationSetting(setting)}><strong>{label}</strong><small>{presentationSettings[setting] ? "On" : "Off"}</small></button>)}<div className="live-hud-menu-scale"><strong>Desktop scale</strong><div>{(["AUTO", "COMPACT", "STANDARD", "LARGE"] as DesktopBoardScale[]).map((preference) => <button key={preference} type="button" className={desktopBoardScale === preference ? "is-active" : ""} onClick={() => chooseDesktopBoardScale(preference)}>{preference[0] + preference.slice(1).toLowerCase()}</button>)}</div></div></div></section> : <section className="live-menu-subpanel is-help"><header><button type="button" aria-label="Back to menu" onClick={() => setMenuScreen("ROOT")}>‹</button><strong>Help</strong><button type="button" aria-label="Close menu" onClick={closeMenu}>×</button></header><a href="/space-hulk-death-angel-pwa/rules/death-angel-rulebook.pdf" target="_blank" rel="noreferrer" onClick={closeMenu}><strong>Rules reference</strong></a><button type="button" onClick={() => { onDownloadSave(); closeMenu(); }}><strong>Download diagnostics</strong></button><button type="button" onClick={() => { composeEmail("Space Marine: Death Angel Feedback"); closeMenu(); }}><strong>Send Feedback</strong></button><button type="button" onClick={() => { onDownloadSave(); composeEmail(`Space Hulk: Death Angel Bug Report v${APP_VERSION}`, "Please attach the diagnostics .json file that just downloaded, then describe what happened."); closeMenu(); }}><strong>Report a Bug</strong></button></section>}</div>}</div></div>
         </div>
 
         {missionInfoCollapsed ? (
@@ -1176,7 +1199,7 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
       {tutorialIntroStep >= 0 && <TutorialHudTour step={tutorialIntroStep} onAdvance={() => setTutorialIntroStep((current) => current >= TUTORIAL_HUD_TOUR.length - 1 ? -1 : current + 1)} onSkip={() => setTutorialIntroStep(-1)} />}
       {decision?.type === "DOOR_TRAVEL_SLAY" && selectedDoorSwarmId && <SlaySwarmOverlay session={session} decision={decision} swarmId={selectedDoorSwarmId} onChooseOption={onChooseOption} />}
       {(decision?.type === "EVENT_SLAY" || decision?.type === "INTIMIDATION_PICK") && selectedEventSlaySwarmId && <SlaySwarmOverlay session={session} decision={decision} swarmId={selectedEventSlaySwarmId} onChooseOption={onChooseOption} />}
-      {rollNotice && <RollResult key={rollNotice.id} notice={rollNotice} decision={rollDecision} onProceed={onDismissRoll} />}
+      {rollNotice && <RollResult key={rollNotice.id} animate={presentationSettings.dieRollAnimations} notice={rollNotice} decision={rollDecision} onProceed={onDismissRoll} />}
     </main>
   );
 }
@@ -1511,14 +1534,14 @@ function ForwardScoutingPreview({ session, decision, onChooseOption, onViewBoard
   );
 }
 
-function RollResult({ decision, notice, onProceed }: { decision: PendingDecision | null; notice: RollNotice; onProceed: (optionId?: string) => void }) {
+function RollResult({ animate, decision, notice, onProceed }: { animate: boolean; decision: PendingDecision | null; notice: RollNotice; onProceed: (optionId?: string) => void }) {
   const finalFace = combatDieFace(notice.value);
   const cubeStyle = {
     "--die-final": ({ 0: "rotateX(90deg) rotateY(0deg)", 1: "rotateX(0deg) rotateY(-90deg)", 2: "rotateX(0deg) rotateY(0deg)", 3: "rotateX(-90deg) rotateY(0deg)", 4: "rotateX(0deg) rotateY(90deg)", 5: "rotateX(0deg) rotateY(180deg)" } as const)[finalFace.value],
   } as CSSProperties;
   const reduceMotion = useMemo(() => globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false, []);
   const settleTimer = useRef<ReturnType<typeof globalThis.setTimeout> | null>(null);
-  const [rolling, setRolling] = useState(!reduceMotion);
+  const [rolling, setRolling] = useState(animate && !reduceMotion);
 
   const clearRollTimer = () => {
     if (settleTimer.current !== null) globalThis.clearTimeout(settleTimer.current);
@@ -1531,13 +1554,14 @@ function RollResult({ decision, notice, onProceed }: { decision: PendingDecision
   };
 
   useEffect(() => {
-    if (reduceMotion) return clearRollTimer;
+    if (reduceMotion || !animate) { setRolling(false); return clearRollTimer; }
+    setRolling(true);
     settleTimer.current = globalThis.setTimeout(() => {
       clearRollTimer();
       setRolling(false);
     }, 1680);
     return clearRollTimer;
-  }, [notice.id, reduceMotion]);
+  }, [animate, notice.id, reduceMotion]);
 
   return (
     <div className="roll-backdrop" role="presentation">
