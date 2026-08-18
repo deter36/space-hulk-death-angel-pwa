@@ -889,7 +889,7 @@ export default function GameClient() {
       <main className="setup-shell">
         <section className="setup-panel" aria-labelledby="setup-title">
           <div className="brand-lockup"><span className="brand-kicker">Space Hulk</span><h1 id="setup-title">Death Angel</h1><p>Solo mission command</p></div>
-          <div className="setup-copy"><span className="section-number">01</span><div><h2>Select three combat teams</h2><p>Choose any three squads to form your strike force.</p></div></div>
+          <div className="setup-copy"><span className="section-number">01</span><div><h2>Select three combat teams</h2><p>Choose any three squads to form your boarding party.</p></div></div>
           <div className="team-grid">
             {TEAM_COLORS.map((team) => {
               const selected = selectedTeams.includes(team);
