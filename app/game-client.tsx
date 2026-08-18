@@ -472,7 +472,7 @@ function TacticalButton({ onTap, onHold, stopPropagation, onPointerDown, onPoint
 
 type LiveActionCard = ActionDefinition & { instanceId: string };
 
-function LiveActionSelection({ session, onChooseOption }: { session: EngineSession; onChooseOption: (optionId: string) => void }) {
+function LiveActionSelection({ compact = false, session, onChooseOption }: { compact?: boolean; session: EngineSession; onChooseOption: (optionId: string) => void }) {
   const { state } = session;
   const decision = state.pendingDecision;
   const choosingActions = decision?.type === "CHOOSE_ACTION";
@@ -503,7 +503,7 @@ function LiveActionSelection({ session, onChooseOption }: { session: EngineSessi
   const expandedCards = expandedTeam ? cardsByTeam[expandedTeam] ?? [] : [];
 
   return (
-    <section className={`live-action-dock ${choosingActions ? "is-choosing" : ""} ${expandedTeam ? "is-expanded" : ""}`} aria-label="Combat team action cards">
+    <section className={`live-action-dock ${choosingActions ? "is-choosing" : ""} ${compact ? "is-compact" : ""} ${expandedTeam ? "is-expanded" : ""}`} aria-label="Combat team action cards">
       {expandedTeam && choosingActions && (
         <><button type="button" className="live-hand-dismiss" aria-label="Close action hand" onClick={() => setExpandedTeam(null)} /><div className={`live-expanded-hand lab-team-${expandedTeam.toLowerCase()}`}>
           <header><span>{expandedTeam} squad</span><strong>Choose an action</strong><button type="button" onClick={() => setExpandedTeam(null)} aria-label="Close action hand">×</button></header>
@@ -915,6 +915,8 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
   const [scoutingPreviewVisible, setScoutingPreviewVisible] = useState(true);
   const [missionInfoCollapsed, setMissionInfoCollapsed] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [bottomView, setBottomView] = useState<"cards" | "status">("cards");
+  const [seenStatusKey, setSeenStatusKey] = useState<string | null>(null);
   const { state } = session;
   const decision = state.pendingDecision;
   const choosingActions = decision?.type === "CHOOSE_ACTION";
@@ -957,6 +959,8 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
   const decisionRules = decision?.type === "PLACE_ARTEFACT"
     ? data.definitions.terrain.find((item) => item.id === "terrain.artefact")?.sourceText ?? null
     : null;
+  const statusKey = !choosingActions ? decision?.id ?? (resolutionNotice?.presentation === "board" ? resolutionNotice.id : null) : null;
+  const displayedBottomView = choosingActions ? "cards" : statusKey && seenStatusKey !== statusKey ? "status" : bottomView;
 
   return (
     <main className={`mission-shell ${choosingActions ? "is-choosing-actions" : ""}`}>
@@ -996,9 +1000,9 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
 
       <LiveFormationBoard travelStage={travelStage} session={session} boardAnimation={boardAnimation} highlightedTerrainIds={new Set(resolutionNotice?.terrainIds ?? [])} targetIds={targetIds} selectedMoveMarineId={selectedMoveMarineId} selectedStrategizeSwarmId={selectedStrategizeSwarmId} selectedDoorSwarmId={selectedDoorSwarmId} selectedHeroicChargeSwarmId={selectedHeroicChargeSwarmId} selectedEventSlaySwarmId={selectedEventSlaySwarmId} heroicChargeSlay={heroicChargeSlay} strategizeSwarms={strategizeSwarmSet} onChooseOption={onChooseOption} onInspect={onInspect} onSelectMoveMarine={(marineId) => { if (decision) setMoveSelection({ decisionId: decision.id, marineId }); }} onSelectStrategizeSwarm={(swarmId) => { if (decision) setStrategizeSelection({ decisionId: decision.id, swarmId }); }} onSelectDoorSwarm={(swarmId) => { if (decision) setDoorSwarmSelection({ decisionId: decision.id, swarmId }); }} onSelectHeroicChargeSwarm={(swarmId) => { if (decision) setHeroicChargeSwarmSelection({ decisionId: decision.id, swarmId }); }} onSelectEventSlaySwarm={(swarmId) => { if (decision) setEventSlaySwarmSelection({ decisionId: decision.id, swarmId }); }} />
 
-      {!travelStage && <LiveActionSelection session={session} onChooseOption={onChooseOption} />}
-
-      {!travelStage && !choosingActions && <section className="command-dock" aria-live="polite">
+      {!travelStage && <section className={`round-command-tray is-${displayedBottomView}`}>
+        {!choosingActions && <nav className="round-tray-toggle" aria-label="Bottom tray view"><button type="button" className={displayedBottomView === "cards" ? "is-active" : ""} aria-pressed={displayedBottomView === "cards"} onClick={() => { setSeenStatusKey(statusKey); setBottomView("cards"); }}>Cards</button><button type="button" className={displayedBottomView === "status" ? "is-active" : ""} aria-pressed={displayedBottomView === "status"} onClick={() => { setSeenStatusKey(statusKey); setBottomView("status"); }}>Status</button></nav>}
+        {choosingActions || displayedBottomView === "cards" ? <LiveActionSelection compact={!choosingActions} session={session} onChooseOption={onChooseOption} /> : <section className="command-dock" aria-live="polite">
         {resolutionNotice?.presentation === "board" ? (
           <SpawnResolutionTray notice={resolutionNotice} onProceed={onDismissResolutionNotice} />
         ) : <>
@@ -1019,7 +1023,7 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
         )}
         {error && <p className="error-message" role="alert">{error}</p>}
         </>}
-      </section>}
+      </section>}</section>}
 
       {inspection && <InspectionDrawer inspection={inspection} onClose={onDismissInspection} />}
       {resolutionNotice?.presentation === "movement" || resolutionNotice?.presentation === "board" ? null : resolutionNotice && <ResolutionNoticeOverlay notice={resolutionNotice} onProceed={onDismissResolutionNotice} />}
