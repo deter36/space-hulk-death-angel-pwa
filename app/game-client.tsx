@@ -652,20 +652,6 @@ export default function GameClient() {
     }
   };
 
-  const startTutorial = () => {
-    try {
-      const prepared = prepareUiSession(newEngineSession({ gameId: "tutorial-v1", seed: "tutorial-v1.green-blue-red", teamColors: ["GREEN", "BLUE", "RED"] }, "PLAYER"));
-      setSession(prepared.session);
-      setPlayMode("TUTORIAL");
-      setTeamPreview(null);
-      setResolutionNotices([]);
-      setInspection(null);
-      setError(prepared.error);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "The tutorial could not be started.");
-    }
-  };
-
   const resolveDecision = (optionId: string) => {
     const decision = session?.state.pendingDecision;
     if (!session || !decision) return;
@@ -811,7 +797,6 @@ export default function GameClient() {
             })}
           </div>
           <div className="setup-footer"><span>{selectedTeams.length} / 3 selected</span><button type="button" className="primary-command" disabled={selectedTeams.length !== 3} onClick={startGame}>Begin mission</button></div>
-          <button type="button" className="tutorial-command" onClick={startTutorial}><strong>Guided tutorial</strong><small>Learn the round flow in a fixed beginner scenario.</small></button>
           {error && <p className="error-message" role="alert">{error}</p>}
         </section>
         {teamPreview && <TeamActionPreview team={teamPreview} onClose={() => setTeamPreview(null)} />}
@@ -881,7 +866,7 @@ export default function GameClient() {
       return;
     }
     setResolutionNotices((current) => current.slice(1));
-  }} onDismissRoll={proceedRoll} onInspect={setInspection} onChooseOption={resolveDecision} onUndo={undoOne} onDownloadSave={downloadSave} onDismissInspection={() => setInspection(null)} onNewMission={startNewMission} onStartTutorial={startTutorial} />;
+  }} onDismissRoll={proceedRoll} onInspect={setInspection} onChooseOption={resolveDecision} onUndo={undoOne} onDownloadSave={downloadSave} onDismissInspection={() => setInspection(null)} onNewMission={startNewMission} />;
 }
 
 type MissionBoardProps = {
@@ -903,10 +888,9 @@ type MissionBoardProps = {
   onDismissInspection: () => void;
   onDismissRoll: (optionId?: string) => void;
   onNewMission: () => void;
-  onStartTutorial: () => void;
 };
 
-function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspection, error, resolutionNotice, rollNotice, rollDecision, slayChoiceAnimating, onInspect, onChooseOption, onUndo, onDownloadSave, onDismissInspection, onDismissResolutionNotice, onDismissRoll, onNewMission, onStartTutorial }: MissionBoardProps) {
+function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspection, error, resolutionNotice, rollNotice, rollDecision, slayChoiceAnimating, onInspect, onChooseOption, onUndo, onDownloadSave, onDismissInspection, onDismissResolutionNotice, onDismissRoll, onNewMission }: MissionBoardProps) {
   const [moveSelection, setMoveSelection] = useState<{ decisionId: string; marineId: string } | null>(null);
   const [strategizeSelection, setStrategizeSelection] = useState<{ decisionId: string; swarmId: string } | null>(null);
   const [doorSwarmSelection, setDoorSwarmSelection] = useState<{ decisionId: string; swarmId: string } | null>(null);
@@ -969,7 +953,7 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
           <div className="live-hud-stats"><span>Marines <b>{livingMarines}/6</b></span><span>Support <b><i>●</i>{state.supportSupply}</b></span></div>
           <div className="lab-hud-cycle"><span>Round</span><strong>{String(state.round).padStart(2, "0")}</strong></div>
           <div className="lab-hud-phase"><span>Current phase</span><strong>{formatPhase(state.phase)}</strong></div>
-          <div className="live-hud-menu"><button type="button" aria-label="Open game menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((current) => !current)}>☰</button>{menuOpen && <div className="live-hud-menu-panel"><button type="button" disabled={!undoStatus.allowed} onClick={() => { onUndo(); setMenuOpen(false); }}><strong>↶ Undo</strong><small>{undoStatus.allowed ? `${undoStatus.availableSteps} step${undoStatus.availableSteps === 1 ? "" : "s"} available` : undoStatus.unavailableReason === "RANDOMNESS_BARRIER" ? "Locked by random result" : undoStatus.unavailableReason === "HIDDEN_INFORMATION_BARRIER" ? "Locked by card reveal" : "No reversible step"}</small></button><button type="button" onClick={() => { onDownloadSave(); setMenuOpen(false); }}><strong>⇩ Download save</strong><small>Export this game’s diagnostics</small></button><a href="/space-hulk-death-angel-pwa/rules/death-angel-rulebook.pdf" target="_blank" rel="noreferrer" onClick={() => setMenuOpen(false)}><strong>▤ Rules reference</strong><small>Open the official rulebook PDF</small></a><button type="button" onClick={() => { if (globalThis.confirm("Start the guided tutorial? This replaces the current session.")) { onStartTutorial(); setMenuOpen(false); } }}><strong>◈ Guided tutorial</strong><small>Learn the game in a fixed beginner scenario</small></button><button type="button" className="is-danger" onClick={() => { if (globalThis.confirm("End this mission and return to team selection?")) { onNewMission(); setMenuOpen(false); } }}><strong>New mission</strong><small>End the current game</small></button></div>}</div>
+          <div className="live-hud-menu"><button type="button" aria-label="Open game menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((current) => !current)}>☰</button>{menuOpen && <div className="live-hud-menu-panel"><button type="button" disabled={!undoStatus.allowed} onClick={() => { onUndo(); setMenuOpen(false); }}><strong>↶ Undo</strong><small>{undoStatus.allowed ? `${undoStatus.availableSteps} step${undoStatus.availableSteps === 1 ? "" : "s"} available` : undoStatus.unavailableReason === "RANDOMNESS_BARRIER" ? "Locked by random result" : undoStatus.unavailableReason === "HIDDEN_INFORMATION_BARRIER" ? "Locked by card reveal" : "No reversible step"}</small></button><button type="button" onClick={() => { onDownloadSave(); setMenuOpen(false); }}><strong>⇩ Download save</strong><small>Export this game’s diagnostics</small></button><a href="/space-hulk-death-angel-pwa/rules/death-angel-rulebook.pdf" target="_blank" rel="noreferrer" onClick={() => setMenuOpen(false)}><strong>▤ Rules reference</strong><small>Open the official rulebook PDF</small></a><button type="button" className="is-danger" onClick={() => { if (globalThis.confirm("End this mission and return to team selection?")) { onNewMission(); setMenuOpen(false); } }}><strong>New mission</strong><small>End the current game</small></button></div>}</div>
         </div>
 
         {missionInfoCollapsed ? (
@@ -1000,7 +984,7 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
 
       <LiveFormationBoard travelStage={travelStage} session={session} boardAnimation={boardAnimation} highlightedTerrainIds={new Set(resolutionNotice?.terrainIds ?? [])} targetIds={targetIds} selectedMoveMarineId={selectedMoveMarineId} selectedStrategizeSwarmId={selectedStrategizeSwarmId} selectedDoorSwarmId={selectedDoorSwarmId} selectedHeroicChargeSwarmId={selectedHeroicChargeSwarmId} selectedEventSlaySwarmId={selectedEventSlaySwarmId} heroicChargeSlay={heroicChargeSlay} strategizeSwarms={strategizeSwarmSet} onChooseOption={onChooseOption} onInspect={onInspect} onSelectMoveMarine={(marineId) => { if (decision) setMoveSelection({ decisionId: decision.id, marineId }); }} onSelectStrategizeSwarm={(swarmId) => { if (decision) setStrategizeSelection({ decisionId: decision.id, swarmId }); }} onSelectDoorSwarm={(swarmId) => { if (decision) setDoorSwarmSelection({ decisionId: decision.id, swarmId }); }} onSelectHeroicChargeSwarm={(swarmId) => { if (decision) setHeroicChargeSwarmSelection({ decisionId: decision.id, swarmId }); }} onSelectEventSlaySwarm={(swarmId) => { if (decision) setEventSlaySwarmSelection({ decisionId: decision.id, swarmId }); }} />
 
-      {!travelStage && <section className={`round-command-tray is-${displayedBottomView}`}>
+      {!travelStage && <section className={`round-command-tray is-${displayedBottomView} ${choosingActions ? "is-choosing" : ""}`}>
         <div className="round-tray-views"><div className="round-tray-view round-tray-cards"><LiveActionSelection compact={!choosingActions} session={session} onChooseOption={onChooseOption} /></div>
         {!choosingActions && <div className="round-tray-view round-tray-status"><section className="command-dock" aria-live="polite">
         {resolutionNotice?.presentation === "board" ? (
