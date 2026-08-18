@@ -1,9 +1,7 @@
 /* eslint-disable @next/next/no-img-element -- The lab intentionally renders animated sprite canvases directly. */
-import type { GenestealerIcon, Side } from "@/src/data/types";
+import type { Side } from "@/src/data/types";
 import { Fragment, useRef, type CSSProperties, type MouseEvent } from "react";
 import type { LabFlank, LabFormationRow, LabMarine, LabSwarm, LabTerrain } from "./formation-types";
-
-const ICON_GLYPHS: Record<GenestealerIcon, string> = { HEAD: "◉", TAIL: "⌁", CLAW: "ϟ", TONGUE: "⌇" };
 
 export type LabTargetState = "neutral" | "selectable" | "selected" | "targeted" | "unavailable" | "destination";
 export type LabInspection = { eyebrow: string; title: string; subtitle?: string; body: string };
@@ -96,7 +94,7 @@ function inspectTerrain(terrain: LabTerrain): LabInspection {
 
 function SwarmReadout({ swarm }: { swarm: LabSwarm }) {
   const count = swarm.icons.length + (swarm.broodLords ?? 0);
-  return <div className="lab-swarm-readout" aria-label={`${count} Genestealers`}><b>{count}</b><span>{swarm.icons.map((icon, index) => <i key={`${icon}.${index}`} title={icon}>{ICON_GLYPHS[icon]}</i>)}{Array.from({ length: swarm.broodLords ?? 0 }, (_, index) => <i key={`lord.${index}`} className="lab-brood-icon" title="Brood Lord">♛</i>)}</span></div>;
+  return <div className="lab-swarm-readout" aria-label={`${count} Genestealers`}><b>{count}</b></div>;
 }
 
 function Flank({ alienAttackStripUrl, alienDeathStripUrl, alienIdleStripUrl, alienSpriteUrl, broodlordAttackStripUrl, broodlordDeathStripUrl, broodlordSpriteUrl, flank, moving, movementDirection, onInspect, onSelectSwarm, onSelectTerrain, overlay, side, swarmAnimation, swarmState = "neutral", terrainState = "neutral", terrainSpriteUrls }: { alienAttackStripUrl?: string; alienDeathStripUrl?: string; alienIdleStripUrl?: string; alienSpriteUrl: string; broodlordAttackStripUrl?: string; broodlordDeathStripUrl?: string; broodlordSpriteUrl?: string; flank: LabFlank; moving?: boolean; movementDirection?: "up" | "down" | "flank"; onInspect?: (details: LabInspection) => void; onSelectSwarm: () => void; onSelectTerrain: () => void; overlay?: LabOverlayChoice; side: Side; swarmAnimation?: "attack" | "death"; swarmState?: LabTargetState; terrainState?: LabTargetState; terrainSpriteUrls?: Partial<Record<string, string>> }) {
