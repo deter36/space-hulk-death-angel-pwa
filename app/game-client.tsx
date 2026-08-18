@@ -1554,8 +1554,7 @@ function RollResult({ animate, decision, notice, onProceed }: { animate: boolean
   };
 
   useEffect(() => {
-    if (reduceMotion || !animate) { setRolling(false); return clearRollTimer; }
-    setRolling(true);
+    if (reduceMotion || !animate) return clearRollTimer;
     settleTimer.current = globalThis.setTimeout(() => {
       clearRollTimer();
       setRolling(false);
