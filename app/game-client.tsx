@@ -1003,6 +1003,7 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
     return saved === "AUTO" || saved === "COMPACT" || saved === "STANDARD" || saved === "LARGE" ? saved : "AUTO";
   });
   const traySwipeStart = useRef<{ x: number; y: number } | null>(null);
+  const desktopUiScale = useBoardScale(desktopBoardScale);
   const { state } = session;
   const decision = state.pendingDecision;
   const choosingActions = decision?.type === "CHOOSE_ACTION";
@@ -1074,7 +1075,7 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
   };
 
   return (
-    <main className={`mission-shell ${choosingActions ? "is-choosing-actions" : ""}`}>
+    <main className={`mission-shell ${choosingActions ? "is-choosing-actions" : ""}`} style={{ "--desktop-ui-scale": desktopUiScale.toFixed(3) } as CSSProperties}>
       <section className={`lab-hud ${missionInfoCollapsed ? "is-collapsed" : "is-expanded"}`} aria-label="Mission status">
         <div className="lab-hud-command">
           <div className={`live-hud-stats ${tutorialTarget === "stats" ? "is-tutorial-focus" : ""}`}><span>Marines <b>{livingMarines}/6</b></span><span>Support <b><i>●</i>{state.supportSupply}</b></span></div>
