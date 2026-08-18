@@ -219,42 +219,58 @@ function marineDisplayName(session: EngineSession, marineId: string | undefined)
   return marine ? shortMarineName(marine.name) : "The selected Space Marine";
 }
 
-function decisionInstruction(session: EngineSession, decision: PendingDecision, selectedMoveMarineId: string | null, selectedStrategizeSwarmId: string | null, scoutingPreviewVisible: boolean): string {
-  if (decision.promptKey === "event.rescue") return "Choose a slain Marine below. They will return at the bottom of the formation facing right.";
+function decisionInstruction(session: EngineSession, decision: PendingDecision, selectedMoveMarineId: string | null, selectedStrategizeSwarmId: string | null, scoutingPreviewVisible: boolean): string | null {
+  if (decision.promptKey === "event.rescue") return "Choose a slain Marine.";
   if (decision.type === "FORWARD_SCOUTING_ORDER" && !scoutingPreviewVisible) return "The event choice is minimized while you inspect the board. Return to Forward Scouting when ready.";
-  if (decision.type === "ATTACK_MARINE") return "Choose the highlighted Marine who will make this attack.";
+  if (decision.type === "ATTACK_MARINE") return "Choose a highlighted Marine.";
   if (decision.type === "ATTACK_TARGET") {
-    const marineId = decision.legalOptions[0]?.payload.marineId;
-    return `${marineDisplayName(session, typeof marineId === "string" ? marineId : undefined)} is attacking. Choose the highlighted Genestealer swarm.`;
+    return `Choose a highlighted Genestealer target.`;
   }
-  if (decision.type === "ACTIVATE_TERRAIN") return "Choose the highlighted Terrain to activate with this squad's Move + Activate action.";
-  if (decision.type === "PLACE_SUPPORT") return "Choose the highlighted Space Marine who will receive the Support Token.";
-  if (decision.type === "COUNTER_ATTACK_SLAY") return "Counter Attack succeeded. Choose the attacking Genestealer to slay.";
-  if (decision.type === "DOOR_TRAVEL_SLAY") return "Door support is ready. Choose a highlighted swarm, then choose the Genestealer to slay—or end the Door ability.";
-  if (decision.type === "TRAVEL_ANIMATION_ACK") return "All before-travel effects are complete. Begin travel when you are ready.";
-  if (decision.type === "LOCATION_ARRIVAL_ACK") return "The new Location and Terrain are in place. Reveal and resolve its upon-entering effect.";
-  if (decision.type === "ATTACK_SLAY" && session.state.actionStep === "HEROIC_CHARGE_SLAY") return "Heroic Charge: choose a highlighted swarm, then choose one Genestealer to slay—or end the ability.";
-  if (decision.type === "INTIMIDATION_PICK") return "Intimidation: choose a highlighted swarm, then choose the Genestealer to return to the Blip pile.";
+  if (decision.type === "ACTIVATE_TERRAIN") return "Choose highlighted Terrain to activate.";
+  if (decision.type === "PLACE_SUPPORT") return "Choose a highlighted Marine for Support.";
+  if (decision.type === "COUNTER_ATTACK_SLAY") return "Choose the attacking Genestealer to slay.";
+  if (decision.type === "DOOR_TRAVEL_SLAY") return "Choose a highlighted swarm to slay with Door support.";
+  if (decision.type === "TRAVEL_ANIMATION_ACK" || decision.type === "LOCATION_ARRIVAL_ACK") return null;
+  if (decision.type === "ATTACK_SLAY" && session.state.actionStep === "HEROIC_CHARGE_SLAY") return "Choose a highlighted swarm to slay.";
+  if (decision.type === "INTIMIDATION_PICK") return "Choose a highlighted swarm to return to a Blip pile.";
   if (decision.type === "EVENT_SLAY") return decision.legalOptions[0]?.payload.purpose === "for-my-battle-brothers"
-    ? "For My Battle Brothers!: choose a highlighted engaged swarm, then choose the Genestealer to slay."
-    : "Choose a highlighted swarm, then choose the Genestealer to slay.";
-  if (decision.type === "PLACE_ARTEFACT") return "Choose a highlighted empty flank to place the Artefact from the Location card.";
+    ? "Choose a highlighted engaged swarm to slay."
+    : "Choose a highlighted swarm to slay.";
+  if (decision.type === "PLACE_ARTEFACT") return "Choose a highlighted empty flank.";
+  if (decision.type === "GENESTEALER_ATTACK_ACK") {
+    return null;
+  }
+  if (decision.type === "EVENT_MOVEMENT_ACK") return null;
+  if (decision.type === "STRATEGIZE" && !selectedStrategizeSwarmId) return "Choose a highlighted swarm to move.";
+  if (decision.type === "STRATEGIZE") return "Choose a highlighted destination.";
+  if (decision.type === "MOVE_MARINE" && !selectedMoveMarineId) return "Choose a highlighted Marine to move.";
+  if (decision.type === "MOVE_MARINE") return "Choose a highlighted destination.";
+  if (decision.type === "SET_FACING") return "Choose a side for the highlighted Marine.";
+  if (decision.legalOptions.some((option) => isDirectInputOption(decision, option))) return "Tap the highlighted board target. Hold any object briefly to read its rules.";
+  return "Choose an option.";
+}
+
+function decisionBriefTitle(session: EngineSession, decision: PendingDecision, action: ActionDefinition | null | undefined): string {
   if (decision.type === "GENESTEALER_ATTACK_ACK") {
     const marineId = decision.legalOptions[0]?.payload.marineId;
-    return `This highlighted Genestealer swarm is attacking ${marineDisplayName(session, typeof marineId === "string" ? marineId : undefined)}. Proceed when you are ready to roll.`;
+    return `Swarm attacking ${marineDisplayName(session, typeof marineId === "string" ? marineId : undefined)}`;
   }
   if (decision.type === "EVENT_MOVEMENT_ACK") {
     const count = Number(decision.legalOptions[0]?.payload.count ?? 0);
-    const movement = String(decision.legalOptions[0]?.payload.movement ?? "MOVE").toLowerCase();
-    return `${count} Genestealer swarm${count === 1 ? " is" : "s are"} ready to ${movement}. Begin movement to watch the board resolve.`;
+    return `${count} swarm${count === 1 ? "" : "s"} ready to move`;
   }
-  if (decision.type === "STRATEGIZE" && !selectedStrategizeSwarmId) return "Strategize: choose a highlighted swarm to move.";
-  if (decision.type === "STRATEGIZE") return "Choose the highlighted legal destination, or choose another swarm below.";
-  if (decision.type === "MOVE_MARINE" && !selectedMoveMarineId) return "Choose the highlighted Marine to move.";
-  if (decision.type === "MOVE_MARINE") return "Choose the highlighted destination for that Marine, or select another Marine.";
-  if (decision.type === "SET_FACING") return "Choose the left or right tile beside the highlighted Marine—even to keep its current facing.";
-  if (decision.legalOptions.some((option) => isDirectInputOption(decision, option))) return "Tap the highlighted board target. Hold any object briefly to read its rules.";
-  return "Choose an option below. The formation remains visible while you decide.";
+  if (decision.type === "TRAVEL_ANIMATION_ACK") return "Ready to travel";
+  if (decision.type === "LOCATION_ARRIVAL_ACK") return "New location ready";
+  if (action) return `${action.name} — ${actionCardSummary(action.type)}`;
+  return sourceInspection(session, decision.sourceId)?.title ?? formatPhase(decision.type);
+}
+
+function conciseDecisionButtonLabel(decision: PendingDecision, option: DecisionOption): string {
+  if (decision.type === "GENESTEALER_ATTACK_ACK") return "Proceed to attack";
+  if (decision.type === "EVENT_MOVEMENT_ACK") return "Begin movement";
+  if (decision.type === "EVENT_REVEAL_ACK") return "Resolve event";
+  if (decision.type === "TRAVEL_ANIMATION_ACK") return "Travel";
+  return presentedDecisionOption(decision, option).label;
 }
 
 function resolutionNoticesFrom(session: EngineSession, startingAt: number, throughTransitionSeq?: number): ResolutionNotice[] {
@@ -943,6 +959,8 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
   const decisionRules = decision?.type === "PLACE_ARTEFACT"
     ? data.definitions.terrain.find((item) => item.id === "terrain.artefact")?.sourceText ?? null
     : null;
+  const decisionBrief = decision ? decisionBriefTitle(session, decision, decisionAction) : null;
+  const decisionText = decision ? decisionInstruction(session, decision, selectedMoveMarineId, selectedStrategizeSwarmId, scoutingPreviewVisible) : null;
   const statusKey = !choosingActions ? decision?.id ?? (resolutionNotice?.presentation === "board" ? resolutionNotice.id : null) : null;
   const displayedBottomView = choosingActions ? "cards" : statusKey && seenStatusKey !== statusKey ? "status" : bottomView;
 
@@ -994,11 +1012,11 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
         {state.activeDie && <DiePanel value={state.activeDie.modifiedValue} skull={state.activeDie.skull} purpose={state.activeDie.purpose} rerolls={state.activeDie.rerolls.length} />}
         {decision ? (
           <div className={`dock-decision ${decisionAction ? `team-context team-${decisionAction.team.toLowerCase()}` : ""}`}>
-            <div className="decision-brief">{decisionAction ? <><strong>{decisionAction.name}</strong><span>— {actionCardSummary(decisionAction.type)}</span></> : <span>{decision.type === "EVENT_MOVEMENT_ACK" ? "Genestealer movement" : formatPhase(decision.type)}</span>}</div>
+            <div className={`decision-brief ${decisionAction ? "has-action" : ""}`}>{decisionAction ? <strong>{decisionBrief}</strong> : <span>{decisionBrief}</span>}</div>
             {decisionRules && <div className="decision-rules"><strong>Artefact ability</strong><span>{decisionRules}</span></div>}
-            <p>{decisionInstruction(session, decision, selectedMoveMarineId, selectedStrategizeSwarmId, scoutingPreviewVisible)}</p>
+            {decisionText && <p>{decisionText}</p>}
             {decision.type === "STRATEGIZE" && selectedStrategizeSwarmId && <button type="button" className="strategize-reset" onClick={() => setStrategizeSelection(null)}>Choose another swarm</button>}
-            {decision.type !== "FORWARD_SCOUTING_ORDER" && (decision.type !== "ATTACK_SLAY" || heroicChargeSlay) && orderedDockOptions.length > 0 && <div className={`dock-options ${decision.type === "STEALTH_FIRST" ? "is-stealth-first" : ""}`}>{orderedDockOptions.map((option) => { const presentation = presentedDecisionOption(decision, option); const label = decision.type === "GENESTEALER_ATTACK_ACK" ? "Proceed to attack" : presentation.label; return <button key={option.id} type="button" className={option.payload.skip || option.payload.stop ? "is-decline" : ""} onClick={() => onChooseOption(option.id)}><strong>{label}</strong>{presentation.preview && <small>{presentation.preview}</small>}</button>; })}</div>}
+            {decision.type !== "FORWARD_SCOUTING_ORDER" && (decision.type !== "ATTACK_SLAY" || heroicChargeSlay) && orderedDockOptions.length > 0 && <div className={`dock-options ${decision.type === "STEALTH_FIRST" ? "is-stealth-first" : ""}`}>{orderedDockOptions.map((option) => { const presentation = presentedDecisionOption(decision, option); const label = conciseDecisionButtonLabel(decision, option); return <button key={option.id} type="button" className={option.payload.skip || option.payload.stop ? "is-decline" : ""} onClick={() => onChooseOption(option.id)}><strong>{label}</strong>{presentation.preview && <small>{presentation.preview}</small>}</button>; })}</div>}
           </div>
         ) : state.status === "IN_PROGRESS" ? (
           <div className="mission-result engine-paused"><strong>Engine paused</strong><span>Download a save from the game menu before ending this mission.</span></div>
@@ -1268,7 +1286,7 @@ function ResolutionNoticeOverlay({ notice, onProceed }: { notice: ResolutionNoti
 }
 
 function SpawnResolutionTray({ notice, onProceed }: { notice: ResolutionNotice; onProceed: () => void }) {
-  return <div className="dock-decision spawn-resolution-tray"><div className="decision-heading"><span>{notice.eyebrow}</span></div><strong>{notice.title}</strong>{notice.meta && <small>{notice.meta}</small>}<p>{notice.body}</p><div className="dock-options"><button type="button" onClick={onProceed}><strong>Proceed to movement</strong></button></div></div>;
+  return <div className="dock-decision spawn-resolution-tray"><div className="decision-brief"><span>{notice.title}</span></div><div className="dock-options"><button type="button" onClick={onProceed}><strong>Begin movement</strong></button></div></div>;
 }
 
 function SlaySwarmOverlay({ decision, onChooseOption, session, swarmId: onlySwarmId }: { decision: PendingDecision; onChooseOption: (optionId: string) => void; session: EngineSession; swarmId?: string }) {
