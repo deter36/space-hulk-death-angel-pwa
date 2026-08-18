@@ -83,8 +83,8 @@ function useBoardScale(desktopPreference: DesktopBoardScale): number {
     const viewportHeight = globalThis.visualViewport?.height ?? globalThis.innerHeight;
     const viewportWidth = globalThis.visualViewport?.width ?? globalThis.innerWidth;
     if (viewportWidth > 700) {
-      const automatic = Math.max(1, Math.min(1.2, (viewportHeight - 225) / 650));
-      setScale(desktopPreference === "COMPACT" ? 0.92 : desktopPreference === "STANDARD" ? 1.08 : desktopPreference === "LARGE" ? 1.2 : automatic);
+      const automatic = Math.max(1.08, Math.min(1.35, (viewportHeight - 205) / 610));
+      setScale(desktopPreference === "COMPACT" ? 1 : desktopPreference === "STANDARD" ? 1.2 : desktopPreference === "LARGE" ? 1.45 : automatic);
       return;
     }
     // The live board receives the space left by the HUD and card tray. This
