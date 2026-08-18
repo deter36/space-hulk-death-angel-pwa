@@ -50,6 +50,7 @@ type Inspection = {
   body: string;
   meta?: string;
 };
+type HoverInspection = Inspection & { anchor: { top: number; bottom: number; left: number; right: number } };
 
 type RollNotice = {
   postRollAnimation: BoardAnimation | null;
@@ -505,12 +506,15 @@ function rollNoticesFrom(session: EngineSession, startingAt: number, priorState:
 type TacticalButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "onClick"> & {
   onTap?: () => void;
   onHold?: () => void;
+  onHover?: (anchor: DOMRect) => void;
+  onHoverEnd?: () => void;
   stopPropagation?: boolean;
 };
 
-function TacticalButton({ onTap, onHold, stopPropagation, onPointerDown, onPointerUp, onPointerCancel, onPointerEnter, onPointerLeave, onContextMenu, ...props }: TacticalButtonProps) {
+function TacticalButton({ onTap, onHold, onHover, onHoverEnd, stopPropagation, onPointerDown, onPointerUp, onPointerCancel, onPointerEnter, onPointerLeave, onContextMenu, ...props }: TacticalButtonProps) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const held = useRef(false);
+  const hoverOpen = useRef(false);
   const cancelTimer = () => {
     if (timer.current !== null) globalThis.clearTimeout(timer.current);
     timer.current = null;
@@ -521,7 +525,7 @@ function TacticalButton({ onTap, onHold, stopPropagation, onPointerDown, onPoint
       onPointerEnter={(event) => {
         // Desktop gets the same detail drawer as a mobile hold, after a brief
         // pause so passing the cursor across the formation does not feel noisy.
-        if (event.pointerType === "mouse" && onHold) timer.current = globalThis.setTimeout(() => { timer.current = null; onHold(); }, 700);
+        if (event.pointerType === "mouse" && onHover) timer.current = globalThis.setTimeout(() => { timer.current = null; hoverOpen.current = true; onHover(event.currentTarget.getBoundingClientRect()); }, 700);
         onPointerEnter?.(event);
       }}
       onPointerDown={(event) => {
@@ -532,7 +536,7 @@ function TacticalButton({ onTap, onHold, stopPropagation, onPointerDown, onPoint
       }}
       onPointerUp={(event) => { cancelTimer(); onPointerUp?.(event); }}
       onPointerCancel={(event) => { cancelTimer(); onPointerCancel?.(event); }}
-      onPointerLeave={(event) => { cancelTimer(); onPointerLeave?.(event); }}
+      onPointerLeave={(event) => { cancelTimer(); if (event.pointerType === "mouse" && hoverOpen.current) { hoverOpen.current = false; onHoverEnd?.(); } onPointerLeave?.(event); }}
       onContextMenu={(event) => { event.preventDefault(); onContextMenu?.(event); }}
       onClick={(event) => {
         if (stopPropagation) event.stopPropagation();
@@ -635,6 +639,7 @@ export default function GameClient() {
   const [teamPreview, setTeamPreview] = useState<TeamColor | null>(null);
   const [session, setSession] = useState<EngineSession | null>(null);
   const [inspection, setInspection] = useState<Inspection | null>(null);
+  const [hoverInspection, setHoverInspection] = useState<HoverInspection | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [rollNotices, setRollNotices] = useState<RollNotice[]>([]);
   const [resolutionNotices, setResolutionNotices] = useState<ResolutionNotice[]>([]);
@@ -964,7 +969,7 @@ export default function GameClient() {
   };
 
   const rollDecision = isRollFollowUp(pendingRollResolution?.session.state.pendingDecision ?? null) ? pendingRollResolution?.session.state.pendingDecision ?? null : null;
-  return <MissionBoard tutorial={playMode === "TUTORIAL"} session={session} travelStage={travelStage} boardAnimation={boardAnimation} inspection={inspection} error={error} resolutionNotice={resolutionNotices[0] ?? null} rollNotice={resolutionNotices.length ? null : rollNotices[0] ?? null} rollDecision={rollDecision} slayChoiceAnimating={slayChoiceAnimating} onDismissResolutionNotice={() => {
+  return <MissionBoard tutorial={playMode === "TUTORIAL"} session={session} travelStage={travelStage} boardAnimation={boardAnimation} inspection={inspection} hoverInspection={hoverInspection} error={error} resolutionNotice={resolutionNotices[0] ?? null} rollNotice={resolutionNotices.length ? null : rollNotices[0] ?? null} rollDecision={rollDecision} slayChoiceAnimating={slayChoiceAnimating} onDismissResolutionNotice={() => {
     const notice = resolutionNotices[0];
     if (notice?.eyebrow === "Event reveal" && session?.state.pendingDecision?.type === "EVENT_REVEAL_ACK") {
       setResolutionNotices((current) => current.slice(1));
@@ -972,7 +977,7 @@ export default function GameClient() {
       return;
     }
     setResolutionNotices((current) => current.slice(1));
-  }} onDismissRoll={proceedRoll} onInspect={setInspection} onChooseOption={resolveDecision} onUndo={undoOne} onDownloadSave={downloadSave} onDismissInspection={() => setInspection(null)} onNewMission={startNewMission} />;
+  }} onDismissRoll={proceedRoll} onInspect={setInspection} onHoverInspect={(details, anchor) => setHoverInspection({ ...details, anchor: { top: anchor.top, bottom: anchor.bottom, left: anchor.left, right: anchor.right } })} onDismissHoverInspection={() => setHoverInspection(null)} onChooseOption={resolveDecision} onUndo={undoOne} onDownloadSave={downloadSave} onDismissInspection={() => setInspection(null)} onNewMission={startNewMission} />;
 }
 
 type MissionBoardProps = {
@@ -981,12 +986,15 @@ type MissionBoardProps = {
   tutorial: boolean;
   boardAnimation: BoardAnimation | null;
   inspection: Inspection | null;
+  hoverInspection: HoverInspection | null;
   error: string | null;
   resolutionNotice: ResolutionNotice | null;
   rollNotice: RollNotice | null;
   rollDecision: PendingDecision | null;
   slayChoiceAnimating: boolean;
   onInspect: (inspection: Inspection) => void;
+  onHoverInspect: (inspection: Inspection, anchor: DOMRect) => void;
+  onDismissHoverInspection: () => void;
   onDismissResolutionNotice: () => void;
   onChooseOption: (optionId: string) => void;
   onUndo: () => void;
@@ -996,7 +1004,7 @@ type MissionBoardProps = {
   onNewMission: () => void;
 };
 
-function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspection, error, resolutionNotice, rollNotice, rollDecision, slayChoiceAnimating, onInspect, onChooseOption, onUndo, onDownloadSave, onDismissInspection, onDismissResolutionNotice, onDismissRoll, onNewMission }: MissionBoardProps) {
+function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspection, hoverInspection, error, resolutionNotice, rollNotice, rollDecision, slayChoiceAnimating, onInspect, onHoverInspect, onDismissHoverInspection, onChooseOption, onUndo, onDownloadSave, onDismissInspection, onDismissResolutionNotice, onDismissRoll, onNewMission }: MissionBoardProps) {
   const [moveSelection, setMoveSelection] = useState<{ decisionId: string; marineId: string } | null>(null);
   const [strategizeSelection, setStrategizeSelection] = useState<{ decisionId: string; swarmId: string } | null>(null);
   const [doorSwarmSelection, setDoorSwarmSelection] = useState<{ decisionId: string; swarmId: string } | null>(null);
@@ -1095,14 +1103,14 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
         </div>
 
         {missionInfoCollapsed ? (
-          <TacticalButton type="button" className={`lab-hud-tray lab-mission-tray inspectable ${tutorialTarget === "mission" ? "is-tutorial-focus" : ""}`} onTap={() => setMissionInfoCollapsed(false)} onHold={() => onInspect(locationInspection)} aria-label="Expand mission information">
+          <TacticalButton type="button" className={`lab-hud-tray lab-mission-tray inspectable ${tutorialTarget === "mission" ? "is-tutorial-focus" : ""}`} onTap={() => setMissionInfoCollapsed(false)} onHold={() => onInspect(locationInspection)} onHover={(anchor) => onHoverInspect(locationInspection, anchor)} onHoverEnd={onDismissHoverInspection} aria-label="Expand mission information">
             <b><i>Left blips</i>{leftBlips}</b><div className="lab-mission-tray-copy"><strong>{currentLocation?.name ?? setupLocationName(componentDefinitionId(session, state.currentLocationInstanceId))}</strong>{lastEvent && <small>Event · {lastEvent.name}</small>}</div><b><i>Right blips</i>{rightBlips}</b><em>⌄</em>
           </TacticalButton>
         ) : (
           <div className="lab-hud-expanded-panel">
             <div className="lab-location-frame">
               <div className="lab-blip-counter lab-blip-left"><span>Blips</span><strong>{leftBlips}</strong><em>Left</em></div>
-              <TacticalButton type="button" className="lab-location-card inspectable" onHold={() => onInspect(locationInspection)}>
+              <TacticalButton type="button" className="lab-location-card inspectable" onHold={() => onInspect(locationInspection)} onHover={(anchor) => onHoverInspect(locationInspection, anchor)} onHoverEnd={onDismissHoverInspection}>
                 <span>Current location <b>{currentLocation?.tier ?? "Setup"}</b></span>
                 <h2>{currentLocation?.name ?? setupLocationName(componentDefinitionId(session, state.currentLocationInstanceId))}</h2>
                 <strong>{locationInspection.meta ?? "Location"}</strong><p>{locationInspection.body}</p><i className="lab-hud-rivet lab-rivet-one" /><i className="lab-hud-rivet lab-rivet-two" />
@@ -1110,7 +1118,7 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
               <div className="lab-blip-counter lab-blip-right"><span>Blips</span><strong>{rightBlips}</strong><em>Right</em></div>
             </div>
 
-            {lastEvent && lastEventId && <TacticalButton type="button" className="lab-event-card lab-event-card-simple inspectable" onTap={() => setMissionInfoCollapsed(true)} onHold={() => onInspect(sourceInspection(session, lastEventId)!)}>
+            {lastEvent && lastEventId && <TacticalButton type="button" className="lab-event-card lab-event-card-simple inspectable" onTap={() => setMissionInfoCollapsed(true)} onHold={() => onInspect(sourceInspection(session, lastEventId)!)} onHover={(anchor) => onHoverInspect(sourceInspection(session, lastEventId)!, anchor)} onHoverEnd={onDismissHoverInspection}>
               <div className="lab-event-heading"><span>{state.phase === "EVENT" ? "Event resolving" : "Current event"}</span><h3>{lastEvent.name}</h3><em className="lab-panel-collapse-cue">Tap to minimize ⌃</em></div>
               <p>{lastEvent.sourceText}</p>
             </TacticalButton>}
@@ -1120,7 +1128,7 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
 
       {tutorial && tutorialIntroStep < 0 && <TutorialCoach session={session} />}
 
-      <LiveFormationBoard desktopBoardScale={desktopBoardScale} tutorialFocus={tutorialTarget === "board"} travelStage={travelStage} session={session} boardAnimation={boardAnimation} highlightedTerrainIds={new Set(resolutionNotice?.terrainIds ?? [])} targetIds={targetIds} selectedMoveMarineId={selectedMoveMarineId} selectedStrategizeSwarmId={selectedStrategizeSwarmId} selectedDoorSwarmId={selectedDoorSwarmId} selectedHeroicChargeSwarmId={selectedHeroicChargeSwarmId} selectedEventSlaySwarmId={selectedEventSlaySwarmId} heroicChargeSlay={heroicChargeSlay} strategizeSwarms={strategizeSwarmSet} onChooseOption={onChooseOption} onInspect={onInspect} onSelectMoveMarine={(marineId) => { if (decision) setMoveSelection({ decisionId: decision.id, marineId }); }} onSelectStrategizeSwarm={(swarmId) => { if (decision) setStrategizeSelection({ decisionId: decision.id, swarmId }); }} onSelectDoorSwarm={(swarmId) => { if (decision) setDoorSwarmSelection({ decisionId: decision.id, swarmId }); }} onSelectHeroicChargeSwarm={(swarmId) => { if (decision) setHeroicChargeSwarmSelection({ decisionId: decision.id, swarmId }); }} onSelectEventSlaySwarm={(swarmId) => { if (decision) setEventSlaySwarmSelection({ decisionId: decision.id, swarmId }); }} />
+      <LiveFormationBoard desktopBoardScale={desktopBoardScale} tutorialFocus={tutorialTarget === "board"} travelStage={travelStage} session={session} boardAnimation={boardAnimation} highlightedTerrainIds={new Set(resolutionNotice?.terrainIds ?? [])} targetIds={targetIds} selectedMoveMarineId={selectedMoveMarineId} selectedStrategizeSwarmId={selectedStrategizeSwarmId} selectedDoorSwarmId={selectedDoorSwarmId} selectedHeroicChargeSwarmId={selectedHeroicChargeSwarmId} selectedEventSlaySwarmId={selectedEventSlaySwarmId} heroicChargeSlay={heroicChargeSlay} strategizeSwarms={strategizeSwarmSet} onChooseOption={onChooseOption} onInspect={onInspect} onHoverInspect={onHoverInspect} onDismissHoverInspection={onDismissHoverInspection} onSelectMoveMarine={(marineId) => { if (decision) setMoveSelection({ decisionId: decision.id, marineId }); }} onSelectStrategizeSwarm={(swarmId) => { if (decision) setStrategizeSelection({ decisionId: decision.id, swarmId }); }} onSelectDoorSwarm={(swarmId) => { if (decision) setDoorSwarmSelection({ decisionId: decision.id, swarmId }); }} onSelectHeroicChargeSwarm={(swarmId) => { if (decision) setHeroicChargeSwarmSelection({ decisionId: decision.id, swarmId }); }} onSelectEventSlaySwarm={(swarmId) => { if (decision) setEventSlaySwarmSelection({ decisionId: decision.id, swarmId }); }} />
 
       {!travelStage && <section className={`round-command-tray is-${displayedBottomView} ${choosingActions ? "is-choosing" : ""} ${tutorialTarget === "cards" ? "is-tutorial-focus" : ""}`}>
         {choosingActions ? <LiveActionSelection session={session} onChooseOption={onChooseOption} tutorialGuide={activeTutorialGuide} /> : <div className="round-command-viewport" onPointerDown={startTraySwipe} onPointerUp={finishTraySwipe} onPointerCancel={() => { traySwipeStart.current = null; }}><div className={`round-command-rail is-${displayedBottomView}`}>
@@ -1149,6 +1157,7 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
       </section>}
 
       {inspection && <InspectionDrawer inspection={inspection} onClose={onDismissInspection} />}
+      {hoverInspection && <DesktopInspectionTooltip inspection={hoverInspection} />}
       {resolutionNotice?.presentation === "movement" || resolutionNotice?.presentation === "board" ? null : resolutionNotice && <ResolutionNoticeOverlay notice={resolutionNotice} onProceed={onDismissResolutionNotice} />}
       {decision?.type === "FORWARD_SCOUTING_ORDER" && (scoutingPreviewVisible
         ? <ForwardScoutingPreview session={session} decision={decision} onChooseOption={onChooseOption} onViewBoard={() => setScoutingPreviewVisible(false)} />
@@ -1196,7 +1205,7 @@ function labRows(session: EngineSession): LabFormationRow[] {
   });
 }
 
-function LiveFormationBoard({ desktopBoardScale, tutorialFocus = false, session, travelStage, boardAnimation, highlightedTerrainIds, targetIds, selectedMoveMarineId, selectedStrategizeSwarmId, selectedDoorSwarmId, selectedHeroicChargeSwarmId, selectedEventSlaySwarmId, heroicChargeSlay, strategizeSwarms: selectableStrategizeSwarms, onChooseOption, onInspect, onSelectMoveMarine, onSelectStrategizeSwarm, onSelectDoorSwarm, onSelectHeroicChargeSwarm, onSelectEventSlaySwarm }: { desktopBoardScale: DesktopBoardScale; tutorialFocus?: boolean; session: EngineSession; travelStage: TravelStage | null; boardAnimation: BoardAnimation | null; highlightedTerrainIds: Set<string>; targetIds: Set<string>; selectedMoveMarineId: string | null; selectedStrategizeSwarmId: string | null; selectedDoorSwarmId: string | null; selectedHeroicChargeSwarmId: string | null; selectedEventSlaySwarmId: string | null; heroicChargeSlay: boolean; strategizeSwarms: Set<string>; onChooseOption: (optionId: string) => void; onInspect: (inspection: Inspection) => void; onSelectMoveMarine: (marineId: string) => void; onSelectStrategizeSwarm: (swarmId: string) => void; onSelectDoorSwarm: (swarmId: string) => void; onSelectHeroicChargeSwarm: (swarmId: string) => void; onSelectEventSlaySwarm: (swarmId: string) => void }) {
+function LiveFormationBoard({ desktopBoardScale, tutorialFocus = false, session, travelStage, boardAnimation, highlightedTerrainIds, targetIds, selectedMoveMarineId, selectedStrategizeSwarmId, selectedDoorSwarmId, selectedHeroicChargeSwarmId, selectedEventSlaySwarmId, heroicChargeSlay, strategizeSwarms: selectableStrategizeSwarms, onChooseOption, onInspect, onHoverInspect, onDismissHoverInspection, onSelectMoveMarine, onSelectStrategizeSwarm, onSelectDoorSwarm, onSelectHeroicChargeSwarm, onSelectEventSlaySwarm }: { desktopBoardScale: DesktopBoardScale; tutorialFocus?: boolean; session: EngineSession; travelStage: TravelStage | null; boardAnimation: BoardAnimation | null; highlightedTerrainIds: Set<string>; targetIds: Set<string>; selectedMoveMarineId: string | null; selectedStrategizeSwarmId: string | null; selectedDoorSwarmId: string | null; selectedHeroicChargeSwarmId: string | null; selectedEventSlaySwarmId: string | null; heroicChargeSlay: boolean; strategizeSwarms: Set<string>; onChooseOption: (optionId: string) => void; onInspect: (inspection: Inspection) => void; onHoverInspect: (inspection: Inspection, anchor: DOMRect) => void; onDismissHoverInspection: () => void; onSelectMoveMarine: (marineId: string) => void; onSelectStrategizeSwarm: (swarmId: string) => void; onSelectDoorSwarm: (swarmId: string) => void; onSelectHeroicChargeSwarm: (swarmId: string) => void; onSelectEventSlaySwarm: (swarmId: string) => void }) {
   const { state } = session;
   const boardScale = useBoardScale(desktopBoardScale);
   const decision = state.pendingDecision;
@@ -1304,7 +1313,7 @@ function LiveFormationBoard({ desktopBoardScale, tutorialFocus = false, session,
   // touch geometry stable while distributing the surviving Marines across it.
   const liveStyle = { "--lab-scale": boardScale.toFixed(3), "--lab-viewport": "1180px", "--lab-row-count": String(Math.max(rows.length, 1)) } as CSSProperties;
   const locationProgress = data.definitions.locations.find((item) => item.id === componentDefinitionId(session, state.currentLocationInstanceId))?.tier ?? "1";
-  return <section className={`live-sprite-board travel-live-board ${travelStage ? `is-${travelStage}` : ""} ${tutorialFocus ? "is-tutorial-focus" : ""}`} style={liveStyle}><FormationBoard key={state.currentLocationInstanceId} rows={rows} locationProgress={locationProgress} marineSpriteUrl="prototype-art/marine-idle.gif" marineDeathStripUrl="game-art/marine/death.png" marineDodgeStripUrl="game-art/marine/dodge.png" marineFireStripUrls={{ straight: "game-art/marine/fire-straight.png", up: "game-art/marine/fire-up.png", down: "game-art/marine/fire-down.png" }} marineJamStripUrls={{ straight: "game-art/marine/gun-jam-straight.png", up: "game-art/marine/gun-jam-up.png", down: "game-art/marine/gun-jam-down.png" }} alienSpriteUrl="prototype-art/alien-attack.gif" alienAttackStripUrl="game-art/genestealer/attack.png" alienDeathStripUrl="game-art/genestealer/death.png" alienIdleStripUrl="game-art/genestealer/idle.png" broodlordSpriteUrl="game-art/broodlord/idle.png" broodlordAttackStripUrl="game-art/broodlord/attack.png" broodlordDeathStripUrl="game-art/broodlord/death.png" terrainSpriteUrls={{ Corridor: "game-art/terrain/corridor-v1.png", Artefact: "game-art/terrain/artefact-v1.png", "Control Panel": "game-art/terrain/control-panel-v1.png", Door: "game-art/terrain/door-v1.png", "Promethium Tank": "game-art/terrain/promethium-tank-v1.png", "Dark Corner": "game-art/terrain/dark-corner-v1.png", "Spore Chimney": "game-art/terrain/spore-chimney-v1.png", "Ventilation Duct": "game-art/terrain/ventilation-duct-v1.png" }} movingSwarmCells={boardAnimation?.movingSwarmCells} marineAnimationStates={marineAnimationStates} swarmAnimationStates={swarmAnimationStates} marineStates={marineStates} marineMoveChoices={marineMoveChoices} overlayChoices={overlayChoices} swarmStates={swarmStates} terrainStates={terrainStates} selectedMarine={null} onSelectMarine={chooseMarine} onSelectSwarm={chooseSwarm} onSelectTerrain={chooseTerrain} onOverlayChoice={(choice) => chooseCellOption(choice.row, choice.side)} onMarineMoveChoice={(choice) => { const option = decision?.legalOptions.find((item) => item.payload.marineId === selectedMoveMarineId && item.payload.to === choice.row); if (option) onChooseOption(option.id); }} onInspect={(details) => onInspect({ eyebrow: details.eyebrow, title: details.title, body: details.body, meta: details.subtitle })} /><div className="travel-live-blackout" aria-hidden="true" /></section>;
+  return <section className={`live-sprite-board travel-live-board ${travelStage ? `is-${travelStage}` : ""} ${tutorialFocus ? "is-tutorial-focus" : ""}`} style={liveStyle}><FormationBoard key={state.currentLocationInstanceId} rows={rows} locationProgress={locationProgress} marineSpriteUrl="prototype-art/marine-idle.gif" marineDeathStripUrl="game-art/marine/death.png" marineDodgeStripUrl="game-art/marine/dodge.png" marineFireStripUrls={{ straight: "game-art/marine/fire-straight.png", up: "game-art/marine/fire-up.png", down: "game-art/marine/fire-down.png" }} marineJamStripUrls={{ straight: "game-art/marine/gun-jam-straight.png", up: "game-art/marine/gun-jam-up.png", down: "game-art/marine/gun-jam-down.png" }} alienSpriteUrl="prototype-art/alien-attack.gif" alienAttackStripUrl="game-art/genestealer/attack.png" alienDeathStripUrl="game-art/genestealer/death.png" alienIdleStripUrl="game-art/genestealer/idle.png" broodlordSpriteUrl="game-art/broodlord/idle.png" broodlordAttackStripUrl="game-art/broodlord/attack.png" broodlordDeathStripUrl="game-art/broodlord/death.png" terrainSpriteUrls={{ Corridor: "game-art/terrain/corridor-v1.png", Artefact: "game-art/terrain/artefact-v1.png", "Control Panel": "game-art/terrain/control-panel-v1.png", Door: "game-art/terrain/door-v1.png", "Promethium Tank": "game-art/terrain/promethium-tank-v1.png", "Dark Corner": "game-art/terrain/dark-corner-v1.png", "Spore Chimney": "game-art/terrain/spore-chimney-v1.png", "Ventilation Duct": "game-art/terrain/ventilation-duct-v1.png" }} movingSwarmCells={boardAnimation?.movingSwarmCells} marineAnimationStates={marineAnimationStates} swarmAnimationStates={swarmAnimationStates} marineStates={marineStates} marineMoveChoices={marineMoveChoices} overlayChoices={overlayChoices} swarmStates={swarmStates} terrainStates={terrainStates} selectedMarine={null} onSelectMarine={chooseMarine} onSelectSwarm={chooseSwarm} onSelectTerrain={chooseTerrain} onOverlayChoice={(choice) => chooseCellOption(choice.row, choice.side)} onMarineMoveChoice={(choice) => { const option = decision?.legalOptions.find((item) => item.payload.marineId === selectedMoveMarineId && item.payload.to === choice.row); if (option) onChooseOption(option.id); }} onInspect={(details) => onInspect({ eyebrow: details.eyebrow, title: details.title, body: details.body, meta: details.subtitle })} onHoverInspect={(details, anchor) => onHoverInspect({ eyebrow: details.eyebrow, title: details.title, body: details.body, meta: details.subtitle }, anchor)} onDismissHoverInspection={onDismissHoverInspection} /><div className="travel-live-blackout" aria-hidden="true" /></section>;
 }
 
 // Kept as a reference while the remaining card-level target choices are moved to the sprite board.
@@ -1398,6 +1407,23 @@ function InspectionDrawer({ inspection, onClose }: { inspection: Inspection; onC
       </aside>
     </div>
   );
+}
+
+function DesktopInspectionTooltip({ inspection }: { inspection: HoverInspection }) {
+  const viewportWidth = globalThis.innerWidth;
+  const viewportHeight = globalThis.innerHeight;
+  const width = Math.min(640, viewportWidth - 42);
+  const topReserve = 82;
+  const bottomReserve = 112;
+  const height = 154;
+  const laneCenters = [topReserve + height / 2, topReserve + (viewportHeight - topReserve - bottomReserve) * .36, topReserve + (viewportHeight - topReserve - bottomReserve) * .64, viewportHeight - bottomReserve - height / 2];
+  const sourceCenter = (inspection.anchor.top + inspection.anchor.bottom) / 2;
+  const laneTops = laneCenters.map((center) => Math.max(topReserve, Math.min(viewportHeight - bottomReserve - height, center - height / 2)));
+  const safeLaneTops = laneTops.filter((top) => top > inspection.anchor.bottom + 10 || top + height < inspection.anchor.top - 10);
+  const top = [...(safeLaneTops.length ? safeLaneTops : laneTops)].sort((left, right) => Math.abs(left + height / 2 - sourceCenter) - Math.abs(right + height / 2 - sourceCenter))[0];
+  const sourceAbove = inspection.anchor.bottom < top;
+  const arrowX = Math.max(24, Math.min(width - 24, (inspection.anchor.left + inspection.anchor.right) / 2 - (viewportWidth - width) / 2));
+  return <aside className={`desktop-inspection-tooltip is-source-${sourceAbove ? "above" : "below"}`} style={{ "--inspection-top": `${top}px`, "--inspection-arrow-x": `${arrowX}px` } as CSSProperties} aria-live="polite"><span>{inspection.eyebrow}</span><h2>{inspection.title}</h2>{inspection.meta && <strong>{inspection.meta}</strong>}<p>{inspection.body}</p></aside>;
 }
 
 function ResolutionNoticeOverlay({ notice, onProceed }: { notice: ResolutionNotice; onProceed: () => void }) {
