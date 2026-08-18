@@ -948,7 +948,7 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
 
   return (
     <main className={`mission-shell ${choosingActions ? "is-choosing-actions" : ""}`}>
-      <section className="lab-hud" aria-label="Mission status">
+      <section className={`lab-hud ${missionInfoCollapsed ? "is-collapsed" : "is-expanded"}`} aria-label="Mission status">
         <div className="lab-hud-command">
           <div className="live-hud-stats"><span>Marines <b>{livingMarines}/6</b></span><span>Support <b><i>●</i>{state.supportSupply}</b></span></div>
           <div className="lab-hud-cycle"><span>Round</span><strong>{String(state.round).padStart(2, "0")}</strong></div>
@@ -961,7 +961,7 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
             <b><i>Left blips</i>{leftBlips}</b><div className="lab-mission-tray-copy"><strong>{currentLocation?.name ?? setupLocationName(componentDefinitionId(session, state.currentLocationInstanceId))}</strong>{lastEvent && <small>Event · {lastEvent.name}</small>}</div><b><i>Right blips</i>{rightBlips}</b><em>⌄</em>
           </TacticalButton>
         ) : (
-          <>
+          <div className="lab-hud-expanded-panel">
             <div className="lab-location-frame">
               <div className="lab-blip-counter lab-blip-left"><span>Blips</span><strong>{leftBlips}</strong><em>Left</em></div>
               <TacticalButton type="button" className="lab-location-card inspectable" onHold={() => onInspect(locationInspection)}>
@@ -976,7 +976,7 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
               <div className="lab-event-heading"><span>{state.phase === "EVENT" ? "Event resolving" : "Current event"}</span><h3>{lastEvent.name}</h3><em className="lab-panel-collapse-cue">Tap to minimize ⌃</em></div>
               <p>{lastEvent.sourceText}</p>
             </TacticalButton>}
-          </>
+          </div>
         )}
       </section>
 
