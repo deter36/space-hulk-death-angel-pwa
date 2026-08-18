@@ -501,7 +501,7 @@ type TacticalButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "onClic
   stopPropagation?: boolean;
 };
 
-function TacticalButton({ onTap, onHold, stopPropagation, onPointerDown, onPointerUp, onPointerCancel, onPointerLeave, onContextMenu, ...props }: TacticalButtonProps) {
+function TacticalButton({ onTap, onHold, stopPropagation, onPointerDown, onPointerUp, onPointerCancel, onPointerEnter, onPointerLeave, onContextMenu, ...props }: TacticalButtonProps) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const held = useRef(false);
   const cancelTimer = () => {
@@ -511,7 +511,14 @@ function TacticalButton({ onTap, onHold, stopPropagation, onPointerDown, onPoint
   return (
     <button
       {...props}
+      onPointerEnter={(event) => {
+        // Desktop gets the same detail drawer as a mobile hold, after a brief
+        // pause so passing the cursor across the formation does not feel noisy.
+        if (event.pointerType === "mouse" && onHold) timer.current = globalThis.setTimeout(() => { timer.current = null; onHold(); }, 360);
+        onPointerEnter?.(event);
+      }}
       onPointerDown={(event) => {
+        cancelTimer();
         held.current = false;
         if (onHold) timer.current = globalThis.setTimeout(() => { held.current = true; onHold(); }, HOLD_DURATION_MS);
         onPointerDown?.(event);
