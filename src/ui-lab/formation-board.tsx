@@ -1,6 +1,6 @@
 /* eslint-disable @next/next/no-img-element -- The lab intentionally renders animated sprite canvases directly. */
 import type { Side } from "@/src/data/types";
-import { Fragment, useRef, type CSSProperties, type MouseEvent } from "react";
+import { Fragment, useRef, type CSSProperties, type MouseEvent, type PointerEvent } from "react";
 import type { LabFlank, LabFormationRow, LabMarine, LabSwarm, LabTerrain } from "./formation-types";
 
 export type LabTargetState = "neutral" | "selectable" | "selected" | "targeted" | "unavailable" | "destination";
@@ -70,24 +70,23 @@ const TERRAIN_RULES: Record<string, string> = {
   "Ventilation Duct": "This Terrain has no Activate ability.",
 };
 
-function usePress(onTap: () => void, onHold: () => void, onHover?: (anchor: DOMRect) => void, onHoverEnd?: () => void) {
+function usePress(onTap: () => void, onHold: () => void) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const held = useRef(false);
-  const hoverOpen = useRef(false);
   const clear = () => { if (timer.current) clearTimeout(timer.current); timer.current = null; };
   return {
     onClick: (event: MouseEvent) => { if (held.current) { held.current = false; event.preventDefault(); return; } onTap(); },
     onContextMenu: (event: MouseEvent) => event.preventDefault(),
     onPointerCancel: clear,
-    onMouseEnter: (event: MouseEvent) => {
-      // Mouse events work consistently in ordinary desktop browsers and the
-      // remote desktop view; touch still uses only the long-press path.
-      clear();
-      if (onHover && globalThis.matchMedia?.("(hover: hover)").matches) timer.current = setTimeout(() => { timer.current = null; hoverOpen.current = true; onHover(event.currentTarget.getBoundingClientRect()); }, 700);
+    onPointerEnter: (event: PointerEvent) => {
+      // Keep desktop hover on the same original inspection trigger as hold.
+      if (event.pointerType === "mouse") {
+        clear();
+        timer.current = setTimeout(() => { timer.current = null; onHold(); }, 700);
+      }
     },
     onPointerDown: () => { held.current = false; clear(); timer.current = setTimeout(() => { held.current = true; onHold(); }, 520); },
     onPointerLeave: clear,
-    onMouseLeave: () => { clear(); if (hoverOpen.current) { hoverOpen.current = false; onHoverEnd?.(); } },
     onPointerUp: clear,
   };
 }
@@ -108,10 +107,11 @@ function SwarmReadout({ swarm }: { swarm: LabSwarm }) {
 }
 
 function Flank({ alienAttackStripUrl, alienDeathStripUrl, alienIdleStripUrl, alienSpriteUrl, broodlordAttackStripUrl, broodlordDeathStripUrl, broodlordSpriteUrl, flank, moving, movementDirection, onInspect, onHoverInspect, onDismissHoverInspection, onSelectSwarm, onSelectTerrain, overlay, side, swarmAnimation, swarmState = "neutral", terrainState = "neutral", terrainSpriteUrls }: { alienAttackStripUrl?: string; alienDeathStripUrl?: string; alienIdleStripUrl?: string; alienSpriteUrl: string; broodlordAttackStripUrl?: string; broodlordDeathStripUrl?: string; broodlordSpriteUrl?: string; flank: LabFlank; moving?: boolean; movementDirection?: "up" | "down" | "flank"; onInspect?: (details: LabInspection) => void; onHoverInspect?: (details: LabInspection, anchor: DOMRect) => void; onDismissHoverInspection?: () => void; onSelectSwarm: () => void; onSelectTerrain: () => void; overlay?: LabOverlayChoice; side: Side; swarmAnimation?: "attack" | "death"; swarmState?: LabTargetState; terrainState?: LabTargetState; terrainSpriteUrls?: Partial<Record<string, string>> }) {
+  void onHoverInspect; void onDismissHoverInspection;
   const visibleMembers = flank.swarm ? [...Array.from({ length: flank.swarm.broodLords ?? 0 }, () => "broodlord" as const), ...flank.swarm.icons.map(() => "genestealer" as const)].slice(0, 3) : [];
   const terrains = flank.terrains ?? (flank.terrain ? [flank.terrain] : []);
-  const terrainPress = usePress(onSelectTerrain, () => flank.terrain && onInspect?.(inspectTerrain(flank.terrain)), (anchor) => flank.terrain && onHoverInspect?.(inspectTerrain(flank.terrain), anchor), onDismissHoverInspection);
-  const swarmPress = usePress(onSelectSwarm, () => flank.swarm && onInspect?.(inspectSwarm(flank.swarm)), (anchor) => flank.swarm && onHoverInspect?.(inspectSwarm(flank.swarm), anchor), onDismissHoverInspection);
+  const terrainPress = usePress(onSelectTerrain, () => flank.terrain && onInspect?.(inspectTerrain(flank.terrain)));
+  const swarmPress = usePress(onSelectSwarm, () => flank.swarm && onInspect?.(inspectSwarm(flank.swarm)));
   return (
     <div className={`lab-flank lab-flank-${side.toLowerCase()} ${flank.swarm ? "is-engaged" : ""} ${flank.terrain ? "has-terrain" : ""} ${moving ? `is-swarm-moving is-swarm-moving-${movementDirection ?? "up"}` : ""}`}>
       {terrains.map((terrain, index) => <button type="button" key={`${terrain.name}.${index}`} className={`lab-terrain ${terrainSpriteUrls?.[terrain.name] ? "has-art" : ""} lab-spawn-${terrain.color.toLowerCase()} is-${terrainState}`} style={{ "--terrain-layer": index } as CSSProperties} aria-label={`${terrain.name} Terrain`} aria-disabled={terrainState === "unavailable"} {...terrainPress}>{terrainSpriteUrls?.[terrain.name] && <img src={terrainSpriteUrls[terrain.name]} alt="" />}{terrain.supportTokens ? <b className="lab-terrain-support">{"●".repeat(terrain.supportTokens)}</b> : null}</button>)}
@@ -133,13 +133,14 @@ function Flank({ alienAttackStripUrl, alienDeathStripUrl, alienIdleStripUrl, ali
 }
 
 function Marine({ animation, deathStripUrl, dodgeStripUrl, fireStripUrls, jamStripUrls, marine, marineSpriteUrl, moveChoice, onInspect, onHoverInspect, onDismissHoverInspection, onSelect, state }: { animation?: "dead" | "death" | "dodge" | "fire-straight" | "fire-up" | "fire-down" | "gunJam-straight" | "gunJam-up" | "gunJam-down"; deathStripUrl?: string; dodgeStripUrl?: string; fireStripUrls?: Partial<Record<"straight" | "up" | "down", string>>; jamStripUrls?: Partial<Record<"straight" | "up" | "down", string>>; marine: LabMarine; marineSpriteUrl: string; moveChoice?: LabMarineMoveChoice; onInspect?: (details: LabInspection) => void; onHoverInspect?: (details: LabInspection, anchor: DOMRect) => void; onDismissHoverInspection?: () => void; onSelect: () => void; state: LabTargetState }) {
+  void onHoverInspect; void onDismissHoverInspection;
   const { facing, name, supportTokens = 0, team } = marine;
   const fallbackDetails = MARINE_DETAILS[name] ?? Object.entries(MARINE_DETAILS).find(([fullName]) => fullName.endsWith(` ${name}`))?.[1] ?? { range: 0 };
   const details = { ...fallbackDetails, range: marine.range ?? fallbackDetails.range, ability: marine.ability ?? fallbackDetails.ability, abilityText: marine.abilityText ?? fallbackDetails.abilityText };
   const trajectory = animation?.split("-")[1] as "straight" | "up" | "down" | undefined;
   const animationUrl = animation === "death" || animation === "dead" ? deathStripUrl : animation === "dodge" ? dodgeStripUrl : animation?.startsWith("fire-") ? fireStripUrls?.[trajectory!] : animation?.startsWith("gunJam-") ? jamStripUrls?.[trajectory!] : undefined;
   const inspection = { eyebrow: `${team} team Space Marine`, title: name, subtitle: `Range ${details.range} · ${supportTokens} support token${supportTokens === 1 ? "" : "s"}`, body: details.ability ? `${details.ability}: ${details.abilityText}` : "This Space Marine has no individual special ability." };
-  const press = usePress(onSelect, () => onInspect?.(inspection), (anchor) => onHoverInspect?.(inspection, anchor), onDismissHoverInspection);
+  const press = usePress(onSelect, () => onInspect?.(inspection));
   return (
     <button type="button" className={`lab-marine lab-team-${team.toLowerCase()} lab-face-${facing.toLowerCase()} is-${state}`} aria-label={`${name}, ${team} team, range ${details.range}, ${supportTokens} support tokens, facing ${facing.toLowerCase()}`} aria-pressed={state === "selected"} aria-disabled={state === "unavailable"} {...press}>
       {animation && animationUrl ? <span className={`lab-marine-sprite lab-marine-strip is-${animation}`} style={{ backgroundImage: `url(${animationUrl})` }} aria-hidden="true" /> : <img className="lab-marine-sprite" src={marineSpriteUrl} alt="" />}
