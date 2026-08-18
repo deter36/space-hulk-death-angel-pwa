@@ -1,6 +1,6 @@
 /* eslint-disable @next/next/no-img-element -- The lab intentionally renders animated sprite canvases directly. */
 import type { Side } from "@/src/data/types";
-import { Fragment, useRef, type CSSProperties, type MouseEvent, type PointerEvent } from "react";
+import { Fragment, useRef, type CSSProperties, type MouseEvent } from "react";
 import type { LabFlank, LabFormationRow, LabMarine, LabSwarm, LabTerrain } from "./formation-types";
 
 export type LabTargetState = "neutral" | "selectable" | "selected" | "targeted" | "unavailable" | "destination";
@@ -79,16 +79,15 @@ function usePress(onTap: () => void, onHold: () => void, onHover?: (anchor: DOMR
     onClick: (event: MouseEvent) => { if (held.current) { held.current = false; event.preventDefault(); return; } onTap(); },
     onContextMenu: (event: MouseEvent) => event.preventDefault(),
     onPointerCancel: clear,
-    onPointerEnter: (event: PointerEvent) => {
-      // The sprite formation has its own press handler, separate from the
-      // shared tactical buttons used by the header cards.
-      if (event.pointerType === "mouse") {
-        clear();
-        if (onHover) timer.current = setTimeout(() => { timer.current = null; hoverOpen.current = true; onHover(event.currentTarget.getBoundingClientRect()); }, 700);
-      }
+    onMouseEnter: (event: MouseEvent) => {
+      // Mouse events work consistently in ordinary desktop browsers and the
+      // remote desktop view; touch still uses only the long-press path.
+      clear();
+      if (onHover && globalThis.matchMedia?.("(hover: hover)").matches) timer.current = setTimeout(() => { timer.current = null; hoverOpen.current = true; onHover(event.currentTarget.getBoundingClientRect()); }, 700);
     },
     onPointerDown: () => { held.current = false; clear(); timer.current = setTimeout(() => { held.current = true; onHold(); }, 520); },
-    onPointerLeave: (event: PointerEvent) => { clear(); if (event.pointerType === "mouse" && hoverOpen.current) { hoverOpen.current = false; onHoverEnd?.(); } },
+    onPointerLeave: clear,
+    onMouseLeave: () => { clear(); if (hoverOpen.current) { hoverOpen.current = false; onHoverEnd?.(); } },
     onPointerUp: clear,
   };
 }

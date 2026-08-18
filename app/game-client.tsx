@@ -511,7 +511,7 @@ type TacticalButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "onClic
   stopPropagation?: boolean;
 };
 
-function TacticalButton({ onTap, onHold, onHover, onHoverEnd, stopPropagation, onPointerDown, onPointerUp, onPointerCancel, onPointerEnter, onPointerLeave, onContextMenu, ...props }: TacticalButtonProps) {
+function TacticalButton({ onTap, onHold, onHover, onHoverEnd, stopPropagation, onPointerDown, onPointerUp, onPointerCancel, onPointerEnter, onPointerLeave, onMouseEnter, onMouseLeave, onContextMenu, ...props }: TacticalButtonProps) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const held = useRef(false);
   const hoverOpen = useRef(false);
@@ -522,11 +522,12 @@ function TacticalButton({ onTap, onHold, onHover, onHoverEnd, stopPropagation, o
   return (
     <button
       {...props}
-      onPointerEnter={(event) => {
-        // Desktop gets the same detail drawer as a mobile hold, after a brief
-        // pause so passing the cursor across the formation does not feel noisy.
-        if (event.pointerType === "mouse" && onHover) timer.current = globalThis.setTimeout(() => { timer.current = null; hoverOpen.current = true; onHover(event.currentTarget.getBoundingClientRect()); }, 700);
-        onPointerEnter?.(event);
+      onPointerEnter={onPointerEnter}
+      onMouseEnter={(event) => {
+        // Mouse events are the reliable desktop signal, including narrow
+        // desktop windows and remote-browser sessions.
+        if (onHover && globalThis.matchMedia?.("(hover: hover)").matches) timer.current = globalThis.setTimeout(() => { timer.current = null; hoverOpen.current = true; onHover(event.currentTarget.getBoundingClientRect()); }, 700);
+        onMouseEnter?.(event);
       }}
       onPointerDown={(event) => {
         cancelTimer();
@@ -536,7 +537,8 @@ function TacticalButton({ onTap, onHold, onHover, onHoverEnd, stopPropagation, o
       }}
       onPointerUp={(event) => { cancelTimer(); onPointerUp?.(event); }}
       onPointerCancel={(event) => { cancelTimer(); onPointerCancel?.(event); }}
-      onPointerLeave={(event) => { cancelTimer(); if (event.pointerType === "mouse" && hoverOpen.current) { hoverOpen.current = false; onHoverEnd?.(); } onPointerLeave?.(event); }}
+      onPointerLeave={(event) => { cancelTimer(); onPointerLeave?.(event); }}
+      onMouseLeave={(event) => { cancelTimer(); if (hoverOpen.current) { hoverOpen.current = false; onHoverEnd?.(); } onMouseLeave?.(event); }}
       onContextMenu={(event) => { event.preventDefault(); onContextMenu?.(event); }}
       onClick={(event) => {
         if (stopPropagation) event.stopPropagation();
