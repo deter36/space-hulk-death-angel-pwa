@@ -152,7 +152,7 @@ function formatActionType(type: string): string {
 
 function actionCardSummary(type: string): string {
   if (type === "SUPPORT") return "Place support";
-  if (type === "MOVE_ACTIVATE") return "Move + activate";
+  if (type === "MOVE_ACTIVATE") return "Move + Activate";
   return "Attack";
 }
 
