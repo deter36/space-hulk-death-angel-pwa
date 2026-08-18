@@ -994,8 +994,7 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
         {state.activeDie && <DiePanel value={state.activeDie.modifiedValue} skull={state.activeDie.skull} purpose={state.activeDie.purpose} rerolls={state.activeDie.rerolls.length} />}
         {decision ? (
           <div className={`dock-decision ${decisionAction ? `team-context team-${decisionAction.team.toLowerCase()}` : ""}`}>
-            <div className="decision-heading"><span>{decision.type === "EVENT_MOVEMENT_ACK" ? "Genestealer movement" : formatPhase(decision.type)}</span></div>
-            {decisionAction && <div className="decision-source"><i />{decisionAction.team} · {decisionAction.name}</div>}
+            <div className="decision-brief">{decisionAction ? <><strong>{decisionAction.name}</strong><span>— {actionCardSummary(decisionAction.type)}</span></> : <span>{decision.type === "EVENT_MOVEMENT_ACK" ? "Genestealer movement" : formatPhase(decision.type)}</span>}</div>
             {decisionRules && <div className="decision-rules"><strong>Artefact ability</strong><span>{decisionRules}</span></div>}
             <p>{decisionInstruction(session, decision, selectedMoveMarineId, selectedStrategizeSwarmId, scoutingPreviewVisible)}</p>
             {decision.type === "STRATEGIZE" && selectedStrategizeSwarmId && <button type="button" className="strategize-reset" onClick={() => setStrategizeSelection(null)}>Choose another swarm</button>}

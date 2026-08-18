@@ -211,6 +211,13 @@ button:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
 .round-command-tray .live-action-dock { width: 100%; height: 100%; margin: 0; }
 .round-command-tray .command-dock { box-sizing: border-box; height: 100%; margin: 0; padding: 4px 7px; overflow-y: auto; border-top-width: 2px; box-shadow: none; }
 .round-command-tray .command-dock .die-panel { display: none; }
+.round-command-tray .dock-decision { min-width: 0; }
+.round-command-tray .dock-decision.team-context { padding-left: 6px; border-left-width: 3px; }
+.round-command-tray .decision-brief { display: flex; min-width: 0; align-items: baseline; gap: 4px; color: #e8ece8; font-size: .62rem; font-weight: 750; line-height: 1.1; }
+.round-command-tray .decision-brief strong { overflow: hidden; color: var(--team-color); font-size: .65rem; text-overflow: ellipsis; white-space: nowrap; }
+.round-command-tray .decision-brief span { overflow: hidden; color: #d7ddd8; text-overflow: ellipsis; white-space: nowrap; }
+.round-command-tray .dock-decision > p { margin: 4px 0 0; color: var(--muted); font-size: .58rem; line-height: 1.15; }
+.round-command-tray .dock-options { margin-top: 5px; }
 .live-action-dock.is-compact { position: relative; z-index: 30; height: 100%; border: 0; padding-bottom: 0; background: transparent; box-shadow: none; }
 .live-action-dock.is-compact .live-action-hands { min-height: 100%; height: 100%; background: transparent; }
 .live-action-dock.is-compact .live-action-team-slot { width: 100%; min-height: 100%; height: 100%; border: 0; padding: 6px 2px 2px; background: transparent; }
