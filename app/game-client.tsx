@@ -16,6 +16,7 @@ import {
   type PendingDecision,
 } from "@/src/engine";
 import type { GenestealerIcon, Side, TeamColor } from "@/src/data/types";
+import type { TransitionRecord } from "@/src/engine/transitions/types";
 import { EngineSessionStallError, settleEngineSession } from "@/src/ui-adapter/session-settler";
 import { combatDieFace } from "@/src/ui-adapter/combat-die";
 import { isOffBoardMarineOption, presentedDecisionOption } from "@/src/ui-adapter/decision-presentation";
@@ -336,7 +337,12 @@ function resolutionNoticesFrom(session: EngineSession, startingAt: number, throu
   const eventDraw = transitions.find((transition) => transition.type === "CARD_DRAWN" && transition.sourceId === "event.deck");
   const eventId = eventDraw?.randomInputs.find((input) => input.kind === "DRAW")?.cardId;
   const resolvingEvent = eventId ? findEvent(eventId) : null;
-  const spawned = transitions.flatMap((transition) => transition.randomInputs).filter((input) => input.kind === "DRAW" && (input.sourceId === "blip.left" || input.sourceId === "blip.right")).length;
+  // A Blip pile is also drawn from when an effect discards its top card.
+  // Only draws whose resulting component enters a swarm are actual spawns.
+  const isSpawnDraw = (transition: TransitionRecord) => transition.type === "CARD_DRAWN"
+    && (transition.sourceId === "blip.left" || transition.sourceId === "blip.right")
+    && transition.mutations.some((mutation) => mutation.path.endsWith(".zone") && mutation.value === "SWARM");
+  const spawned = transitions.filter(isSpawnDraw).length;
   const moved = transitions.filter((transition) => transition.type === "SWARM_MOVED" || transition.type === "SWARM_FLANKED").length;
   let spawnNoticeAdded = false;
   let movementNoticeAdded = false;
@@ -361,7 +367,7 @@ function resolutionNoticesFrom(session: EngineSession, startingAt: number, throu
       const event = eventId ? findEvent(eventId) : null;
       if (event) notices.push({ id, eyebrow: "Event reveal", title: event.name, body: event.sourceText, meta: `${event.activations.map((activation) => `${formatPhase(activation.severity)} ${formatPhase(activation.terrainColor)}`).join(" · ")} · ${event.movementIcon ? `${ICON_LABELS[event.movementIcon]} ${event.movement?.toLowerCase() ?? "movement"}` : "No movement"}` });
     }
-    else if (!spawnNoticeAdded && transition.type === "CARD_DRAWN" && (transition.sourceId === "blip.left" || transition.sourceId === "blip.right") && spawned > 0) {
+    else if (!spawnNoticeAdded && isSpawnDraw(transition) && spawned > 0) {
       spawnNoticeAdded = true;
       const terrainIds = transitions.filter((candidate) => candidate.type === "EVENT_TERRAIN_SPAWN_RESOLVED" && candidate.sourceId).map((candidate) => candidate.sourceId!);
       notices.push({ id, eyebrow: "Spawn activations", title: `${spawned} Genestealer${spawned === 1 ? "" : "s"} spawned`, body: "Both Event activations are shown on the brightly highlighted Terrain positions.", meta: resolvingEvent?.activations.map((activation) => `${formatPhase(activation.severity)} ${formatPhase(activation.terrainColor)}`).join(" · "), presentation: "board", terrainIds });
