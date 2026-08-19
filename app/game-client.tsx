@@ -1062,6 +1062,8 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
   const desktopUiScale = useBoardScale(desktopBoardScale);
   const { state } = session;
   const decision = state.pendingDecision;
+  const missionEnded = state.status === "VICTORY" || state.status === "DEFEAT";
+  const showMissionEnd = missionEnded && !travelStage && !boardAnimation && !rollNotice && !resolutionNotice && !slayChoiceAnimating;
   const arrivalLocationOption = decision?.type === "LOCATION_ARRIVAL_ACK" ? decision.legalOptions.find((option) => option.id === "begin") ?? null : null;
   // Do not expose the next round's hand until all event presentation
   // checkpoints (including a no-movement event) have been acknowledged.
@@ -1203,6 +1205,7 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
 
       {inspection && <InspectionDrawer inspection={inspection} onClose={onDismissInspection} />}
       {hoverInspection && <DesktopInspectionTooltip inspection={hoverInspection} />}
+      {showMissionEnd && <MissionEndOverlay status={state.status === "VICTORY" ? "VICTORY" : "DEFEAT"} location={locationInspection.title} round={state.round} survivors={state.formation.length} onDownloadSave={onDownloadSave} onNewMission={onNewMission} />}
       {!travelStage && arrivalLocationOption && <ResolutionNoticeOverlay notice={{ id: decision!.id, eyebrow: "New location", title: locationInspection.title, body: locationInspection.body, meta: locationInspection.meta }} proceedLabel="Begin location" onProceed={() => onChooseOption(arrivalLocationOption.id)} />}
       {resolutionNotice?.presentation === "movement" || resolutionNotice?.presentation === "board" ? null : resolutionNotice && <ResolutionNoticeOverlay notice={resolutionNotice} onProceed={onDismissResolutionNotice} />}
       {decision?.type === "FORWARD_SCOUTING_ORDER" && (scoutingPreviewVisible
@@ -1475,6 +1478,15 @@ function DesktopInspectionTooltip({ inspection }: { inspection: HoverInspection 
   const tooltipCenterX = isCard ? Math.max(width / 2 + 8, Math.min(viewportWidth - width / 2 - 8, centerX)) : viewportWidth / 2;
   const arrowX = Math.max(24, Math.min(width - 24, centerX - (tooltipCenterX - width / 2)));
   return <aside className={`desktop-inspection-tooltip ${isCard ? "is-card" : ""} is-source-${sourceAbove ? "above" : "below"}`} style={{ "--inspection-top": `${top}px`, "--inspection-left": `${tooltipCenterX}px`, "--inspection-arrow-x": `${arrowX}px` } as CSSProperties} aria-live="polite"><span>{inspection.eyebrow}</span><h2>{inspection.title}</h2>{inspection.meta && <strong>{inspection.meta}</strong>}<p>{inspection.body}</p></aside>;
+}
+
+function MissionEndOverlay({ location, onDownloadSave, onNewMission, round, status, survivors }: { location: string; onDownloadSave: () => void; onNewMission: () => void; round: number; status: "VICTORY" | "DEFEAT"; survivors: number }) {
+  const victory = status === "VICTORY";
+  return <div className={`mission-end-backdrop is-${status.toLowerCase()}`} role="presentation"><section className="mission-end-report" role="dialog" aria-modal="true" aria-labelledby="mission-end-title">
+    <span>Final report</span><h2 id="mission-end-title">{victory ? "Mission accomplished" : "Boarding party eliminated"}</h2><p>{victory ? "The survivors have secured a path through the Space Hulk." : "The Space Hulk claims the boarding party."}</p>
+    <dl><div><dt>Final location</dt><dd>{location}</dd></div><div><dt>Round reached</dt><dd>{String(round).padStart(2, "0")}</dd></div><div><dt>Survivors</dt><dd>{survivors}</dd></div></dl>
+    <div><button type="button" onClick={onNewMission}>New mission</button><button type="button" className="is-secondary" onClick={onDownloadSave}>Download diagnostics</button></div>
+  </section></div>;
 }
 
 function ResolutionNoticeOverlay({ notice, onProceed, proceedLabel = "Proceed" }: { notice: ResolutionNotice; onProceed: () => void; proceedLabel?: string }) {
