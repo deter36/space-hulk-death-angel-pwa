@@ -51,7 +51,7 @@ type Inspection = {
   body: string;
   meta?: string;
 };
-type HoverInspection = Inspection & { anchor: { top: number; bottom: number; left: number; right: number } };
+type HoverInspection = Inspection & { anchor: { top: number; bottom: number; left: number; right: number }; placement?: "card" };
 
 type RollNotice = {
   postRollAnimation: BoardAnimation | null;
@@ -565,7 +565,7 @@ function TacticalButton({ onTap, onHold, onHover, onHoverEnd, stopPropagation, o
 
 type LiveActionCard = ActionDefinition & { instanceId: string };
 
-function LiveActionSelection({ compact = false, session, onChooseOption, tutorialGuide }: { compact?: boolean; session: EngineSession; onChooseOption: (optionId: string) => void; tutorialGuide?: TutorialActionGuide | null }) {
+function LiveActionSelection({ compact = false, session, onChooseOption, onDismissHoverInspection, onHoverInspect, tutorialGuide }: { compact?: boolean; session: EngineSession; onChooseOption: (optionId: string) => void; onDismissHoverInspection?: () => void; onHoverInspect?: (inspection: Inspection, anchor: DOMRect, placement?: "card") => void; tutorialGuide?: TutorialActionGuide | null }) {
   const { state } = session;
   const decision = state.pendingDecision;
   const choosingActions = decision?.type === "CHOOSE_ACTION";
@@ -595,6 +595,7 @@ function LiveActionSelection({ compact = false, session, onChooseOption, tutoria
   };
   const pendingOption = pendingActionId ? uniquePayloadOption(decision, "actionId", pendingActionId) : null;
   const expandedCards = expandedTeam ? cardsByTeam[expandedTeam] ?? [] : [];
+  const selectedCardInspection = (card: LiveActionCard): Inspection => ({ eyebrow: `${card.team} squad · ${formatActionType(card.type)}`, title: card.name, body: card.sourceText, meta: `Initiative ${card.initiative}` });
 
   return (
     <section className={`live-action-dock ${choosingActions ? "is-choosing" : ""} ${compact ? "is-compact" : ""} ${expandedTeam ? "is-expanded" : ""}`} aria-label="Combat team action cards">
@@ -622,13 +623,13 @@ function LiveActionSelection({ compact = false, session, onChooseOption, tutoria
           const resolutionState = !choosingActions && activeIndex >= 0 ? orderIndex < activeIndex ? "is-completed" : orderIndex === activeIndex ? "is-active" : "is-upcoming" : "";
           const conciseSelectedCard = compact || choosingActions;
           const teamHasGuidedChoice = cards.some((card) => tutorialGuide?.allowedActionIds.has(card.instanceId));
-          return <button key={team} type="button" className={`live-action-team-slot lab-team-${team.toLowerCase()} ${selected ? "has-selection" : ""} ${tutorialGuide && teamHasGuidedChoice ? "is-tutorial-recommended" : ""} ${resolutionState}`} onClick={() => openTeam(team)} disabled={!choosingActions || Boolean(selected) || Boolean(tutorialGuide && !teamHasGuidedChoice)}>
+          return <TacticalButton key={team} type="button" className={`live-action-team-slot lab-team-${team.toLowerCase()} ${selected ? "has-selection" : ""} ${tutorialGuide && teamHasGuidedChoice ? "is-tutorial-recommended" : ""} ${resolutionState}`} onTap={() => openTeam(team)} onHover={selected && onHoverInspect ? (anchor) => onHoverInspect(selectedCardInspection(selected), anchor, "card") : undefined} onHoverEnd={selected ? onDismissHoverInspection : undefined} aria-disabled={!choosingActions || Boolean(selected) || Boolean(tutorialGuide && !teamHasGuidedChoice)}>
             {!selected && <span className="live-action-team-name">{team}</span>}
             {selected ? <span className={`live-chosen-action ${conciseSelectedCard ? "is-compact-card" : ""}`}>{conciseSelectedCard ? <><span className="compact-card-type"><small>{selected.type === "MOVE_ACTIVATE" ? "Move" : formatActionType(selected.type)}</small><em className="action-initiative" aria-label={`Initiative ${selected.initiative}`}>{selected.initiative}</em></span><strong>{selected.name}</strong></> : <><em className="action-initiative" aria-label={`Initiative ${selected.initiative}`}>{selected.initiative}</em><strong>{selected.name}</strong><small>— {actionCardSummary(selected.type)}</small></>}</span> : <span className="live-mini-hand">{cards.map((card, index) => {
               const unavailable = !uniquePayloadOption(decision, "actionId", card.instanceId) || Boolean(tutorialGuide && !tutorialGuide.allowedActionIds.has(card.instanceId));
               return <span key={card.instanceId} className={`live-mini-action-card ${unavailable ? "is-unavailable" : ""}`} style={{ "--card-index": index } as CSSProperties}><b>{card.type === "MOVE_ACTIVATE" ? "Move" : formatActionType(card.type)}</b></span>;
             })}</span>}
-          </button>;
+          </TacticalButton>;
         })}
       </div>
     </section>
@@ -1011,7 +1012,7 @@ export default function GameClient() {
       return;
     }
     setResolutionNotices((current) => current.slice(1));
-  }} onDismissRoll={proceedRoll} onInspect={setInspection} onHoverInspect={(details, anchor) => setHoverInspection({ ...details, anchor: { top: anchor.top, bottom: anchor.bottom, left: anchor.left, right: anchor.right } })} onDismissHoverInspection={() => setHoverInspection(null)} onChooseOption={resolveDecision} onUndo={undoOne} onDownloadSave={downloadSave} onDismissInspection={() => setInspection(null)} onNewMission={startNewMission} />;
+  }} onDismissRoll={proceedRoll} onInspect={setInspection} onHoverInspect={(details, anchor, placement) => setHoverInspection({ ...details, placement, anchor: { top: anchor.top, bottom: anchor.bottom, left: anchor.left, right: anchor.right } })} onDismissHoverInspection={() => setHoverInspection(null)} onChooseOption={resolveDecision} onUndo={undoOne} onDownloadSave={downloadSave} onDismissInspection={() => setInspection(null)} onNewMission={startNewMission} />;
 }
 
 type MissionBoardProps = {
@@ -1029,7 +1030,7 @@ type MissionBoardProps = {
   rollDecision: PendingDecision | null;
   slayChoiceAnimating: boolean;
   onInspect: (inspection: Inspection) => void;
-  onHoverInspect: (inspection: Inspection, anchor: DOMRect) => void;
+  onHoverInspect: (inspection: Inspection, anchor: DOMRect, placement?: "card") => void;
   onDismissHoverInspection: () => void;
   onDismissResolutionNotice: () => void;
   onChooseOption: (optionId: string) => void;
@@ -1175,8 +1176,8 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
       <LiveFormationBoard desktopBoardScale={desktopBoardScale} tutorialFocus={tutorialTarget === "board"} travelStage={travelStage} session={session} boardAnimation={boardAnimation} highlightedTerrainIds={new Set(resolutionNotice?.terrainIds ?? [])} targetIds={targetIds} selectedMoveMarineId={selectedMoveMarineId} selectedStrategizeSwarmId={selectedStrategizeSwarmId} selectedDoorSwarmId={selectedDoorSwarmId} selectedHeroicChargeSwarmId={selectedHeroicChargeSwarmId} selectedEventSlaySwarmId={selectedEventSlaySwarmId} heroicChargeSlay={heroicChargeSlay} strategizeSwarms={strategizeSwarmSet} onChooseOption={onChooseOption} onInspect={onInspect} onHoverInspect={onHoverInspect} onDismissHoverInspection={onDismissHoverInspection} onSelectMoveMarine={(marineId) => { if (decision) setMoveSelection({ decisionId: decision.id, marineId }); }} onSelectStrategizeSwarm={(swarmId) => { if (decision) setStrategizeSelection({ decisionId: decision.id, swarmId }); }} onSelectDoorSwarm={(swarmId) => { if (decision) setDoorSwarmSelection({ decisionId: decision.id, swarmId }); }} onSelectHeroicChargeSwarm={(swarmId) => { if (decision) setHeroicChargeSwarmSelection({ decisionId: decision.id, swarmId }); }} onSelectEventSlaySwarm={(swarmId) => { if (decision) setEventSlaySwarmSelection({ decisionId: decision.id, swarmId }); }} />
 
       {!travelStage && <section className={`round-command-tray is-${displayedBottomView} ${choosingActions ? "is-choosing" : ""} ${tutorialTarget === "cards" ? "is-tutorial-focus" : ""}`}>
-        {choosingActions ? <LiveActionSelection session={session} onChooseOption={onChooseOption} tutorialGuide={activeTutorialGuide} /> : <div className="round-command-viewport" onPointerDown={startTraySwipe} onPointerUp={finishTraySwipe} onPointerCancel={() => { traySwipeStart.current = null; }}><div className={`round-command-rail is-${displayedBottomView}`}>
-          <div className="round-rail-panel round-rail-cards"><div className="round-rail-content"><LiveActionSelection compact session={session} onChooseOption={onChooseOption} tutorialGuide={activeTutorialGuide} /></div><button type="button" className="round-rail-tab" aria-label="Show information panel" onClick={() => setTrayView("status")}>Info</button></div>
+        {choosingActions ? <LiveActionSelection session={session} onChooseOption={onChooseOption} onHoverInspect={onHoverInspect} onDismissHoverInspection={onDismissHoverInspection} tutorialGuide={activeTutorialGuide} /> : <div className="round-command-viewport" onPointerDown={startTraySwipe} onPointerUp={finishTraySwipe} onPointerCancel={() => { traySwipeStart.current = null; }}><div className={`round-command-rail is-${displayedBottomView}`}>
+          <div className="round-rail-panel round-rail-cards"><div className="round-rail-content"><LiveActionSelection compact session={session} onChooseOption={onChooseOption} onHoverInspect={onHoverInspect} onDismissHoverInspection={onDismissHoverInspection} tutorialGuide={activeTutorialGuide} /></div><button type="button" className="round-rail-tab" aria-label="Show information panel" onClick={() => setTrayView("status")}>Info</button></div>
           <div className="round-rail-panel round-rail-status"><button type="button" className="round-rail-tab" aria-label="Show selected action cards" onClick={() => setTrayView("cards")}>Cards</button><div className="round-rail-content"><section className="command-dock" aria-live="polite">
         {resolutionNotice?.presentation === "board" ? (
           <SpawnResolutionTray notice={resolutionNotice} onProceed={onDismissResolutionNotice} />
@@ -1458,7 +1459,8 @@ function InspectionDrawer({ inspection, onClose }: { inspection: Inspection; onC
 function DesktopInspectionTooltip({ inspection }: { inspection: HoverInspection }) {
   const viewportWidth = globalThis.innerWidth;
   const viewportHeight = globalThis.innerHeight;
-  const width = Math.min(640, viewportWidth - 42);
+  const isCard = inspection.placement === "card";
+  const width = Math.min(isCard ? 270 : 640, viewportWidth - (isCard ? 16 : 42));
   const topReserve = 82;
   const bottomReserve = 112;
   const height = 154;
@@ -1466,10 +1468,13 @@ function DesktopInspectionTooltip({ inspection }: { inspection: HoverInspection 
   const sourceCenter = (inspection.anchor.top + inspection.anchor.bottom) / 2;
   const laneTops = laneCenters.map((center) => Math.max(topReserve, Math.min(viewportHeight - bottomReserve - height, center - height / 2)));
   const safeLaneTops = laneTops.filter((top) => top > inspection.anchor.bottom + 10 || top + height < inspection.anchor.top - 10);
-  const top = [...(safeLaneTops.length ? safeLaneTops : laneTops)].sort((left, right) => Math.abs(left + height / 2 - sourceCenter) - Math.abs(right + height / 2 - sourceCenter))[0];
+  const contextualTop = [...(safeLaneTops.length ? safeLaneTops : laneTops)].sort((left, right) => Math.abs(left + height / 2 - sourceCenter) - Math.abs(right + height / 2 - sourceCenter))[0];
+  const top = isCard ? Math.max(8, inspection.anchor.top - height - 10) : contextualTop;
   const sourceAbove = inspection.anchor.bottom < top;
-  const arrowX = Math.max(24, Math.min(width - 24, (inspection.anchor.left + inspection.anchor.right) / 2 - (viewportWidth - width) / 2));
-  return <aside className={`desktop-inspection-tooltip is-source-${sourceAbove ? "above" : "below"}`} style={{ "--inspection-top": `${top}px`, "--inspection-arrow-x": `${arrowX}px` } as CSSProperties} aria-live="polite"><span>{inspection.eyebrow}</span><h2>{inspection.title}</h2>{inspection.meta && <strong>{inspection.meta}</strong>}<p>{inspection.body}</p></aside>;
+  const centerX = (inspection.anchor.left + inspection.anchor.right) / 2;
+  const tooltipCenterX = isCard ? Math.max(width / 2 + 8, Math.min(viewportWidth - width / 2 - 8, centerX)) : viewportWidth / 2;
+  const arrowX = Math.max(24, Math.min(width - 24, centerX - (tooltipCenterX - width / 2)));
+  return <aside className={`desktop-inspection-tooltip ${isCard ? "is-card" : ""} is-source-${sourceAbove ? "above" : "below"}`} style={{ "--inspection-top": `${top}px`, "--inspection-left": `${tooltipCenterX}px`, "--inspection-arrow-x": `${arrowX}px` } as CSSProperties} aria-live="polite"><span>{inspection.eyebrow}</span><h2>{inspection.title}</h2>{inspection.meta && <strong>{inspection.meta}</strong>}<p>{inspection.body}</p></aside>;
 }
 
 function ResolutionNoticeOverlay({ notice, onProceed, proceedLabel = "Proceed" }: { notice: ResolutionNotice; onProceed: () => void; proceedLabel?: string }) {
