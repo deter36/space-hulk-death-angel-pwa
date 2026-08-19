@@ -568,7 +568,9 @@ type LiveActionCard = ActionDefinition & { instanceId: string };
 function LiveActionSelection({ compact = false, session, onChooseOption, tutorialGuide }: { compact?: boolean; session: EngineSession; onChooseOption: (optionId: string) => void; tutorialGuide?: TutorialActionGuide | null }) {
   const { state } = session;
   const decision = state.pendingDecision;
-  const choosingActions = decision?.type === "CHOOSE_ACTION";
+  // Do not expose the next round's hand until all event presentation
+  // checkpoints (including a no-movement event) have been acknowledged.
+  const choosingActions = decision?.type === "CHOOSE_ACTION" && !resolutionNotice;
   const [expandedTeam, setExpandedTeam] = useState<TeamColor | null>(null);
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
   const cardsByTeam = useMemo(() => Object.fromEntries(state.activeTeams.map((team) => [team, state.teams[team].actionInstanceIds.map((instanceId) => {
@@ -1478,7 +1480,7 @@ function ResolutionNoticeOverlay({ notice, onProceed, proceedLabel = "Proceed" }
 }
 
 function SpawnResolutionTray({ notice, onProceed }: { notice: ResolutionNotice; onProceed: () => void }) {
-  return <div className="dock-decision spawn-resolution-tray"><div className="decision-brief"><span>{notice.title}</span></div><div className="dock-options is-single-option"><button type="button" onClick={onProceed}><strong>Begin movement</strong></button></div></div>;
+  return <div className="dock-decision spawn-resolution-tray"><div className="decision-brief"><span>{notice.title}</span></div><div className="dock-options is-single-option"><button type="button" onClick={onProceed}><strong>Continue event</strong></button></div></div>;
 }
 
 function SlaySwarmOverlay({ decision, onChooseOption, session, swarmId: onlySwarmId }: { decision: PendingDecision; onChooseOption: (optionId: string) => void; session: EngineSession; swarmId?: string }) {
