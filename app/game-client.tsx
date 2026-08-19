@@ -1064,6 +1064,7 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
   const decision = state.pendingDecision;
   const missionEnded = state.status === "VICTORY" || state.status === "DEFEAT";
   const showMissionEnd = missionEnded && !travelStage && !boardAnimation && !rollNotice && !resolutionNotice && !slayChoiceAnimating;
+  const missionSummary = useMemo(() => missionSummaryFrom(session), [session]);
   const arrivalLocationOption = decision?.type === "LOCATION_ARRIVAL_ACK" ? decision.legalOptions.find((option) => option.id === "begin") ?? null : null;
   // Do not expose the next round's hand until all event presentation
   // checkpoints (including a no-movement event) have been acknowledged.
@@ -1205,7 +1206,7 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
 
       {inspection && <InspectionDrawer inspection={inspection} onClose={onDismissInspection} />}
       {hoverInspection && <DesktopInspectionTooltip inspection={hoverInspection} />}
-      {showMissionEnd && <MissionEndOverlay status={state.status === "VICTORY" ? "VICTORY" : "DEFEAT"} location={locationInspection.title} round={state.round} survivors={state.formation.length} onDownloadSave={onDownloadSave} onNewMission={onNewMission} />}
+      {showMissionEnd && <MissionEndOverlay summary={missionSummary} status={state.status === "VICTORY" ? "VICTORY" : "DEFEAT"} onDownloadSave={onDownloadSave} onNewMission={onNewMission} />}
       {!travelStage && arrivalLocationOption && <ResolutionNoticeOverlay notice={{ id: decision!.id, eyebrow: "New location", title: locationInspection.title, body: locationInspection.body, meta: locationInspection.meta }} proceedLabel="Begin location" onProceed={() => onChooseOption(arrivalLocationOption.id)} />}
       {resolutionNotice?.presentation === "movement" || resolutionNotice?.presentation === "board" ? null : resolutionNotice && <ResolutionNoticeOverlay notice={resolutionNotice} onProceed={onDismissResolutionNotice} />}
       {decision?.type === "FORWARD_SCOUTING_ORDER" && (scoutingPreviewVisible
@@ -1480,11 +1481,32 @@ function DesktopInspectionTooltip({ inspection }: { inspection: HoverInspection 
   return <aside className={`desktop-inspection-tooltip ${isCard ? "is-card" : ""} is-source-${sourceAbove ? "above" : "below"}`} style={{ "--inspection-top": `${top}px`, "--inspection-left": `${tooltipCenterX}px`, "--inspection-arrow-x": `${arrowX}px` } as CSSProperties} aria-live="polite"><span>{inspection.eyebrow}</span><h2>{inspection.title}</h2>{inspection.meta && <strong>{inspection.meta}</strong>}<p>{inspection.body}</p></aside>;
 }
 
-function MissionEndOverlay({ location, onDownloadSave, onNewMission, round, status, survivors }: { location: string; onDownloadSave: () => void; onNewMission: () => void; round: number; status: "VICTORY" | "DEFEAT"; survivors: number }) {
+type MissionSummary = { actionCards: Record<"SUPPORT" | "MOVE_ACTIVATE" | "ATTACK", number>; finalLocation: string; genestealersSlain: number; round: number; supportSpent: number; survivors: number };
+
+function missionSummaryFrom(session: EngineSession): MissionSummary {
+  const actionCards: MissionSummary["actionCards"] = { SUPPORT: 0, MOVE_ACTIVATE: 0, ATTACK: 0 };
+  for (const transition of session.transitions) {
+    const sourceId = transition.sourceId;
+    if (transition.type !== "ACTION_STARTED" || !sourceId) continue;
+    const definition = data.definitions.actions.find((action) => action.id === componentDefinitionId(session, sourceId));
+    if (definition?.type === "SUPPORT" || definition?.type === "MOVE_ACTIVATE" || definition?.type === "ATTACK") actionCards[definition.type] += 1;
+  }
+  const currentLocation = data.definitions.locations.find((location) => location.id === componentDefinitionId(session, session.state.currentLocationInstanceId));
+  return {
+    actionCards,
+    finalLocation: currentLocation?.name ?? setupLocationName(componentDefinitionId(session, session.state.currentLocationInstanceId)),
+    genestealersSlain: session.transitions.filter((transition) => transition.type === "GENESTEALER_SLAIN").length,
+    round: session.state.round,
+    supportSpent: session.transitions.filter((transition) => transition.type === "SUPPORT_SPENT").length,
+    survivors: session.state.formation.length,
+  };
+}
+
+function MissionEndOverlay({ onDownloadSave, onNewMission, status, summary }: { onDownloadSave: () => void; onNewMission: () => void; status: "VICTORY" | "DEFEAT"; summary: MissionSummary }) {
   const victory = status === "VICTORY";
   return <div className={`mission-end-backdrop is-${status.toLowerCase()}`} role="presentation"><section className="mission-end-report" role="dialog" aria-modal="true" aria-labelledby="mission-end-title">
-    <span>Final report</span><h2 id="mission-end-title">{victory ? "Mission accomplished" : "Boarding party eliminated"}</h2><p>{victory ? "The survivors have secured a path through the Space Hulk." : "The Space Hulk claims the boarding party."}</p>
-    <dl><div><dt>Final location</dt><dd>{location}</dd></div><div><dt>Round reached</dt><dd>{String(round).padStart(2, "0")}</dd></div><div><dt>Survivors</dt><dd>{survivors}</dd></div></dl>
+    <h2 id="mission-end-title"><span>Mission</span><span>{victory ? "Succeeded" : "Failed"}</span></h2>
+    <dl><div><dt>Surviving Marines</dt><dd>{summary.survivors} / 6</dd></div><div><dt>Round Reached</dt><dd>{String(summary.round).padStart(2, "0")}</dd></div><div><dt>Final Location</dt><dd>{summary.finalLocation}</dd></div><div><dt>Genestealers Slayed</dt><dd>{summary.genestealersSlain}</dd></div><div><dt>Support Tokens Spent</dt><dd>{summary.supportSpent}</dd></div><div className="mission-end-actions"><dt>Action Cards Played</dt><dd><span><i>Support</i>{summary.actionCards.SUPPORT}</span><span><i>Move</i>{summary.actionCards.MOVE_ACTIVATE}</span><span><i>Attack</i>{summary.actionCards.ATTACK}</span></dd></div></dl>
     <div><button type="button" onClick={onNewMission}>New mission</button><button type="button" className="is-secondary" onClick={onDownloadSave}>Download diagnostics</button></div>
   </section></div>;
 }
