@@ -113,7 +113,7 @@ function useBoardScale(desktopPreference: DesktopBoardScale): number {
 type PendingRollResolution = { session: EngineSession };
 type ResolutionNotice = { id: string; eyebrow: string; title: string; body: string; meta?: string; team?: TeamColor; presentation?: "modal" | "board" | "movement"; terrainIds?: string[] };
 type MovementPresentation = { id: string; sourceSession: EngineSession; resolvedSession: EngineSession; animation: BoardAnimation };
-type TravelStage = "retreat" | "crossfade" | "arrive";
+type TravelStage = "prepare" | "retreat" | "crossfade" | "arrive";
 
 function isRollFollowUp(decision: PendingDecision | null): decision is PendingDecision {
   return Boolean(decision && ["ATTACK_REROLL", "DEFENSE_REROLL", "EVENT_ATTACK_REROLL"].includes(decision.type));
@@ -796,10 +796,13 @@ export default function GameClient() {
           return;
         }
         setSession(session);
-        setTravelStage("retreat");
-        travelTimers.current.push(globalThis.setTimeout(() => setTravelStage("crossfade"), 2550));
-        travelTimers.current.push(globalThis.setTimeout(() => { setSession(prepared.session); setTravelStage("arrive"); }, 3000));
-        travelTimers.current.push(globalThis.setTimeout(() => { setTravelStage(null); travelTimers.current = []; }, 4450));
+        // Give the player a beat after confirming travel before movement begins,
+        // and another after arrival before the new Location reveal appears.
+        setTravelStage("prepare");
+        travelTimers.current.push(globalThis.setTimeout(() => setTravelStage("retreat"), 450));
+        travelTimers.current.push(globalThis.setTimeout(() => setTravelStage("crossfade"), 3000));
+        travelTimers.current.push(globalThis.setTimeout(() => { setSession(prepared.session); setTravelStage("arrive"); }, 3450));
+        travelTimers.current.push(globalThis.setTimeout(() => { setTravelStage(null); travelTimers.current = []; }, 4900));
         setInspection(null);
         setError(prepared.error);
         return;
@@ -1058,6 +1061,7 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
   const desktopUiScale = useBoardScale(desktopBoardScale);
   const { state } = session;
   const decision = state.pendingDecision;
+  const arrivalLocationOption = decision?.type === "LOCATION_ARRIVAL_ACK" ? decision.legalOptions.find((option) => option.id === "begin") ?? null : null;
   const choosingActions = decision?.type === "CHOOSE_ACTION";
   const selectedMoveMarineId = moveSelection && moveSelection.decisionId === decision?.id ? moveSelection.marineId : null;
   const strategizeSwarms = useMemo(() => strategizeSwarmIds(decision), [decision]);
@@ -1176,7 +1180,7 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
           <SpawnResolutionTray notice={resolutionNotice} onProceed={onDismissResolutionNotice} />
         ) : <>
         {state.activeDie && <DiePanel value={state.activeDie.modifiedValue} skull={state.activeDie.skull} purpose={state.activeDie.purpose} rerolls={state.activeDie.rerolls.length} />}
-        {decision ? (
+        {decision && decision.type !== "LOCATION_ARRIVAL_ACK" ? (
           <div className={`dock-decision ${decisionAction ? `team-context team-${decisionAction.team.toLowerCase()}` : ""}`}>
             <div className={`decision-brief ${decisionAction ? "has-action" : ""}`}>{decisionAction ? <strong>{decisionBrief}</strong> : <span>{decisionBrief}</span>}</div>
             {decisionRules && <div className="decision-rules"><strong>Artefact ability</strong><span>{decisionRules}</span></div>}
@@ -1196,6 +1200,7 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
 
       {inspection && <InspectionDrawer inspection={inspection} onClose={onDismissInspection} />}
       {hoverInspection && <DesktopInspectionTooltip inspection={hoverInspection} />}
+      {!travelStage && arrivalLocationOption && <ResolutionNoticeOverlay notice={{ id: decision!.id, eyebrow: "New location", title: locationInspection.title, body: locationInspection.body, meta: locationInspection.meta }} proceedLabel="Begin location" onProceed={() => onChooseOption(arrivalLocationOption.id)} />}
       {resolutionNotice?.presentation === "movement" || resolutionNotice?.presentation === "board" ? null : resolutionNotice && <ResolutionNoticeOverlay notice={resolutionNotice} onProceed={onDismissResolutionNotice} />}
       {decision?.type === "FORWARD_SCOUTING_ORDER" && (scoutingPreviewVisible
         ? <ForwardScoutingPreview session={session} decision={decision} onChooseOption={onChooseOption} onViewBoard={() => setScoutingPreviewVisible(false)} />
@@ -1466,9 +1471,9 @@ function DesktopInspectionTooltip({ inspection }: { inspection: HoverInspection 
   return <aside className={`desktop-inspection-tooltip is-source-${sourceAbove ? "above" : "below"}`} style={{ "--inspection-top": `${top}px`, "--inspection-arrow-x": `${arrowX}px` } as CSSProperties} aria-live="polite"><span>{inspection.eyebrow}</span><h2>{inspection.title}</h2>{inspection.meta && <strong>{inspection.meta}</strong>}<p>{inspection.body}</p></aside>;
 }
 
-function ResolutionNoticeOverlay({ notice, onProceed }: { notice: ResolutionNotice; onProceed: () => void }) {
+function ResolutionNoticeOverlay({ notice, onProceed, proceedLabel = "Proceed" }: { notice: ResolutionNotice; onProceed: () => void; proceedLabel?: string }) {
   return <div className="resolution-notice-backdrop" role="presentation"><section className={`resolution-notice ${notice.team ? `team-${notice.team.toLowerCase()}` : ""}`} role="dialog" aria-modal="true" aria-labelledby={`resolution-${notice.id}`}>
-    <span>{notice.eyebrow}</span><h2 id={`resolution-${notice.id}`}>{notice.title}</h2>{notice.meta && <strong>{notice.meta}</strong>}<p>{notice.body}</p><button type="button" onClick={onProceed}>Proceed</button>
+    <span>{notice.eyebrow}</span><h2 id={`resolution-${notice.id}`}>{notice.title}</h2>{notice.meta && <strong>{notice.meta}</strong>}<p>{notice.body}</p><button type="button" onClick={onProceed}>{proceedLabel}</button>
   </section></div>;
 }
 
