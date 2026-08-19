@@ -5,9 +5,9 @@
   --lab-panel: #111915;
   --lab-signal: #c8df45;
   --lab-team-red: #ff443d;
-  --lab-team-blue: #27aaff;
-  --lab-team-green: #25e66f;
-  --lab-team-yellow: #ffe044;
+  --lab-team-blue: #258cff;
+  --lab-team-green: #50ee59;
+  --lab-team-yellow: #ffea57;
   --lab-team-purple: #d572ff;
   --lab-team-grey: #d5ddd7;
   --lab-scale: 1;
@@ -112,7 +112,7 @@ button, input, select { font: inherit; }
 .lab-marine-range { color: #c4d0c6; font-size: .94em; font-weight: 800; letter-spacing: .03em; }
 .lab-target-reticle { position: absolute; z-index: 8; inset: 50% auto auto 50%; translate: -50% -50%; color: #ff5148; font: 400 2.25rem Arial, sans-serif; filter: drop-shadow(0 0 5px #ff5148); pointer-events: none; }.lab-unavailable-mark { position: absolute; z-index: 8; inset: 50% auto auto 50%; translate: -50% -50%; color: #ff5b53; font: 300 3.2rem Arial, sans-serif; text-shadow: 0 0 8px #000; pointer-events: none; }
 .lab-marine-move-choice { position: absolute; z-index: 12; inset: 4px; display: grid; place-items: center; align-content: center; gap: 4px; color: #e4fbff; pointer-events: none; }.lab-marine-move-choice b { font: 800 1.5rem Arial, sans-serif; text-shadow: 0 0 7px #4edfff; }.lab-marine-move-choice em { max-width: 92px; font-size: .46rem; font-style: normal; font-weight: 800; line-height: 1.25; text-align: center; text-transform: uppercase; }
-.lab-team-red { --team-color: var(--lab-team-red); --team-filter: saturate(1.25) contrast(1.08); }.lab-team-blue { --team-color: var(--lab-team-blue); --team-filter: hue-rotate(175deg) saturate(1.55) brightness(1.12) contrast(1.06); }.lab-team-green { --team-color: var(--lab-team-green); --team-filter: hue-rotate(76deg) saturate(1.5) brightness(1.08) contrast(1.06); }.lab-team-yellow { --team-color: var(--lab-team-yellow); --team-filter: hue-rotate(74deg) saturate(1.8) brightness(1.2) contrast(1.04); }.lab-team-purple { --team-color: var(--lab-team-purple); --team-filter: hue-rotate(292deg) saturate(1.7) brightness(1.15) contrast(1.04); }.lab-team-grey { --team-color: var(--lab-team-grey); --team-filter: saturate(0) brightness(1.22) contrast(1.05); }
+.lab-team-red { --team-color: var(--lab-team-red); --team-filter: saturate(1.25) contrast(1.08); }.lab-team-blue { --team-color: var(--lab-team-blue); --team-filter: hue-rotate(218deg) saturate(1.8) brightness(1.14) contrast(1.08); }.lab-team-green { --team-color: var(--lab-team-green); --team-filter: hue-rotate(112deg) saturate(1.72) brightness(1.18) contrast(1.06); }.lab-team-yellow { --team-color: var(--lab-team-yellow); --team-filter: hue-rotate(58deg) saturate(1.92) brightness(1.27) contrast(1.04); }.lab-team-purple { --team-color: var(--lab-team-purple); --team-filter: hue-rotate(292deg) saturate(1.7) brightness(1.15) contrast(1.04); }.lab-team-grey { --team-color: var(--lab-team-grey); --team-filter: saturate(0) brightness(1.22) contrast(1.05); }
 
 .lab-state-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 12px; padding: 7px 9px; border-top: 1px solid #26342c; background: #0b110e; color: #87958d; font-size: .45rem; text-transform: uppercase; }.lab-state-legend span { display: flex; align-items: center; gap: 4px; }.lab-state-legend i { width: 9px; height: 9px; border: 1px solid; }.lab-state-legend i.selectable { border-color: #50ddff; }.lab-state-legend i.selected { border: 2px solid var(--lab-signal); }.lab-state-legend i.targeted { border-color: #ff5148; background: #ff514833; }.lab-state-legend i.unavailable { border-color: #69736d; background: linear-gradient(45deg, transparent 40%, #ff5148 42% 58%, transparent 60%); }
 
