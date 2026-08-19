@@ -1504,9 +1504,10 @@ function missionSummaryFrom(session: EngineSession): MissionSummary {
 
 function MissionEndOverlay({ onDownloadSave, onNewMission, status, summary }: { onDownloadSave: () => void; onNewMission: () => void; status: "VICTORY" | "DEFEAT"; summary: MissionSummary }) {
   const victory = status === "VICTORY";
+  const actionsTaken = summary.actionCards.SUPPORT + summary.actionCards.MOVE_ACTIVATE + summary.actionCards.ATTACK;
   return <div className={`mission-end-backdrop is-${status.toLowerCase()}`} role="presentation"><section className="mission-end-report" role="dialog" aria-modal="true" aria-labelledby="mission-end-title">
     <h2 id="mission-end-title"><span>Mission</span><span>{victory ? "Succeeded" : "Failed"}</span></h2>
-    <dl><div><dt>Surviving Marines</dt><dd>{summary.survivors} / 6</dd></div><div><dt>Round Reached</dt><dd>{String(summary.round).padStart(2, "0")}</dd></div><div><dt>Final Location</dt><dd>{summary.finalLocation}</dd></div><div><dt>Genestealers Slayed</dt><dd>{summary.genestealersSlain}</dd></div><div><dt>Support Tokens Spent</dt><dd>{summary.supportSpent}</dd></div><div className="mission-end-actions"><dt>Action Cards Played</dt><dd><span><i>Support</i>{summary.actionCards.SUPPORT}</span><span><i>Move</i>{summary.actionCards.MOVE_ACTIVATE}</span><span><i>Attack</i>{summary.actionCards.ATTACK}</span></dd></div></dl>
+    <dl><div><dt>Surviving Marines</dt><dd>{summary.survivors} / 6</dd></div><div><dt>Round Reached</dt><dd>{String(summary.round).padStart(2, "0")}</dd></div><div><dt>Final Location</dt><dd>{summary.finalLocation}</dd></div><div><dt>Genestealers Slain</dt><dd>{summary.genestealersSlain}</dd></div><div><dt>Support Tokens Spent</dt><dd>{summary.supportSpent}</dd></div><div><dt>Actions Taken</dt><dd>{actionsTaken}</dd></div><div className="mission-end-action-type"><dt>Support</dt><dd>{summary.actionCards.SUPPORT}</dd></div><div className="mission-end-action-type"><dt>Move</dt><dd>{summary.actionCards.MOVE_ACTIVATE}</dd></div><div className="mission-end-action-type"><dt>Attack</dt><dd>{summary.actionCards.ATTACK}</dd></div></dl>
     <div><button type="button" onClick={onNewMission}>New mission</button><button type="button" className="is-secondary" onClick={onDownloadSave}>Download diagnostics</button></div>
   </section></div>;
 }
