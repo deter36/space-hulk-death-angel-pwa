@@ -234,6 +234,7 @@ button, input, select { font: inherit; }
 
 /* Terrain stack mockup: environmental objects live outside the swarm lane. */
 .lab-flank .lab-terrain.has-art { z-index: calc(1 + var(--terrain-layer, 0)); height: calc(108px * var(--lab-scale)); transform: translateY(calc(-50% + var(--terrain-layer, 0) * 13px)); pointer-events: auto; }
+.lab-flank.has-terrain { overflow: visible; }
 .lab-flank.is-engaged .lab-terrain.has-art { z-index: calc(1 + var(--terrain-layer, 0)); }
 .lab-flank .lab-terrain.has-art.is-selectable, .lab-flank .lab-terrain.has-art.is-targeted { z-index: calc(20 + var(--terrain-layer, 0)); }
 
