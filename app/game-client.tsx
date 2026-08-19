@@ -568,9 +568,7 @@ type LiveActionCard = ActionDefinition & { instanceId: string };
 function LiveActionSelection({ compact = false, session, onChooseOption, tutorialGuide }: { compact?: boolean; session: EngineSession; onChooseOption: (optionId: string) => void; tutorialGuide?: TutorialActionGuide | null }) {
   const { state } = session;
   const decision = state.pendingDecision;
-  // Do not expose the next round's hand until all event presentation
-  // checkpoints (including a no-movement event) have been acknowledged.
-  const choosingActions = decision?.type === "CHOOSE_ACTION" && !resolutionNotice;
+  const choosingActions = decision?.type === "CHOOSE_ACTION";
   const [expandedTeam, setExpandedTeam] = useState<TeamColor | null>(null);
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
   const cardsByTeam = useMemo(() => Object.fromEntries(state.activeTeams.map((team) => [team, state.teams[team].actionInstanceIds.map((instanceId) => {
@@ -1064,7 +1062,9 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
   const { state } = session;
   const decision = state.pendingDecision;
   const arrivalLocationOption = decision?.type === "LOCATION_ARRIVAL_ACK" ? decision.legalOptions.find((option) => option.id === "begin") ?? null : null;
-  const choosingActions = decision?.type === "CHOOSE_ACTION";
+  // Do not expose the next round's hand until all event presentation
+  // checkpoints (including a no-movement event) have been acknowledged.
+  const choosingActions = decision?.type === "CHOOSE_ACTION" && !resolutionNotice;
   const selectedMoveMarineId = moveSelection && moveSelection.decisionId === decision?.id ? moveSelection.marineId : null;
   const strategizeSwarms = useMemo(() => strategizeSwarmIds(decision), [decision]);
   const strategizeSwarmSet = useMemo(() => new Set(strategizeSwarms), [strategizeSwarms]);
