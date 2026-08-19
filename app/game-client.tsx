@@ -1227,7 +1227,7 @@ function labRows(session: EngineSession): LabFormationRow[] {
     const slot = state.formation[positionIndex];
     const terrains = slot.terrainInstanceIds[side].flatMap((terrainId) => {
       const definition = data.definitions.terrain.find((item) => item.id === componentDefinitionId(session, terrainId));
-      return definition ? [{ name: definition.name, color: labSpawnColor(definition.spawnColor), supportTokens: state.terrain[terrainId]?.support ?? 0 }] : [];
+      return definition ? [{ id: terrainId, name: definition.name, color: labSpawnColor(definition.spawnColor), supportTokens: state.terrain[terrainId]?.support ?? 0 }] : [];
     });
     const swarms = slot.swarmIds[side].map((swarmId) => state.swarms[swarmId]).filter((swarm): swarm is NonNullable<typeof swarm> => Boolean(swarm));
     const icons = swarms.flatMap((swarm) => swarm.cardIds.map((cardId) => state.genestealers[cardId]?.icon).filter((icon): icon is GenestealerIcon => Boolean(icon)));
@@ -1297,13 +1297,12 @@ function LiveFormationBoard({ desktopBoardScale, tutorialFocus = false, session,
     const eventSlaySelectable = (decision?.type === "EVENT_SLAY" || decision?.type === "INTIMIDATION_PICK") && Boolean(swarmId && targetIds.has(swarmId));
     return [cellKey(positionIndex, side), attacking ? "targeted" : selected || selectedDoorSwarmId === swarmId || selectedHeroicChargeSwarmId === swarmId || selectedEventSlaySwarmId === swarmId ? "selected" : selectable || doorSelectable || heroicChargeSelectable || eventSlaySelectable ? "selectable" : targeted ? "targeted" : "neutral"];
   }))), [boardAnimation, decision, heroicChargeSlay, selectedDoorSwarmId, selectedEventSlaySwarmId, selectedHeroicChargeSwarmId, selectedStrategizeSwarmId, selectableStrategizeSwarms, state.formation, targetIds]);
-  const terrainStates = useMemo<Record<string, LabTargetState>>(() => Object.fromEntries(state.formation.flatMap((slot, positionIndex) => (["LEFT", "RIGHT"] as const).map((side) => {
-    const terrainId = slot.terrainInstanceIds[side][0];
-    const isTargeted = Boolean(terrainId && (targetIds.has(terrainId) || highlightedTerrainIds.has(terrainId)));
-    // A Terrain choice must sit above an engaged swarm so its button receives
-    // the tap. Other Terrain highlights remain underneath the swarm artwork.
-    return [cellKey(positionIndex, side), isTargeted ? decision?.type === "ACTIVATE_TERRAIN" ? "selectable" : "targeted" : "neutral"];
-  }))), [decision, highlightedTerrainIds, state.formation, targetIds]);
+  const terrainStates = useMemo<Record<string, LabTargetState>>(() => Object.fromEntries(state.formation.flatMap((slot) => (["LEFT", "RIGHT"] as const).flatMap((side) => slot.terrainInstanceIds[side].map((terrainId) => {
+    const isTargeted = targetIds.has(terrainId) || highlightedTerrainIds.has(terrainId);
+    // Target state is intentionally per Terrain instance: two Terrain cards in
+    // one formation slot must still be separately visible and selectable.
+    return [terrainId, isTargeted ? decision?.type === "ACTIVATE_TERRAIN" ? "selectable" : "targeted" : "neutral"] as const;
+  })))), [decision, highlightedTerrainIds, state.formation, targetIds]);
   const marineAnimationStates = useMemo(() => {
     const marineId = boardAnimation?.marineId;
     const animation = boardAnimation?.marineAnimation;
@@ -1348,9 +1347,9 @@ function LiveFormationBoard({ desktopBoardScale, tutorialFocus = false, session,
     const option = uniquePayloadOption(decision, "marineId", marineId);
     if (option) onChooseOption(option.id);
   };
-  const chooseTerrain = (row: number, side: Side) => {
-    const terrainId = state.formation[row].terrainInstanceIds[side][0];
-    const option = terrainId ? uniquePayloadOption(decision, "terrainId", terrainId) : null;
+  const chooseTerrain = (row: number, side: Side, terrainId?: string) => {
+    const resolvedTerrainId = terrainId ?? state.formation[row].terrainInstanceIds[side][0];
+    const option = resolvedTerrainId ? uniquePayloadOption(decision, "terrainId", resolvedTerrainId) : null;
     if (option) onChooseOption(option.id);
   };
   // The physical formation closes ranks after casualties, but the mobile board

@@ -2,6 +2,8 @@ import type { GenestealerIcon, Side, TeamColor } from "@/src/data/types";
 
 export type LabTerrain = {
   color: "GREEN" | "YELLOW" | "ORANGE" | "RED";
+  /** Engine instance ID when this is a live mission Terrain. */
+  id?: string;
   interaction?: "selectable" | "selected" | "targeted";
   name: string;
   supportTokens?: number;
