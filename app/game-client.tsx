@@ -1132,6 +1132,10 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
   const finishTraySwipe = (event: ReactPointerEvent<HTMLDivElement>) => {
     const start = traySwipeStart.current;
     traySwipeStart.current = null;
+    // The viewport owns pointer capture so a horizontal swipe can begin on a
+    // selected card.  It also needs to end the card's touch inspection,
+    // because pointer-up is delivered here instead of to that card.
+    onDismissHoverInspection();
     if (!start) return;
     const deltaX = event.clientX - start.x;
     const deltaY = event.clientY - start.y;
@@ -1179,7 +1183,7 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
       <LiveFormationBoard desktopBoardScale={desktopBoardScale} tutorialFocus={tutorialTarget === "board"} travelStage={travelStage} session={session} boardAnimation={boardAnimation} highlightedTerrainIds={new Set(resolutionNotice?.terrainIds ?? [])} targetIds={targetIds} selectedMoveMarineId={selectedMoveMarineId} selectedStrategizeSwarmId={selectedStrategizeSwarmId} selectedDoorSwarmId={selectedDoorSwarmId} selectedHeroicChargeSwarmId={selectedHeroicChargeSwarmId} selectedEventSlaySwarmId={selectedEventSlaySwarmId} heroicChargeSlay={heroicChargeSlay} strategizeSwarms={strategizeSwarmSet} onChooseOption={onChooseOption} onInspect={onInspect} onHoverInspect={onHoverInspect} onDismissHoverInspection={onDismissHoverInspection} onSelectMoveMarine={(marineId) => { if (decision) setMoveSelection({ decisionId: decision.id, marineId }); }} onSelectStrategizeSwarm={(swarmId) => { if (decision) setStrategizeSelection({ decisionId: decision.id, swarmId }); }} onSelectDoorSwarm={(swarmId) => { if (decision) setDoorSwarmSelection({ decisionId: decision.id, swarmId }); }} onSelectHeroicChargeSwarm={(swarmId) => { if (decision) setHeroicChargeSwarmSelection({ decisionId: decision.id, swarmId }); }} onSelectEventSlaySwarm={(swarmId) => { if (decision) setEventSlaySwarmSelection({ decisionId: decision.id, swarmId }); }} />
 
       {!travelStage && <section className={`round-command-tray is-${displayedBottomView} ${choosingActions ? "is-choosing" : ""} ${tutorialTarget === "cards" ? "is-tutorial-focus" : ""}`}>
-        {choosingActions ? <LiveActionSelection session={session} onChooseOption={onChooseOption} onHoverInspect={onHoverInspect} onDismissHoverInspection={onDismissHoverInspection} tutorialGuide={activeTutorialGuide} /> : <div className="round-command-viewport" onPointerDown={startTraySwipe} onPointerUp={finishTraySwipe} onPointerCancel={() => { traySwipeStart.current = null; }}><div className={`round-command-rail is-${displayedBottomView}`}>
+        {choosingActions ? <LiveActionSelection session={session} onChooseOption={onChooseOption} onHoverInspect={onHoverInspect} onDismissHoverInspection={onDismissHoverInspection} tutorialGuide={activeTutorialGuide} /> : <div className="round-command-viewport" onPointerDown={startTraySwipe} onPointerUp={finishTraySwipe} onPointerCancel={() => { traySwipeStart.current = null; onDismissHoverInspection(); }}><div className={`round-command-rail is-${displayedBottomView}`}>
           <div className="round-rail-panel round-rail-cards"><div className="round-rail-content"><LiveActionSelection compact session={session} onChooseOption={onChooseOption} onHoverInspect={onHoverInspect} onDismissHoverInspection={onDismissHoverInspection} tutorialGuide={activeTutorialGuide} /></div><button type="button" className="round-rail-tab" aria-label="Show information panel" onClick={() => setTrayView("status")}>Info</button></div>
           <div className="round-rail-panel round-rail-status"><button type="button" className="round-rail-tab" aria-label="Show selected action cards" onClick={() => setTrayView("cards")}>Cards</button><div className="round-rail-content"><section className="command-dock" aria-live="polite">
         {resolutionNotice?.presentation === "board" ? (
