@@ -1169,18 +1169,18 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
 
         {missionInfoCollapsed ? (
           <TacticalButton type="button" className={`lab-hud-tray lab-mission-tray inspectable ${tutorialTarget === "mission" ? "is-tutorial-focus" : ""}`} onTap={() => setMissionInfoCollapsed(false)} onHold={() => onInspect(locationInspection)} onHover={(anchor) => onHoverInspect(locationInspection, anchor)} onHoverEnd={onDismissHoverInspection} aria-label="Expand mission information">
-            <b><i>Left blips</i>{leftBlips}</b><div className="lab-mission-tray-copy"><strong>{currentLocation?.name ?? setupLocationName(componentDefinitionId(session, state.currentLocationInstanceId))}</strong>{lastEvent && <small>Event · {lastEvent.name}</small>}</div><b><i>Right blips</i>{rightBlips}</b><em>⌄</em>
+            <b className="has-production-blip-counter"><i>Left blips</i>{leftBlips}</b><div className="lab-mission-tray-copy"><strong>{currentLocation?.name ?? setupLocationName(componentDefinitionId(session, state.currentLocationInstanceId))}</strong>{lastEvent && <small>Event · {lastEvent.name}</small>}</div><b className="has-production-blip-counter"><i>Right blips</i>{rightBlips}</b><em>⌄</em>
           </TacticalButton>
         ) : (
           <div className="lab-hud-expanded-panel">
             <div className="lab-location-frame">
-              <div className="lab-blip-counter lab-blip-left"><span>Blips</span><strong>{leftBlips}</strong><em>Left</em></div>
+              <div className="lab-blip-counter lab-blip-left has-production-counter"><span>Blips</span><strong>{leftBlips}</strong><em>Left</em></div>
               <TacticalButton type="button" className="lab-location-card inspectable" onHold={() => onInspect(locationInspection)} onHover={(anchor) => onHoverInspect(locationInspection, anchor)} onHoverEnd={onDismissHoverInspection}>
                 <span>Current location <b>{currentLocation?.tier ?? "Setup"}</b></span>
                 <h2>{currentLocation?.name ?? setupLocationName(componentDefinitionId(session, state.currentLocationInstanceId))}</h2>
                 <strong>{locationInspection.meta ?? "Location"}</strong><p>{locationInspection.body}</p><i className="lab-hud-rivet lab-rivet-one" /><i className="lab-hud-rivet lab-rivet-two" />
               </TacticalButton>
-              <div className="lab-blip-counter lab-blip-right"><span>Blips</span><strong>{rightBlips}</strong><em>Right</em></div>
+              <div className="lab-blip-counter lab-blip-right has-production-counter"><span>Blips</span><strong>{rightBlips}</strong><em>Right</em></div>
             </div>
 
             {lastEvent && lastEventId && <TacticalButton type="button" className="lab-event-card lab-event-card-simple inspectable" onTap={() => setMissionInfoCollapsed(true)} onHold={() => onInspect(sourceInspection(session, lastEventId)!)} onHover={(anchor) => onHoverInspect(sourceInspection(session, lastEventId)!, anchor)} onHoverEnd={onDismissHoverInspection}>
