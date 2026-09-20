@@ -565,6 +565,17 @@ function TacticalButton({ onTap, onHold, onHover, onHoverEnd, stopPropagation, o
 
 type LiveActionCard = ActionDefinition & { instanceId: string };
 
+type ActionCardArtwork = { image: string; alt: string };
+
+// The first delivered production card.  Keeping this lookup at the component
+// boundary means later team/card exports are a data addition, not a new UI.
+function actionCardArtwork(card: Pick<LiveActionCard, "id">): ActionCardArtwork | null {
+  if (card.id === "action.blue.counter-attack") {
+    return { image: "game-art/ui/action-cards/blue-counter-attack.png", alt: "Illustrated Blue Counter Attack action card" };
+  }
+  return null;
+}
+
 function LiveActionSelection({ compact = false, session, onChooseOption, onDismissHoverInspection, onHoverInspect, tutorialGuide }: { compact?: boolean; session: EngineSession; onChooseOption: (optionId: string) => void; onDismissHoverInspection?: () => void; onHoverInspect?: (inspection: Inspection, anchor: DOMRect, placement?: "card") => void; tutorialGuide?: TutorialActionGuide | null }) {
   const { state } = session;
   const decision = state.pendingDecision;
@@ -602,13 +613,14 @@ function LiveActionSelection({ compact = false, session, onChooseOption, onDismi
       {expandedTeam && choosingActions && (
         <><button type="button" className="live-hand-dismiss" aria-label="Close action hand" onClick={() => setExpandedTeam(null)} /><div className={`live-expanded-hand lab-team-${expandedTeam.toLowerCase()}`}>
           <header><span>{expandedTeam} squad</span><strong>Choose an action</strong><button type="button" onClick={() => setExpandedTeam(null)} aria-label="Close action hand">×</button></header>
-          <div className="live-full-action-grid">
+          <div className={`live-full-action-grid ${expandedCards.some((card) => actionCardArtwork(card)) ? "has-production-card" : ""}`}>
             {expandedCards.map((card) => {
               const option = uniquePayloadOption(decision, "actionId", card.instanceId);
               const unavailable = !option || Boolean(tutorialGuide && !tutorialGuide.allowedActionIds.has(card.instanceId));
               const recommended = Boolean(option && tutorialGuide?.allowedActionIds.has(card.instanceId));
-              return <button type="button" key={card.instanceId} className={`live-full-action-card lab-team-${card.team.toLowerCase()} ${pendingActionId === card.instanceId ? "is-pending" : ""} ${recommended ? "is-tutorial-recommended" : ""} ${unavailable ? "is-unavailable" : ""}`} disabled={unavailable} onClick={() => setPendingActionId(card.instanceId)}>
-                <small>{formatActionType(card.type)}</small><em className="action-initiative" aria-label={`Initiative ${card.initiative}`}>{card.initiative}</em><strong>{card.name}</strong><p>{card.sourceText}</p>{unavailable && <i aria-hidden="true">×</i>}
+              const artwork = actionCardArtwork(card);
+              return <button type="button" key={card.instanceId} className={`live-full-action-card lab-team-${card.team.toLowerCase()} ${artwork ? "has-production-art" : ""} ${pendingActionId === card.instanceId ? "is-pending" : ""} ${recommended ? "is-tutorial-recommended" : ""} ${unavailable ? "is-unavailable" : ""}`} disabled={unavailable} onClick={() => setPendingActionId(card.instanceId)}>
+                {artwork ? <><img className="production-action-card-art" src={artwork.image} alt="" /><span className="sr-only">{artwork.alt}</span></> : <><small>{formatActionType(card.type)}</small><em className="action-initiative" aria-label={`Initiative ${card.initiative}`}>{card.initiative}</em><strong>{card.name}</strong><p>{card.sourceText}</p></>}{unavailable && <i aria-hidden="true">×</i>}
               </button>;
             })}
           </div>
@@ -620,12 +632,13 @@ function LiveActionSelection({ compact = false, session, onChooseOption, onDismi
           const cards = cardsByTeam[team] ?? [];
           const chosenId = state.teams[team].chosenActionInstanceId;
           const selected = cards.find((card) => card.instanceId === chosenId) ?? orderedCards.find((card) => card.team === team) ?? null;
+          const selectedArtwork = selected ? actionCardArtwork(selected) : null;
           const resolutionState = !choosingActions && activeIndex >= 0 ? orderIndex < activeIndex ? "is-completed" : orderIndex === activeIndex ? "is-active" : "is-upcoming" : "";
           const conciseSelectedCard = compact || choosingActions;
           const teamHasGuidedChoice = cards.some((card) => tutorialGuide?.allowedActionIds.has(card.instanceId));
           return <TacticalButton key={team} type="button" className={`live-action-team-slot lab-team-${team.toLowerCase()} ${selected ? "has-selection" : ""} ${tutorialGuide && teamHasGuidedChoice ? "is-tutorial-recommended" : ""} ${resolutionState}`} onTap={() => openTeam(team)} onHover={selected && onHoverInspect ? (anchor) => onHoverInspect(selectedCardInspection(selected), anchor, "card") : undefined} onHoverEnd={selected ? onDismissHoverInspection : undefined} aria-disabled={!choosingActions || Boolean(selected) || Boolean(tutorialGuide && !teamHasGuidedChoice)}>
             {!selected && <span className="live-action-team-name">{team}</span>}
-            {selected ? <span className={`live-chosen-action ${conciseSelectedCard ? "is-compact-card" : ""}`}>{conciseSelectedCard ? <><span className="compact-card-type"><small>{selected.type === "MOVE_ACTIVATE" ? "Move" : formatActionType(selected.type)}</small><em className="action-initiative" aria-label={`Initiative ${selected.initiative}`}>{selected.initiative}</em></span><strong>{selected.name}</strong></> : <><em className="action-initiative" aria-label={`Initiative ${selected.initiative}`}>{selected.initiative}</em><strong>{selected.name}</strong><small>— {actionCardSummary(selected.type)}</small></>}</span> : <span className="live-mini-hand">{cards.map((card, index) => {
+            {selected ? <span className={`live-chosen-action ${selectedArtwork ? "has-production-art" : ""} ${conciseSelectedCard ? "is-compact-card" : ""}`} style={selectedArtwork ? { "--action-card-art": `url("${selectedArtwork.image}")` } as CSSProperties : undefined}>{conciseSelectedCard ? <><span className="compact-card-type"><small>{selected.type === "MOVE_ACTIVATE" ? "Move" : formatActionType(selected.type)}</small><em className="action-initiative" aria-label={`Initiative ${selected.initiative}`}>{selected.initiative}</em></span><strong>{selected.name}</strong></> : <><em className="action-initiative" aria-label={`Initiative ${selected.initiative}`}>{selected.initiative}</em><strong>{selected.name}</strong><small>— {actionCardSummary(selected.type)}</small></>}</span> : <span className="live-mini-hand">{cards.map((card, index) => {
               const unavailable = !uniquePayloadOption(decision, "actionId", card.instanceId) || Boolean(tutorialGuide && !tutorialGuide.allowedActionIds.has(card.instanceId));
               return <span key={card.instanceId} className={`live-mini-action-card ${unavailable ? "is-unavailable" : ""}`} style={{ "--card-index": index } as CSSProperties}><b>{card.type === "MOVE_ACTIVATE" ? "Move" : formatActionType(card.type)}</b></span>;
             })}</span>}

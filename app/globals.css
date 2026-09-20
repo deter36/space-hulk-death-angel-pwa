@@ -26,6 +26,14 @@
   --spawn-red: #cf453d;
 }
 
+@font-face {
+  font-family: "Alte Haas Grotesk";
+  src: url("/space-hulk-death-angel-pwa/game-art/ui/alte-haas-grotesk-regular.ttf") format("truetype");
+  font-display: swap;
+}
+
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
 @theme inline {
   --color-background: var(--void);
   --color-foreground: var(--ink);
