@@ -111,7 +111,7 @@ function useBoardScale(desktopPreference: DesktopBoardScale): number {
 }
 
 type PendingRollResolution = { session: EngineSession };
-type ResolutionNotice = { id: string; eyebrow: string; title: string; body: string; meta?: string; team?: TeamColor; presentation?: "modal" | "board" | "movement"; terrainIds?: string[] };
+type ResolutionNotice = { id: string; eyebrow: string; title: string; body: string; meta?: string; team?: TeamColor; actionId?: string; presentation?: "modal" | "board" | "movement"; terrainIds?: string[] };
 type MovementPresentation = { id: string; sourceSession: EngineSession; resolvedSession: EngineSession; animation: BoardAnimation };
 type TravelStage = "prepare" | "retreat" | "crossfade" | "arrive";
 
@@ -354,7 +354,7 @@ function resolutionNoticesFrom(session: EngineSession, startingAt: number, throu
     else if (transition.type === "ACTION_STARTED" && transition.sourceId) {
       const action = sourceInspection(session, transition.sourceId);
       const actionDefinition = data.definitions.actions.find((item) => item.id === componentDefinitionId(session, transition.sourceId!));
-      if (action) notices.push({ id, eyebrow: action.eyebrow, title: action.title, body: action.body, meta: action.meta, team: actionDefinition?.team });
+      if (action) notices.push({ id, eyebrow: action.eyebrow, title: action.title, body: action.body, meta: action.meta, team: actionDefinition?.team, actionId: actionDefinition?.id });
     }
     else if (transition.type === "ATTACK_SEQUENCE_FINISHED" && transition.sourceId) {
       const action = data.definitions.actions.find((item) => item.id === componentDefinitionId(session, transition.sourceId!));
@@ -613,14 +613,13 @@ function LiveActionSelection({ compact = false, session, onChooseOption, onDismi
       {expandedTeam && choosingActions && (
         <><button type="button" className="live-hand-dismiss" aria-label="Close action hand" onClick={() => setExpandedTeam(null)} /><div className={`live-expanded-hand lab-team-${expandedTeam.toLowerCase()}`}>
           <header><span>{expandedTeam} squad</span><strong>Choose an action</strong><button type="button" onClick={() => setExpandedTeam(null)} aria-label="Close action hand">×</button></header>
-          <div className={`live-full-action-grid ${expandedCards.some((card) => actionCardArtwork(card)) ? "has-production-card" : ""}`}>
+          <div className="live-full-action-grid">
             {expandedCards.map((card) => {
               const option = uniquePayloadOption(decision, "actionId", card.instanceId);
               const unavailable = !option || Boolean(tutorialGuide && !tutorialGuide.allowedActionIds.has(card.instanceId));
               const recommended = Boolean(option && tutorialGuide?.allowedActionIds.has(card.instanceId));
-              const artwork = actionCardArtwork(card);
-              return <button type="button" key={card.instanceId} className={`live-full-action-card lab-team-${card.team.toLowerCase()} ${artwork ? "has-production-art" : ""} ${pendingActionId === card.instanceId ? "is-pending" : ""} ${recommended ? "is-tutorial-recommended" : ""} ${unavailable ? "is-unavailable" : ""}`} disabled={unavailable} onClick={() => setPendingActionId(card.instanceId)}>
-                {artwork ? <><img className="production-action-card-art" src={artwork.image} alt="" /><span className="sr-only">{artwork.alt}</span></> : <><small>{formatActionType(card.type)}</small><em className="action-initiative" aria-label={`Initiative ${card.initiative}`}>{card.initiative}</em><strong>{card.name}</strong><p>{card.sourceText}</p></>}{unavailable && <i aria-hidden="true">×</i>}
+              return <button type="button" key={card.instanceId} className={`live-full-action-card lab-team-${card.team.toLowerCase()} ${pendingActionId === card.instanceId ? "is-pending" : ""} ${recommended ? "is-tutorial-recommended" : ""} ${unavailable ? "is-unavailable" : ""}`} disabled={unavailable} onClick={() => setPendingActionId(card.instanceId)}>
+                <small>{formatActionType(card.type)}</small><em className="action-initiative" aria-label={`Initiative ${card.initiative}`}>{card.initiative}</em><strong>{card.name}</strong><p>{card.sourceText}</p>{unavailable && <i aria-hidden="true">×</i>}
               </button>;
             })}
           </div>
@@ -632,13 +631,12 @@ function LiveActionSelection({ compact = false, session, onChooseOption, onDismi
           const cards = cardsByTeam[team] ?? [];
           const chosenId = state.teams[team].chosenActionInstanceId;
           const selected = cards.find((card) => card.instanceId === chosenId) ?? orderedCards.find((card) => card.team === team) ?? null;
-          const selectedArtwork = selected ? actionCardArtwork(selected) : null;
           const resolutionState = !choosingActions && activeIndex >= 0 ? orderIndex < activeIndex ? "is-completed" : orderIndex === activeIndex ? "is-active" : "is-upcoming" : "";
           const conciseSelectedCard = compact || choosingActions;
           const teamHasGuidedChoice = cards.some((card) => tutorialGuide?.allowedActionIds.has(card.instanceId));
           return <TacticalButton key={team} type="button" className={`live-action-team-slot lab-team-${team.toLowerCase()} ${selected ? "has-selection" : ""} ${tutorialGuide && teamHasGuidedChoice ? "is-tutorial-recommended" : ""} ${resolutionState}`} onTap={() => openTeam(team)} onHover={selected && onHoverInspect ? (anchor) => onHoverInspect(selectedCardInspection(selected), anchor, "card") : undefined} onHoverEnd={selected ? onDismissHoverInspection : undefined} aria-disabled={!choosingActions || Boolean(selected) || Boolean(tutorialGuide && !teamHasGuidedChoice)}>
             {!selected && <span className="live-action-team-name">{team}</span>}
-            {selected ? <span className={`live-chosen-action ${selectedArtwork ? "has-production-art" : ""} ${conciseSelectedCard ? "is-compact-card" : ""}`} style={selectedArtwork ? { "--action-card-art": `url("${selectedArtwork.image}")` } as CSSProperties : undefined}>{conciseSelectedCard ? <><span className="compact-card-type"><small>{selected.type === "MOVE_ACTIVATE" ? "Move" : formatActionType(selected.type)}</small><em className="action-initiative" aria-label={`Initiative ${selected.initiative}`}>{selected.initiative}</em></span><strong>{selected.name}</strong></> : <><em className="action-initiative" aria-label={`Initiative ${selected.initiative}`}>{selected.initiative}</em><strong>{selected.name}</strong><small>— {actionCardSummary(selected.type)}</small></>}</span> : <span className="live-mini-hand">{cards.map((card, index) => {
+            {selected ? <span className={`live-chosen-action ${conciseSelectedCard ? "is-compact-card" : ""}`}>{conciseSelectedCard ? <><span className="compact-card-type"><small>{selected.type === "MOVE_ACTIVATE" ? "Move" : formatActionType(selected.type)}</small><em className="action-initiative" aria-label={`Initiative ${selected.initiative}`}>{selected.initiative}</em></span><strong>{selected.name}</strong></> : <><em className="action-initiative" aria-label={`Initiative ${selected.initiative}`}>{selected.initiative}</em><strong>{selected.name}</strong><small>— {actionCardSummary(selected.type)}</small></>}</span> : <span className="live-mini-hand">{cards.map((card, index) => {
               const unavailable = !uniquePayloadOption(decision, "actionId", card.instanceId) || Boolean(tutorialGuide && !tutorialGuide.allowedActionIds.has(card.instanceId));
               return <span key={card.instanceId} className={`live-mini-action-card ${unavailable ? "is-unavailable" : ""}`} style={{ "--card-index": index } as CSSProperties}><b>{card.type === "MOVE_ACTIVATE" ? "Move" : formatActionType(card.type)}</b></span>;
             })}</span>}
@@ -1169,18 +1167,18 @@ function MissionBoard({ session, travelStage, tutorial, boardAnimation, inspecti
 
         {missionInfoCollapsed ? (
           <TacticalButton type="button" className={`lab-hud-tray lab-mission-tray inspectable ${tutorialTarget === "mission" ? "is-tutorial-focus" : ""}`} onTap={() => setMissionInfoCollapsed(false)} onHold={() => onInspect(locationInspection)} onHover={(anchor) => onHoverInspect(locationInspection, anchor)} onHoverEnd={onDismissHoverInspection} aria-label="Expand mission information">
-            <b className="has-production-blip-counter"><i>Left blips</i>{leftBlips}</b><div className="lab-mission-tray-copy"><strong>{currentLocation?.name ?? setupLocationName(componentDefinitionId(session, state.currentLocationInstanceId))}</strong>{lastEvent && <small>Event · {lastEvent.name}</small>}</div><b className="has-production-blip-counter"><i>Right blips</i>{rightBlips}</b><em>⌄</em>
+            <b><i>Left blips</i>{leftBlips}</b><div className="lab-mission-tray-copy"><strong>{currentLocation?.name ?? setupLocationName(componentDefinitionId(session, state.currentLocationInstanceId))}</strong>{lastEvent && <small>Event · {lastEvent.name}</small>}</div><b><i>Right blips</i>{rightBlips}</b><em>⌄</em>
           </TacticalButton>
         ) : (
           <div className="lab-hud-expanded-panel">
             <div className="lab-location-frame">
-              <div className="lab-blip-counter lab-blip-left has-production-counter"><span>Blips</span><strong>{leftBlips}</strong><em>Left</em></div>
+              <div className="lab-blip-counter lab-blip-left"><span>Blips</span><strong>{leftBlips}</strong><em>Left</em></div>
               <TacticalButton type="button" className="lab-location-card inspectable" onHold={() => onInspect(locationInspection)} onHover={(anchor) => onHoverInspect(locationInspection, anchor)} onHoverEnd={onDismissHoverInspection}>
                 <span>Current location <b>{currentLocation?.tier ?? "Setup"}</b></span>
                 <h2>{currentLocation?.name ?? setupLocationName(componentDefinitionId(session, state.currentLocationInstanceId))}</h2>
                 <strong>{locationInspection.meta ?? "Location"}</strong><p>{locationInspection.body}</p><i className="lab-hud-rivet lab-rivet-one" /><i className="lab-hud-rivet lab-rivet-two" />
               </TacticalButton>
-              <div className="lab-blip-counter lab-blip-right has-production-counter"><span>Blips</span><strong>{rightBlips}</strong><em>Right</em></div>
+              <div className="lab-blip-counter lab-blip-right"><span>Blips</span><strong>{rightBlips}</strong><em>Right</em></div>
             </div>
 
             {lastEvent && lastEventId && <TacticalButton type="button" className="lab-event-card lab-event-card-simple inspectable" onTap={() => setMissionInfoCollapsed(true)} onHold={() => onInspect(sourceInspection(session, lastEventId)!)} onHover={(anchor) => onHoverInspect(sourceInspection(session, lastEventId)!, anchor)} onHoverEnd={onDismissHoverInspection}>
@@ -1530,8 +1528,9 @@ function MissionEndOverlay({ onDownloadSave, onNewMission, status, summary }: { 
 }
 
 function ResolutionNoticeOverlay({ notice, onProceed, proceedLabel = "Proceed" }: { notice: ResolutionNotice; onProceed: () => void; proceedLabel?: string }) {
-  return <div className="resolution-notice-backdrop" role="presentation"><section className={`resolution-notice ${notice.team ? `team-${notice.team.toLowerCase()}` : ""}`} role="dialog" aria-modal="true" aria-labelledby={`resolution-${notice.id}`}>
-    <span>{notice.eyebrow}</span><h2 id={`resolution-${notice.id}`}>{notice.title}</h2>{notice.meta && <strong>{notice.meta}</strong>}<p>{notice.body}</p><button type="button" onClick={onProceed}>{proceedLabel}</button>
+  const artwork = notice.actionId ? actionCardArtwork({ id: notice.actionId }) : null;
+  return <div className="resolution-notice-backdrop" role="presentation"><section className={`resolution-notice ${notice.team ? `team-${notice.team.toLowerCase()}` : ""} ${artwork ? "has-action-trigger-art" : ""}`} role="dialog" aria-modal="true" aria-labelledby={`resolution-${notice.id}`}>
+    {artwork && <img className="resolution-action-trigger-art" src={artwork.image} alt={artwork.alt} />}<span>{notice.eyebrow}</span><h2 id={`resolution-${notice.id}`}>{notice.title}</h2>{notice.meta && <strong>{notice.meta}</strong>}<p>{notice.body}</p><button type="button" onClick={onProceed}>{artwork ? "Begin action" : proceedLabel}</button>
   </section></div>;
 }
 
