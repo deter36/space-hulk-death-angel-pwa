@@ -565,15 +565,44 @@ function TacticalButton({ onTap, onHold, onHover, onHoverEnd, stopPropagation, o
 
 type LiveActionCard = ActionDefinition & { instanceId: string };
 
-type ActionCardArtwork = { image: string; alt: string };
+type ActionTriggerFrame = { source: string; alt: string };
 
-// The first delivered production card.  Keeping this lookup at the component
-// boundary means later team/card exports are a data addition, not a new UI.
-function actionCardArtwork(card: Pick<LiveActionCard, "id">): ActionCardArtwork | null {
-  if (card.id === "action.blue.counter-attack") {
-    return { image: "game-art/ui/action-cards/blue-counter-attack.png", alt: "Illustrated Blue Counter Attack action card" };
-  }
-  return null;
+// Each supplied Path SVG keeps the static illustrated card treatment separate
+// from its changing labels. The app removes the artist's example text and
+// lays the rule database over the remaining frame.
+function actionTriggerFrame(team: TeamColor): ActionTriggerFrame | null {
+  const frames: Partial<Record<TeamColor, ActionTriggerFrame>> = {
+    BLUE: { source: "game-art/ui/action-trigger-frames/blue.svg", alt: "Illustrated Blue action card" },
+    YELLOW: { source: "game-art/ui/action-trigger-frames/yellow.svg", alt: "Illustrated Yellow action card" },
+    GREY: { source: "game-art/ui/action-trigger-frames/grey.svg", alt: "Illustrated Grey action card" },
+  };
+  return frames[team] ?? null;
+}
+
+function useBlankActionTriggerFrame(source: string | null): string | null {
+  const [markup, setMarkup] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    setMarkup(null);
+    if (!source) return () => { active = false; };
+    void fetch(source)
+      .then((response) => response.ok ? response.text() : Promise.reject(new Error("Unable to load action frame.")))
+      .then((svg) => svg.replace(/<text\b[\s\S]*?<\/text>/g, ""))
+      .then((svg) => { if (active) setMarkup(svg); })
+      .catch(() => { if (active) setMarkup(null); });
+    return () => { active = false; };
+  }, [source]);
+  return markup;
+}
+
+function IllustratedActionTrigger({ action }: { action: ActionDefinition }) {
+  const frame = actionTriggerFrame(action.team);
+  const markup = useBlankActionTriggerFrame(frame?.source ?? null);
+  if (!frame) return null;
+  return <div className={`illustrated-action-trigger team-${action.team.toLowerCase()}`} aria-label={`${action.team} ${action.name} action card`}>
+    {markup && <div className="illustrated-action-trigger-frame" aria-hidden="true" dangerouslySetInnerHTML={{ __html: markup }} />}
+    <div className="illustrated-action-trigger-copy"><span>{formatActionType(action.type)}</span><b>{action.initiative}</b><strong>{action.name}</strong><p>{action.sourceText}</p></div>
+  </div>;
 }
 
 function LiveActionSelection({ compact = false, session, onChooseOption, onDismissHoverInspection, onHoverInspect, tutorialGuide }: { compact?: boolean; session: EngineSession; onChooseOption: (optionId: string) => void; onDismissHoverInspection?: () => void; onHoverInspect?: (inspection: Inspection, anchor: DOMRect, placement?: "card") => void; tutorialGuide?: TutorialActionGuide | null }) {
@@ -1528,9 +1557,10 @@ function MissionEndOverlay({ onDownloadSave, onNewMission, status, summary }: { 
 }
 
 function ResolutionNoticeOverlay({ notice, onProceed, proceedLabel = "Proceed" }: { notice: ResolutionNotice; onProceed: () => void; proceedLabel?: string }) {
-  const artwork = notice.actionId ? actionCardArtwork({ id: notice.actionId }) : null;
-  return <div className="resolution-notice-backdrop" role="presentation"><section className={`resolution-notice ${notice.team ? `team-${notice.team.toLowerCase()}` : ""} ${artwork ? "has-action-trigger-art" : ""}`} role="dialog" aria-modal="true" aria-labelledby={`resolution-${notice.id}`}>
-    {artwork && <img className="resolution-action-trigger-art" src={artwork.image} alt={artwork.alt} />}<span>{notice.eyebrow}</span><h2 id={`resolution-${notice.id}`}>{notice.title}</h2>{notice.meta && <strong>{notice.meta}</strong>}<p>{notice.body}</p><button type="button" onClick={onProceed}>{artwork ? "Begin action" : proceedLabel}</button>
+  const action = notice.actionId ? data.definitions.actions.find((item) => item.id === notice.actionId) : null;
+  const hasIllustratedTrigger = Boolean(action && actionTriggerFrame(action.team));
+  return <div className="resolution-notice-backdrop" role="presentation"><section className={`resolution-notice ${notice.team ? `team-${notice.team.toLowerCase()}` : ""} ${hasIllustratedTrigger ? "has-action-trigger-art" : ""}`} role="dialog" aria-modal="true" aria-labelledby={`resolution-${notice.id}`}>
+    {action && <IllustratedActionTrigger action={action} />}<span>{notice.eyebrow}</span><h2 id={`resolution-${notice.id}`}>{notice.title}</h2>{notice.meta && <strong>{notice.meta}</strong>}<p>{notice.body}</p><button type="button" onClick={onProceed}>{hasIllustratedTrigger ? "Begin action" : proceedLabel}</button>
   </section></div>;
 }
 
