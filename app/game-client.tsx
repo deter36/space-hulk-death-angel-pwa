@@ -565,21 +565,21 @@ function TacticalButton({ onTap, onHold, onHover, onHoverEnd, stopPropagation, o
 
 type LiveActionCard = ActionDefinition & { instanceId: string };
 
-type ActionTriggerFrame = { source: string; alt: string };
+type ActionTriggerFrame = { source: string; alt: string; viewBox: string };
 
 // Each supplied Path SVG keeps the static illustrated card treatment separate
 // from its changing labels. The app removes the artist's example text and
 // lays the rule database over the remaining frame.
 function actionTriggerFrame(team: TeamColor): ActionTriggerFrame | null {
   const frames: Partial<Record<TeamColor, ActionTriggerFrame>> = {
-    BLUE: { source: "game-art/ui/action-trigger-frames/blue.svg", alt: "Illustrated Blue action card" },
-    YELLOW: { source: "game-art/ui/action-trigger-frames/yellow.svg", alt: "Illustrated Yellow action card" },
-    GREY: { source: "game-art/ui/action-trigger-frames/grey.svg", alt: "Illustrated Grey action card" },
+    BLUE: { source: "game-art/ui/action-trigger-frames/blue.svg", alt: "Illustrated Blue action card", viewBox: "0 293.333 1440 1050.667" },
+    YELLOW: { source: "game-art/ui/action-trigger-frames/yellow.svg", alt: "Illustrated Yellow action card", viewBox: "0 160 1440 1050" },
+    GREY: { source: "game-art/ui/action-trigger-frames/grey.svg", alt: "Illustrated Grey action card", viewBox: "0 160 1440 1050" },
   };
   return frames[team] ?? null;
 }
 
-function useBlankActionTriggerFrame(source: string | null): string | null {
+function useBlankActionTriggerFrame(source: string | null, viewBox: string | null): string | null {
   const [markup, setMarkup] = useState<string | null>(null);
   useEffect(() => {
     let active = true;
@@ -587,21 +587,37 @@ function useBlankActionTriggerFrame(source: string | null): string | null {
     if (!source) return () => { active = false; };
     void fetch(source)
       .then((response) => response.ok ? response.text() : Promise.reject(new Error("Unable to load action frame.")))
-      .then((svg) => svg.replace(/<text\b[\s\S]*?<\/text>/g, ""))
+      .then((svg) => svg.replace(/<text\b[\s\S]*?<\/text>/g, "").replace(/viewBox="[^"]*"/, `viewBox="${viewBox}"`))
       .then((svg) => { if (active) setMarkup(svg); })
       .catch(() => { if (active) setMarkup(null); });
     return () => { active = false; };
-  }, [source]);
+  }, [source, viewBox]);
   return markup;
+}
+
+function actionTriggerSummary(actionId: string): string | null {
+  const summaries: Record<string, string> = {
+    "action.blue.counter-attack": "Lorenzo defense skull:\nattack misses; slay 1 attacker.\nSurviving swarm attacks again.",
+    "action.blue.intimidation": "Roll a die. Shuffle that many\nengaged Genestealers into\nthe smallest blip pile.",
+    "action.blue.lead-by-example": "When a Marine slays a Genestealer,\nplace 1 Support on any Marine.\nOnce per round.",
+    "action.grey.power-field": "Choose a swarm. It cannot attack\nor be slain this round.",
+    "action.grey.stealth-tactics": "Discard from either blip pile.\nSpend 1 Support to discard\nfrom the other.",
+    "action.grey.psionic-attack": "Calistarius attack skull: make\n1 additional attack.",
+    "action.yellow.defensive-stance": "Defense rerolls using Support miss\nunless the new roll is 0.",
+    "action.yellow.reorganize": "Your Marines may move to any\nformation position.",
+    "action.yellow.heroic-charge": "Claudio may slay up to 3\nGenestealers within Range 1.\nRoll 0: he is slain.",
+  };
+  return summaries[actionId] ?? null;
 }
 
 function IllustratedActionTrigger({ action }: { action: ActionDefinition }) {
   const frame = actionTriggerFrame(action.team);
-  const markup = useBlankActionTriggerFrame(frame?.source ?? null);
+  const markup = useBlankActionTriggerFrame(frame?.source ?? null, frame?.viewBox ?? null);
+  const summary = actionTriggerSummary(action.id) ?? action.sourceText;
   if (!frame) return null;
   return <div className={`illustrated-action-trigger team-${action.team.toLowerCase()}`} aria-label={`${action.team} ${action.name} action card`}>
     {markup && <div className="illustrated-action-trigger-frame" aria-hidden="true" dangerouslySetInnerHTML={{ __html: markup }} />}
-    <div className="illustrated-action-trigger-copy"><span>{formatActionType(action.type)}</span><b>{action.initiative}</b><strong>{action.name}</strong><p>{action.sourceText}</p></div>
+    <div className="illustrated-action-trigger-copy"><span>{formatActionType(action.type)}</span><b>{action.initiative}</b><strong>{action.name}</strong><p>{summary}</p></div>
   </div>;
 }
 

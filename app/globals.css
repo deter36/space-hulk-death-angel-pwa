@@ -200,14 +200,14 @@ button:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
 .resolution-action-trigger-art { display: block; width: 100%; height: auto; }
 .resolution-notice.has-action-trigger-art > span, .resolution-notice.has-action-trigger-art > h2, .resolution-notice.has-action-trigger-art > strong, .resolution-notice.has-action-trigger-art > p { display: none; }
 .resolution-notice.has-action-trigger-art > button { width: calc(100% - 28px); margin-top: 9px; }
-.illustrated-action-trigger { position: relative; aspect-ratio: 1.346 / 1; overflow: hidden; background: linear-gradient(145deg, #1c2622, #09100d); }
+.illustrated-action-trigger { position: relative; aspect-ratio: 1.371 / 1; overflow: hidden; background: linear-gradient(145deg, #1c2622, #09100d); }
 .illustrated-action-trigger-frame { position: absolute; inset: 0; display: grid; place-items: center; }
 .illustrated-action-trigger-frame > svg { display: block; width: 100%; height: 100%; }
 .illustrated-action-trigger-copy { position: absolute; inset: 0; color: #d9eef0; font-family: "Alte Haas Grotesk", Arial, sans-serif; text-align: left; }
-.illustrated-action-trigger-copy > span { position: absolute; top: 13%; left: 14%; color: var(--resolution-accent); font-size: clamp(1.25rem, 8vw, 2.4rem); letter-spacing: .04em; text-transform: uppercase; }
-.illustrated-action-trigger-copy > b { position: absolute; top: 11%; right: 15%; color: var(--resolution-accent); font-size: clamp(2rem, 12vw, 3.7rem); font-weight: 400; line-height: 1; }
-.illustrated-action-trigger-copy > strong { position: absolute; top: 48%; right: 10%; left: 14%; overflow: hidden; color: #dbeef1; font-size: clamp(1rem, 6.5vw, 2.05rem); font-weight: 400; letter-spacing: .035em; line-height: 1.05; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
-.illustrated-action-trigger-copy > p { position: absolute; top: 65%; right: 13%; left: 14%; max-height: 27%; overflow: hidden; margin: 0; color: #d7e9e9; font: clamp(.72rem, 4.1vw, 1.26rem)/1.16 "Alte Haas Grotesk", Arial, sans-serif; }
+.illustrated-action-trigger-copy > span { position: absolute; top: 24%; left: 17.4%; color: var(--resolution-accent); font-size: clamp(1.05rem, 4.6vw, 1.5rem); letter-spacing: .035em; line-height: 1; text-transform: uppercase; }
+.illustrated-action-trigger-copy > b { position: absolute; top: 19%; left: 68%; width: 22%; color: var(--resolution-accent); font-size: clamp(1.75rem, 7.5vw, 2.45rem); font-weight: 400; line-height: .9; text-align: center; }
+.illustrated-action-trigger-copy > strong { position: absolute; top: 39%; right: 12%; left: 17.4%; overflow: hidden; color: #dbeef1; font-size: clamp(1.35rem, 5.55vw, 1.85rem); font-weight: 400; letter-spacing: .025em; line-height: 1.05; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.illustrated-action-trigger-copy > p { position: absolute; top: 61%; right: 10%; left: 17.4%; max-height: 31%; overflow: hidden; margin: 0; color: #d7e9e9; font: clamp(1rem, 4.1vw, 1.35rem)/1.24 "Alte Haas Grotesk", Arial, sans-serif; white-space: pre-line; }
 .scouting-backdrop, .slay-swarm-backdrop { background: #06100873; backdrop-filter: none; }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }.roll-cube[data-rolling] { animation: none !important; } }
